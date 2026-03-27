@@ -1,5 +1,5 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home2/kallasha/public_html/
+    - export DEPLOYPATH=/home2/kallasha/public_html/abheepayqr02
     - /bin/cp -R * $DEPLOYPATH
