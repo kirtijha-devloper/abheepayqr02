@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
+import { API_BASE } from '../config';
 import './AdminSettingsPage.css'; // Reuse common settings styles
 
 const MerchantSettingsPage = () => {
@@ -31,7 +32,7 @@ const MerchantSettingsPage = () => {
         const fetchProfile = async () => {
             const token = sessionStorage.getItem('authToken');
             try {
-                const res = await fetch('http://localhost:4001/api/auth/profile', {
+                const res = await fetch(`${API_BASE}/auth/profile`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
@@ -52,7 +53,7 @@ const MerchantSettingsPage = () => {
     const handleSaveProfile = async () => {
         const token = sessionStorage.getItem('authToken');
         try {
-            const res = await fetch('http://localhost:4001/api/auth/profile', {
+            const res = await fetch(`${API_BASE}/auth/profile`, {
                 method: 'PATCH',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -74,7 +75,7 @@ const MerchantSettingsPage = () => {
         if (passwords.new !== passwords.confirm) return alert("Passwords do not match");
         const token = sessionStorage.getItem('authToken');
         try {
-            const res = await fetch('http://localhost:4001/api/auth/change-password', {
+            const res = await fetch(`${API_BASE}/auth/change-password`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',

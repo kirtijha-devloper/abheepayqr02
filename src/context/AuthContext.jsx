@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
-const API_BASE = 'http://localhost:4001/api';
+import { API_BASE } from '../config';
 
 // Synchronous intercept to prevent React Router redirect race condition!
 if (typeof window !== 'undefined') {

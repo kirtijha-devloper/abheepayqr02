@@ -4,6 +4,8 @@ import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import './TransactionsPage.css';
 
+import { API_BASE } from '../config';
+
 const TransactionsPage = () => {
   const { transactions } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,7 +16,7 @@ const TransactionsPage = () => {
     setResendingId(txnId);
     try {
       const token = sessionStorage.getItem('authToken');
-      const res = await fetch(`http://localhost:4001/api/callback-logs/resend/${txnId}`, {
+      const res = await fetch(`${API_BASE}/callback-logs/resend/${txnId}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         credentials: 'include'

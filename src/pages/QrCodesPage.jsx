@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import jsQR from 'jsqr';
+import { API_BASE, UPLOADS_BASE } from '../config';
 import './QrCodesPage.css';
 
 const QrCodesPage = () => {
@@ -199,7 +200,7 @@ const QrCodesPage = () => {
                             {(viewMode === 'physical' && activeQr.imagePath) ? (
                                 <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                                     <img 
-                                        src={`http://localhost:4001${activeQr.imagePath}`} 
+                                        src={`${UPLOADS_BASE}${activeQr.imagePath}`} 
                                         alt="Merchant QR" 
                                         style={{ 
                                             width: '100%', 
@@ -499,7 +500,7 @@ const QrCodesPage = () => {
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <div style={{ width: '48px', height: '48px', background: '#fff', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.1)' }}>
                                 <img 
-                                    src={`http://localhost:4001${q.imagePath}`} 
+                                    src={`${UPLOADS_BASE}${q.imagePath}`} 
                                     alt="QR" 
                                     style={{ width: '100%', height: '100%', objectFit: 'cover', transform: q.upiId?.startsWith('MANUAL-UPI') ? 'scale(2.5)' : 'none' }} 
                                 />

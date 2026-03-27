@@ -84,7 +84,7 @@ async function handlePaidService(
 
     // Trigger commission (silent)
     try {
-      await fetch(`${process.env.BACKEND_URL || "http://localhost:4000"}/api/commission/process`, {
+      await fetch(`${process.env.BACKEND_URL || "http://localhost:4001"}/api/commission/process`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer INTERNAL` }, // Should we use internal key?
         body: JSON.stringify({ service_key: serviceKey, transaction_amount: amount }),

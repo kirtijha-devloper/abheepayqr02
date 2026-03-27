@@ -3,7 +3,7 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import './SupportPage.css';
 
-const API_BASE = 'http://localhost:4001/api';
+import { API_BASE } from '../config';
 
 const SupportAdminPage = () => {
     const [tickets, setTickets] = useState([]);

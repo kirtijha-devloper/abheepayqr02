@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useAuth } from './AuthContext';
 
 const AppContext = createContext();
-const API_BASE = 'http://localhost:4001/api';
+import { API_BASE } from '../config';
 
 export const AppProvider = ({ children }) => {
     const [wallet, setWallet] = useState({ balance: 0, eWalletBalance: 0 });

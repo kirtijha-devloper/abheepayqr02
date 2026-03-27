@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../config';
 import './CallbacksPage.css';
 
 const CallbacksPage = () => {
@@ -13,7 +14,6 @@ const CallbacksPage = () => {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
-    const API_BASE = 'http://localhost:4001/api';
 
     useEffect(() => {
         fetchData();

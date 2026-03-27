@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../config';
 import './AdminSettingsPage.css';
 
 const AdminSettingsPage = () => {
@@ -43,7 +44,7 @@ const AdminSettingsPage = () => {
         const fetchSettings = async () => {
             const authToken = sessionStorage.getItem('authToken');
             try {
-                const res = await fetch('http://localhost:4001/api/settings', {
+                const res = await fetch(`${API_BASE}/settings`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
                 if (res.ok) {
@@ -63,7 +64,7 @@ const AdminSettingsPage = () => {
         localStorage.setItem('teleringAdminSettings', JSON.stringify(settings));
         const authToken = sessionStorage.getItem('authToken');
         try {
-            const res = await fetch('http://localhost:4001/api/settings', {
+            const res = await fetch(`${API_BASE}/settings`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
