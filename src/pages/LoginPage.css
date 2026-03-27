@@ -8,7 +8,11 @@
 /* Left decorative panel */
 .login-left {
   flex: 1;
-  background: linear-gradient(150deg, #1A1040 0%, #0D0D1A 50%, #0B1120 100%);
+  background: linear-gradient(150deg, rgba(26, 16, 64, 0.8) 0%, rgba(13, 13, 26, 0.9) 50%, rgba(11, 17, 32, 1) 100%), 
+              url('../assets/bg-login.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
