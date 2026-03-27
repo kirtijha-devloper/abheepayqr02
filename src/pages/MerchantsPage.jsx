@@ -8,11 +8,13 @@ import './MerchantsPage.css';
 
 const MerchantsPage = () => {
   const [showModal, setShowModal] = useState(false);
-  const { merchants, addMerchant, updateMerchantStatus, deleteMerchant } = useAppContext();
+  const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant } = useAppContext();
   const { getImpersonateToken } = useAuth();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedMerchant, setSelectedMerchant] = useState(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -27,7 +29,9 @@ const MerchantsPage = () => {
     pincode: '',
     panNumber: '',
     aadhaarNumber: '',
-    callbackUrl: 'https://your-server.com/payment/webhook'
+    callbackUrl: 'https://your-server.com/payment/webhook',
+    payoutChargeType: 'flat',
+    payoutChargeValue: 0
   });
 
   const handleChange = (e) => {
@@ -43,23 +47,69 @@ const MerchantsPage = () => {
     }
   };
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
-    const newMerchant = {
-      mid: `MID-${Math.floor(1000000 + Math.random() * 9000000)}`,
-      name: `${formData.firstName} ${formData.lastName}`.trim() || formData.businessName,
-      email: formData.email,
-      wallet: '₹0.00',
-      status: 'Active',
-    };
-    addMerchant(newMerchant);
+    if (isEditing && selectedMerchant) {
+        const res = await updateMerchant(selectedMerchant.id, {
+            fullName: formData.firstName + " " + formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            businessName: formData.businessName,
+            callbackUrl: formData.callbackUrl,
+            payoutChargeType: formData.payoutChargeType,
+            payoutChargeValue: Number(formData.payoutChargeValue)
+        });
+        if (res.success) {
+            alert("Merchant updated successfully!");
+        } else {
+            alert(res.error || "Failed to update merchant");
+        }
+    } else {
+        const newMerchant = {
+          mid: `MID-${Math.floor(1000000 + Math.random() * 9000000)}`,
+          name: `${formData.firstName} ${formData.lastName}`.trim() || formData.businessName,
+          email: formData.email,
+          wallet: '₹0.00',
+          status: 'Active',
+        };
+        addMerchant(newMerchant);
+    }
+    
     setShowModal(false);
+    setIsEditing(false);
+    setSelectedMerchant(null);
+
     // Reset form
     setFormData({
       firstName: '', lastName: '', email: '', phone: '', password: '', 
       businessName: '', address: '', city: '', state: '', pincode: '', 
-      panNumber: '', aadhaarNumber: '', callbackUrl: 'https://your-server.com/payment/webhook'
+      panNumber: '', aadhaarNumber: '', callbackUrl: 'https://your-server.com/payment/webhook',
+      payoutChargeType: 'flat', payoutChargeValue: 0
     });
+  };
+
+  const handleEdit = (m) => {
+    setSelectedMerchant(m);
+    setIsEditing(true);
+    const names = (m.fullName || "").split(" ");
+    setFormData({
+        firstName: names[0] || "",
+        lastName: names.slice(1).join(" ") || "",
+        email: m.email || "",
+        phone: m.phone || "",
+        password: "", // Don't show password
+        businessName: m.businessName || "",
+        address: "", // Need to fetch full profile if needed, but let's assume what we have
+        city: "",
+        state: "",
+        pincode: "",
+        panNumber: "",
+        aadhaarNumber: "",
+        callbackUrl: m.callbackUrl || "https://your-server.com/payment/webhook",
+        payoutChargeType: m.payoutOverride?.chargeType || "flat",
+        payoutChargeValue: m.payoutOverride?.chargeValue || 0
+    });
+    setShowModal(true);
   };
 
   return (
@@ -135,10 +185,17 @@ const MerchantsPage = () => {
                       <td><span className="mid-badge">{m.mid || 'MID-102938'}</span></td>
                       <td className="volume-cell">₹ {m.walletBalance || '0.00'}</td>
                       <td><span className={`status-pill ${m.status?.toLowerCase() || 'active'}`}>{m.status}</span></td>
-                      <td style={{fontSize: '12px', fontWeight: '600'}}>1.2%</td>
+                      <td style={{fontSize: '12px', fontWeight: '600'}}>
+                        {m.payoutOverride ? (
+                          <span style={{color: '#8B5CF6'}}>
+                            {m.payoutOverride.chargeType === 'flat' ? `₹${m.payoutOverride.chargeValue}` : `${m.payoutOverride.chargeValue}%`}
+                          </span>
+                        ) : 'Global'}
+                      </td>
                       <td>
                         <div className="merchant-actions">
                           <button className="action-btn login-btn" onClick={() => handleLoginAs(m)}>Login</button>
+                          <button className="action-btn" onClick={() => handleEdit(m)}>Edit</button>
                           <button className="action-btn" onClick={() => updateMerchantStatus(m.id, m.status?.toLowerCase() === 'active' ? 'inactive' : 'active')}>Toggle</button>
                           <button className="action-btn danger-btn" onClick={() => deleteMerchant(m.id)}>Delete</button>
                         </div>
@@ -165,8 +222,8 @@ const MerchantsPage = () => {
         <div className="modal-overlay">
           <div className="modal-container">
             <div className="modal-header-gradient">
-              <h3>Add Merchant</h3>
-              <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
+              <h3>{isEditing ? 'Edit Merchant' : 'Add Merchant'}</h3>
+              <button className="close-modal" onClick={() => { setShowModal(false); setIsEditing(false); }}>&times;</button>
             </div>
             <form onSubmit={handleCreate}>
               <div className="modal-body">
@@ -183,12 +240,14 @@ const MerchantsPage = () => {
                   <div className="form-group">
                     <input type="text" name="phone" placeholder="Phone" className="form-input-box" onChange={handleChange} />
                   </div>
-                  <div className="form-group full-width">
-                    <div className="password-input-wrapper">
-                      <input type="password" name="password" placeholder="Password *" className="form-input-box" required onChange={handleChange} />
-                      <span className="eye-icon">👁️</span>
+                  {!isEditing && (
+                    <div className="form-group full-width">
+                      <div className="password-input-wrapper">
+                        <input type="password" name="password" placeholder="Password *" className="form-input-box" required onChange={handleChange} />
+                        <span className="eye-icon">👁️</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="form-group full-width">
                     <input type="text" name="businessName" placeholder="Business Name" className="form-input-box" onChange={handleChange} />
                   </div>
@@ -215,11 +274,37 @@ const MerchantsPage = () => {
                     <input type="text" name="callbackUrl" value={formData.callbackUrl} className="form-input-box" onChange={handleChange} />
                     <p className="help-text">POST endpoint for payment status notifications</p>
                   </div>
+
+                  <div className="form-group" style={{ borderTop: '1px solid #374151', paddingTop: '12px', marginTop: '8px', gridColumn: 'span 2' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#8B5CF6', marginBottom: '8px', display: 'block' }}>PAYOUT CHARGES (CUSTOM)</label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                          <select 
+                            name="payoutChargeType" 
+                            className="form-input-box" 
+                            style={{ flex: 1 }}
+                            value={formData.payoutChargeType}
+                            onChange={handleChange}
+                          >
+                              <option value="flat">Flat (₹)</option>
+                              <option value="percentage">Percentage (%)</option>
+                          </select>
+                          <input 
+                            type="number" 
+                            name="payoutChargeValue" 
+                            placeholder="Charge Value" 
+                            className="form-input-box" 
+                            style={{ flex: 1 }}
+                            value={formData.payoutChargeValue}
+                            onChange={handleChange}
+                          />
+                      </div>
+                      <p className="help-text">Override global payout charges for this merchant.</p>
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn-cancel" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn-create">Create Merchant</button>
+                <button type="button" className="btn-cancel" onClick={() => { setShowModal(false); setIsEditing(false); }}>Cancel</button>
+                <button type="submit" className="btn-create">{isEditing ? 'Save Changes' : 'Create Merchant'}</button>
               </div>
             </form>
           </div>

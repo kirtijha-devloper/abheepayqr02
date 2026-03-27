@@ -32,6 +32,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
             email: true,
             roles: { select: { role: true } },
             wallet: { select: { balance: true } },
+            userCommissionOverrides: true
           }
         }
       },
@@ -49,6 +50,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       email: p.user?.email,
       role: p.user?.roles[0]?.role,
       walletBalance: Number(p.user?.wallet?.balance ?? 0),
+      payoutOverride: p.user?.userCommissionOverrides?.find((ov: any) => ov.serviceKey === 'payout'),
     }));
 
     res.json(result);
@@ -168,23 +170,66 @@ router.patch("/:id/status", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// DELETE /api/users/:id — Delete user
-router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
+// PATCH /api/users/:id — Admin updates specific merchant
+router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
   const { id } = req.params;
+  const { fullName, phone, businessName, callbackUrl, email, payoutChargeType, payoutChargeValue } = req.body;
+  
   try {
     const callerId = req.userId!;
     const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
     if (myRole?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
 
-    // Find the profile to get the userId
-    const profile = await prisma.profile.findUnique({ where: { id } });
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Update Profile
+      const profile = await tx.profile.update({
+        where: { id },
+        data: { fullName, phone, businessName, callbackUrl },
+      });
 
-    await prisma.user.delete({ where: { id: profile.userId } });
-    res.json({ success: true });
+      // 2. Update User email if provided
+      if (email) {
+        await tx.user.update({
+          where: { id: profile.userId },
+          data: { email },
+        });
+      }
+
+      // 3. Update Payout Commission/Charge Override
+      if (payoutChargeType && payoutChargeValue !== undefined) {
+          await tx.userCommissionOverride.upsert({
+              where: { 
+                  targetUserId_serviceKey: { 
+                      targetUserId: profile.userId, 
+                      serviceKey: 'payout' 
+                  } 
+              },
+              update: { 
+                  chargeType: payoutChargeType, 
+                  chargeValue: payoutChargeValue,
+                  serviceLabel: 'Payout'
+              },
+              create: {
+                  targetUserId: profile.userId,
+                  serviceKey: 'payout',
+                  serviceLabel: 'Payout',
+                  chargeType: payoutChargeType,
+                  chargeValue: payoutChargeValue,
+                  setBy: callerId
+              }
+          });
+      }
+
+      return profile;
+    });
+
+    res.json({ success: true, profile: result });
   } catch (e: any) {
+    console.error(`[PATCH /api/users/:id] Error: ${e.message}`);
     res.status(500).json({ error: e.message });
   }
 });
+
+// DELETE /api/users/:id — Delete user
 
 export default router;

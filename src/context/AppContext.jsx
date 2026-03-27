@@ -227,16 +227,22 @@ export const AppProvider = ({ children }) => {
         }
     };
 
-    const updateMerchantStatus = async (id, status) => {
+    const updateMerchant = async (id, merchantData) => {
         try {
-            const res = await fetch(`${API_BASE}/users/${id}/status`, {
+            const res = await fetch(`${API_BASE}/users/${id}`, {
                 method: 'PATCH',
                 headers: getHeaders(),
-                body: JSON.stringify({ status })
+                body: JSON.stringify(merchantData)
             });
-            if (res.ok) await fetchData();
+            if (res.ok) {
+                await fetchData();
+                return { success: true };
+            }
+            const data = await res.json();
+            return { success: false, error: data.error };
         } catch (err) {
-            console.error("Update merchant status failed", err);
+            console.error("Update merchant failed", err);
+            return { success: false, error: "Network error" };
         }
     };
 
@@ -522,7 +528,7 @@ export const AppProvider = ({ children }) => {
             loading,
             addFunds,
             requestFunds,
-            addMerchant, updateMerchantStatus, deleteMerchant,
+            addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant,
             addBankAccount, deleteBankAccount, bankAccounts,
             requestSettlement, fetchSettlements, settlements,
             approveSettlement, rejectSettlement,
