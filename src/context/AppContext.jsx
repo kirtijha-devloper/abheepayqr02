@@ -244,6 +244,8 @@ export const AppProvider = ({ children }) => {
             console.error("Update merchant failed", err);
             return { success: false, error: "Network error" };
         }
+    };
+
     const updateMerchantStatus = async (id, status) => {
         try {
             const res = await fetch(`${API_BASE}/users/${id}/status`, {
