@@ -1,0 +1,90 @@
+/* ===== METRIC CARD ===== */
+.metric-card-new {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  transition: border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card-new:hover {
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* Top row: label + icon */
+.metric-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.metric-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-p);
+  letter-spacing: 0.01em;
+}
+
+.metric-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: var(--primary-dim);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.metric-icon-box.accent { background: var(--accent-dim); color: var(--accent); }
+.metric-icon-box.success { background: var(--success-bg); color: var(--success); }
+.metric-icon-box.warning { background: var(--warning-bg); color: var(--warning); }
+.metric-icon-box.danger  { background: var(--danger-bg);  color: var(--danger); }
+
+/* Value */
+.metric-value {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--text-h);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* Bottom: change badge */
+.metric-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.metric-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.metric-change.positive {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.metric-change.negative {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.metric-period {
+  font-size: 0.75rem;
+  color: var(--text-mute);
+}

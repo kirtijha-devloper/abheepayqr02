@@ -1,0 +1,390 @@
+// This is your Prisma schema file for Neon PostgreSQL
+// Run: npx prisma db push  to create all tables in Neon
+// Run: npx prisma generate  to regenerate the client
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum AppRole {
+  admin
+  super_distributor
+  master_distributor
+  distributor
+  retailer
+
+  @@map("app_role")
+}
+
+// ─── Tables ─────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  profile Profile?
+  roles   UserRole[]
+  wallet  Wallet?
+  qrCodes QrCode[]
+  merchantBankAccounts MerchantBankAccount[]
+  transactions Transaction[]
+  walletTransactions WalletTransaction[] @relation("ToUser")
+  sentWalletTransactions WalletTransaction[] @relation("FromUser")
+  fundRequests FundRequest[] @relation("Requester")
+  approvedFundRequests FundRequest[] @relation("Approver")
+  supportTickets SupportTicket[]
+
+  @@map("users")
+}
+
+model Profile {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  fullName      String   @default("") @map("full_name")
+  phone         String?
+  businessName  String?  @map("business_name")
+  parentId      String?  @map("parent_id") @db.Uuid
+  kycStatus     String   @default("pending") @map("kyc_status")
+  status        String   @default("active")
+  isMasterAdmin Boolean  @default(false) @map("is_master_admin")
+  tpinHash      String?  @map("tpin_hash")
+  callbackUrl   String?  @map("callback_url")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   Profile?  @relation("ProfileHierarchy", fields: [parentId], references: [id])
+  children Profile[] @relation("ProfileHierarchy")
+
+  @@map("profiles")
+}
+
+model UserRole {
+  id     String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String  @map("user_id") @db.Uuid
+  role   AppRole
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model Wallet {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  balance        Decimal  @default(0.00) @db.Decimal(15, 2)
+  eWalletBalance Decimal  @default(0.00) @map("e_wallet_balance") @db.Decimal(15, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+model QrCode {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label        String
+  upiId        String   @unique @map("upi_id")
+  mid          String?
+  merchantName String?  @map("merchant_name")
+  merchantId   String?  @map("merchant_id") @db.Uuid
+  tid          String?  @map("tid")
+  status       String   @default("active")
+  type         String   @default("single")
+  imagePath    String?  @map("image_path")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  merchant User? @relation(fields: [merchantId], references: [id])
+
+  @@map("qr_codes")
+}
+
+model WalletTransaction {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fromUserId       String?  @map("from_user_id") @db.Uuid
+  toUserId         String   @map("to_user_id") @db.Uuid
+  amount           Decimal  @db.Decimal(15, 2)
+  type             String   @default("transfer")
+  description      String?
+  reference        String?
+  fromBalanceAfter Decimal? @map("from_balance_after") @db.Decimal(15, 2)
+  toBalanceAfter   Decimal  @map("to_balance_after") @db.Decimal(15, 2)
+  createdBy        String   @map("created_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  fromUser User? @relation("FromUser", fields: [fromUserId], references: [id])
+  toUser   User  @relation("ToUser", fields: [toUserId], references: [id])
+
+  @@map("wallet_transactions")
+}
+
+model CommissionSlab {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serviceKey      String   @map("service_key")
+  serviceLabel    String   @map("service_label")
+  role            AppRole
+  commissionType  String   @default("flat") @map("commission_type")
+  commissionValue Decimal  @default(0) @map("commission_value")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([serviceKey, role])
+  @@map("commission_slabs")
+}
+
+model CommissionLog {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  slabId            String?  @map("slab_id") @db.Uuid
+  serviceKey        String   @map("service_key")
+  transactionAmount Decimal  @map("transaction_amount")
+  commissionAmount  Decimal  @map("commission_amount")
+  commissionType    String   @map("commission_type")
+  commissionValue   Decimal  @map("commission_value")
+  credited          Boolean  @default(false)
+  walletTxnId       String?  @map("wallet_txn_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("commission_logs")
+}
+
+model KycDocument {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  docType    String    @map("doc_type")
+  filePath   String    @map("file_path")
+  fileName   String    @map("file_name")
+  status     String    @default("pending")
+  reviewNote String?   @map("review_note")
+  reviewedBy String?   @map("reviewed_by") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@map("kyc_documents")
+}
+
+model CompanyBankAccount {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bankName      String   @map("bank_name")
+  accountName   String   @map("account_name")
+  accountNumber String   @map("account_number")
+  ifscCode      String   @map("ifsc_code")
+  upiId         String?  @map("upi_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdBy     String   @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  fundRequests FundRequest[]
+
+  @@map("company_bank_accounts")
+}
+
+model FundRequest {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requesterId      String    @map("requester_id") @db.Uuid
+  bankAccountId    String    @map("bank_account_id") @db.Uuid
+  amount           Decimal
+  paymentMode      String    @default("bank_transfer") @map("payment_mode")
+  paymentReference String    @map("payment_reference")
+  paymentDate      DateTime  @map("payment_date") @db.Date
+  receiptPath      String?   @map("receipt_path")
+  receiptName      String?   @map("receipt_name")
+  remarks          String?
+  status           String    @default("pending")
+  approvedBy       String?   @map("approved_by") @db.Uuid
+  approvedAt       DateTime? @map("approved_at")
+  rejectionReason  String?   @map("rejection_reason")
+  walletTxnId      String?   @map("wallet_txn_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  bankAccount CompanyBankAccount @relation(fields: [bankAccountId], references: [id])
+  requester   User               @relation("Requester", fields: [requesterId], references: [id])
+  approver    User?              @relation("Approver", fields: [approvedBy], references: [id])
+
+  @@map("fund_requests")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false) @map("is_read")
+  link      String?  @map("link")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+model ServiceConfig {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serviceKey   String   @unique @map("service_key")
+  serviceLabel String   @map("service_label")
+  routePath    String   @map("route_path")
+  isEnabled    Boolean  @default(true) @map("is_enabled")
+  icon         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("service_config")
+}
+
+model UserServiceOverride {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String  @map("user_id") @db.Uuid
+  serviceKey String  @map("service_key")
+  isEnabled  Boolean @default(true) @map("is_enabled")
+  disabledBy String? @map("disabled_by") @db.Uuid
+
+  @@unique([userId, serviceKey])
+  @@map("user_service_overrides")
+}
+
+model UserCommissionOverride {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  setBy           String   @map("set_by") @db.Uuid
+  targetUserId    String   @map("target_user_id") @db.Uuid
+  serviceKey      String   @map("service_key")
+  serviceLabel    String   @map("service_label")
+  commissionType  String   @default("flat") @map("commission_type")
+  commissionValue Decimal  @default(0) @map("commission_value") @db.Decimal(15, 2)
+  chargeType      String   @default("flat") @map("charge_type")
+  chargeValue     Decimal  @default(0) @map("charge_value") @db.Decimal(15, 2)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([targetUserId, serviceKey])
+  @@map("user_commission_overrides")
+}
+
+model SupportTicket {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  subject    String
+  message    String    @db.Text
+  category   String    @default("general")
+  status     String    @default("open")
+  adminReply String?   @map("admin_reply") @db.Text
+  repliedBy  String?   @map("replied_by") @db.Uuid
+  repliedAt  DateTime? @map("replied_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("support_tickets")
+}
+
+model StaffPermission {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String   @unique @map("user_id") @db.Uuid
+  canManageUsers       Boolean  @default(true) @map("can_manage_users")
+  canManageFinances    Boolean  @default(true) @map("can_manage_finances")
+  canManageCommissions Boolean  @default(true) @map("can_manage_commissions")
+  canManageServices    Boolean  @default(true) @map("can_manage_services")
+  canManageSettings    Boolean  @default(false) @map("can_manage_settings")
+  canManageSecurity    Boolean  @default(false) @map("can_manage_security")
+  canViewReports       Boolean  @default(true) @map("can_view_reports")
+  grantedBy            String   @map("granted_by") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("staff_permissions")
+}
+
+model Transaction {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  serviceType String   @map("service_type") // aeps, dmt, bbps, recharge, payout
+  type        String?
+  description String?
+  sender      String?
+  beneficiary String?
+  bank        String?
+  consumer    String?
+  category    String?
+  provider    String?
+  amount      Decimal? @db.Decimal(15, 2)
+  fee         Decimal? @db.Decimal(15, 2) @default(0)
+  status      String   @default("pending")
+  refId       String?  @map("ref_id")
+  clientRefId String?  @map("client_ref_id")
+  payoutBankDetails String? @map("payout_bank_details")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+  callbackLogs TransactionCallbackLog[]
+
+  @@map("transactions")
+}
+
+model EWalletCredit {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  amount    Decimal  @db.Decimal(15, 2)
+  type      String   @default("credit")
+  status    String   @default("success")
+  remark    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("e_wallet_credits")
+}
+
+model MerchantBankAccount {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  bankName      String   @map("bank_name")
+  accountName   String   @map("account_name")
+  accountNumber String   @map("account_number")
+  ifscCode      String   @map("ifsc_code")
+  isVerified    Boolean  @default(false) @map("is_verified")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("merchant_bank_accounts")
+}
+
+model AppSetting {
+  key   String @id
+  value String
+
+  @@map("app_settings")
+}
+
+model TransactionCallbackLog {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transactionId String   @map("transaction_id") @db.Uuid
+  url           String
+  payload       Json
+  response      String?  @db.Text
+  statusCode    Int?     @map("status_code")
+  status        String   @default("pending") // pending, success, failed
+  attempts      Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("transaction_callback_logs")
+}

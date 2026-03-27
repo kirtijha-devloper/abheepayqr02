@@ -1,0 +1,72 @@
+[
+  {
+    "id": "7008cf85-d420-498f-874c-9a12dbf1ba6e",
+    "label": "QR-4F5-0005",
+    "upiId": "upi://pay?pa=Vyapar.175693461293@hdfcbank&pn=Default&mc=8999&tr=STQU175693461293&cu=INR",
+    "mid": null,
+    "merchantName": "Mohit Raj",
+    "merchantId": "527d8397-1756-491e-85ee-273badc34834",
+    "tid": "TID-4F5-0005",
+    "status": "active",
+    "type": "bulk",
+    "imagePath": "/uploads/qrcodes/1774260145381-381363436.jpeg",
+    "createdAt": "2026-03-23T10:02:25.495Z",
+    "updatedAt": "2026-03-24T05:39:28.188Z"
+  },
+  {
+    "id": "30f65e98-1a06-4d8f-b244-2b0ab5a11143",
+    "label": "QR-4F5-0008",
+    "upiId": "upi://pay?pa=Vyapar.175693461314@hdfcbank&pn=Default&mc=8999&tr=STQU175693461314&cu=INR",
+    "mid": null,
+    "merchantName": "Unassigned",
+    "merchantId": null,
+    "tid": "TID-4F5-0008",
+    "status": "active",
+    "type": "bulk",
+    "imagePath": "/uploads/qrcodes/1774260145387-690397468.jpeg",
+    "createdAt": "2026-03-23T10:02:25.495Z",
+    "updatedAt": "2026-03-23T10:02:25.495Z"
+  },
+  {
+    "id": "bfa50694-8a21-4d79-bc72-066ba0ff7d1a",
+    "label": "QR-4F5-0012",
+    "upiId": "upi://pay?pa=Vyapar.175693461310@hdfcbank&pn=Default&mc=8999&tr=STQU175693461310&cu=INR",
+    "mid": null,
+    "merchantName": "Unassigned",
+    "merchantId": null,
+    "tid": "TID-4F5-0012",
+    "status": "active",
+    "type": "bulk",
+    "imagePath": "/uploads/qrcodes/1774260145399-535546924.jpeg",
+    "createdAt": "2026-03-23T10:02:25.495Z",
+    "updatedAt": "2026-03-23T10:02:25.495Z"
+  },
+  {
+    "id": "a8ef325b-54c5-4473-beb1-68024c457deb",
+    "label": "QR-4F5-0024",
+    "upiId": "upi://pay?pa=Vyapar.175693463966@hdfcbank&pn=Default&mc=8999&tr=STQU175693463966&cu=INR",
+    "mid": null,
+    "merchantName": "Unassigned",
+    "merchantId": null,
+    "tid": "TID-4F5-0024",
+    "status": "active",
+    "type": "bulk",
+    "imagePath": "/uploads/qrcodes/1774260145430-92568452.jpeg",
+    "createdAt": "2026-03-23T10:02:25.495Z",
+    "updatedAt": "2026-03-23T10:02:25.495Z"
+  },
+  {
+    "id": "329e445f-cb66-48a3-aed6-cc3ce0b5b53e",
+    "label": "QR-4F5-0004",
+    "upiId": "upi://pay?pa=Vyapar.175693462569@hdfcbank&pn=Default&mc=8999&tr=STQU175693462569&cu=INR",
+    "mid": null,
+    "merchantName": "Mohit Raj",
+    "merchantId": "527d8397-1756-491e-85ee-273badc34834",
+    "tid": "TID-4F5-0004",
+    "status": "active",
+    "type": "bulk",
+    "imagePath": "/uploads/qrcodes/1774260145378-929824493.jpeg",
+    "createdAt": "2026-03-23T10:02:25.495Z",
+    "updatedAt": "2026-03-24T05:39:20.917Z"
+  }
+]
