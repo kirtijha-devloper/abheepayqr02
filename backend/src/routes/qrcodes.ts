@@ -9,7 +9,11 @@ const router = Router();
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, "../../uploads/qrcodes"));
+        // On Vercel, we must use /tmp
+        const dest = process.env.VERCEL 
+            ? "/tmp" 
+            : path.join(__dirname, "../../uploads/qrcodes");
+        cb(null, dest);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
