@@ -30,10 +30,14 @@ export const prisma = new PrismaClient();
 
 const app = express();
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, "../uploads/qrcodes");
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+// Ensure uploads directory exists (Try-Catch for Vercel read-only system)
+try {
+  const uploadsDir = path.join(__dirname, "../uploads/qrcodes");
+  if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (e) {
+  console.warn("Could not create uploads directory (Expected on Vercel)");
 }
 
 const PORT = process.env.PORT || 4001;
@@ -54,7 +58,6 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.get("/health", (_req, res) => {
   const msg = `[${new Date().toISOString()}] Health check hit from ${_req.ip}`;
   console.log(msg);
-  fs.appendFileSync("server_hits.log", msg + "\n");
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
