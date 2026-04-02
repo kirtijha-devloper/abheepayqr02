@@ -42,7 +42,11 @@ model User {
   sentWalletTransactions WalletTransaction[] @relation("FromUser")
   fundRequests FundRequest[] @relation("Requester")
   approvedFundRequests FundRequest[] @relation("Approver")
-  supportTickets SupportTicket[]
+  userCommissionOverrides   UserCommissionOverride[] @relation("UserOverrides")
+  setCommissionOverrides    UserCommissionOverride[] @relation("SettledByOverrides")
+  userServiceOverrides       UserServiceOverride[]    @relation("UserServiceOverrides")
+  setServiceOverrides        UserServiceOverride[]    @relation("SettledByServiceOverrides")
+  supportTickets             SupportTicket[]
 
   @@map("users")
 }
@@ -254,6 +258,9 @@ model UserServiceOverride {
   isEnabled  Boolean @default(true) @map("is_enabled")
   disabledBy String? @map("disabled_by") @db.Uuid
 
+  user           User    @relation("UserServiceOverrides", fields: [userId], references: [id], onDelete: Cascade)
+  disabledByUser User?   @relation("SettledByServiceOverrides", fields: [disabledBy], references: [id])
+
   @@unique([userId, serviceKey])
   @@map("user_service_overrides")
 }
@@ -271,6 +278,9 @@ model UserCommissionOverride {
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
+
+  setByUser    User @relation("SettledByOverrides", fields: [setBy], references: [id])
+  targetUser   User @relation("UserOverrides", fields: [targetUserId], references: [id], onDelete: Cascade)
 
   @@unique([targetUserId, serviceKey])
   @@map("user_commission_overrides")
