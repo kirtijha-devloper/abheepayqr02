@@ -10,7 +10,9 @@ import { triggerTransactionCallback } from "../utils/callback";
 const reportLogPath = path.join(__dirname, "../mapping_trace.txt");
 
 const router = Router();
-const upload = multer({ dest: "uploads/" });
+// On Vercel, we MUST use /tmp for uploads
+const uploadDest = process.env.VERCEL ? "/tmp" : "uploads/";
+const upload = multer({ dest: uploadDest });
 
 router.get("/mapping-trace", requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   try {
@@ -105,7 +107,10 @@ router.post("/upload", requireAuth, requireAdmin, upload.single("report"), async
   const filePath = req.file.path;
 
   try {
-    fs.appendFileSync("upload_debug.log", `[${new Date().toISOString()}] Upload starting for file: ${req.file.originalname} (path: ${filePath})\n`);
+    const logMsg = `[${new Date().toISOString()}] Upload starting for file: ${req.file.originalname} (path: ${filePath})\n`;
+    if (!process.env.VERCEL) {
+        fs.appendFileSync("upload_debug.log", logMsg);
+    }
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
@@ -128,12 +133,14 @@ router.post("/upload", requireAuth, requireAdmin, upload.single("report"), async
 
     if (results.length > 0) {
         console.log("[REPORT DEBUG] First normalized row:", results[0]);
-        // Write entire report to a temp file for inspection
-        fs.writeFileSync("last_report_debug.json", JSON.stringify({
-            headers: Object.keys(rawData[0]),
-            normalizedHeaders: Object.keys(results[0]),
-            sampleRows: results.slice(0, 10)
-        }, null, 2));
+        // Only write debug files locally
+        if (!process.env.VERCEL) {
+            fs.writeFileSync("last_report_debug.json", JSON.stringify({
+                headers: Object.keys(rawData[0]),
+                normalizedHeaders: Object.keys(results[0]),
+                sampleRows: results.slice(0, 10)
+            }, null, 2));
+        }
     }
 
     let processedCount = 0;
@@ -212,9 +219,13 @@ router.post("/upload", requireAuth, requireAdmin, upload.single("report"), async
 
         if (matchedQr && matchedQr.merchantId) {
             merchantId = matchedQr.merchantId;
-            fs.appendFileSync("mapping_trace.txt", `[${new Date().toISOString()}] TID: ${tid} -> Merchant: ${matchedQr.merchantName} (${merchantId})\n`);
+            if (!process.env.VERCEL) {
+                fs.appendFileSync("mapping_trace.txt", `[${new Date().toISOString()}] TID: ${tid} -> Merchant: ${matchedQr.merchantName} (${merchantId})\n`);
+            }
         } else {
-            fs.appendFileSync("mapping_trace.txt", `[${new Date().toISOString()}] TID: ${tid} -> NOT MATCHED (Sent to Admin: ${merchantId})\n`);
+            if (!process.env.VERCEL) {
+                fs.appendFileSync("mapping_trace.txt", `[${new Date().toISOString()}] TID: ${tid} -> NOT MATCHED (Sent to Admin: ${merchantId})\n`);
+            }
         }
 
         let finalStatus = "Pending";
@@ -279,7 +290,9 @@ router.post("/upload", requireAuth, requireAdmin, upload.single("report"), async
     if (req.file && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
     }
-    fs.appendFileSync("upload_debug.log", `[${new Date().toISOString()}] UPLOAD ERROR: ${e.message}\n`);
+    if (!process.env.VERCEL) {
+        fs.appendFileSync("upload_debug.log", `[${new Date().toISOString()}] UPLOAD ERROR: ${e.message}\n`);
+    }
     console.error("Report upload error:", e);
     res.status(500).json({ error: e.message });
   }
