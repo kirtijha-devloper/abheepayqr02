@@ -41,14 +41,14 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 
     console.log(`[GET /api/users] Profiles found: ${profiles.length}`);
 
-    const result = profiles.map(p => ({
+    const result = profiles.map((p: any) => ({
       id: p.id,
       userId: p.userId,       // <-- actual User ID for wallet/QR operations
       fullName: p.fullName,
       businessName: p.businessName,
       status: p.status,
       email: p.user?.email,
-      role: p.user?.roles[0]?.role,
+      role: p.user?.roles?.[0]?.role,
       walletBalance: Number(p.user?.wallet?.balance ?? 0),
       payoutOverride: p.user?.userCommissionOverrides?.find((ov: any) => ov.serviceKey === 'payout'),
     }));
