@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+# dist
+# dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Prisma
+/backend/node_modules
+/backend/prisma/migrations
+/backend/dist
+/backend/.env
+/backend/*.txt
+/backend/*.log
+/backend/*.js
+!/backend/src/**/*.js
+
+# Uploads
+/backend/uploads/qrcodes/*
+!/backend/uploads/qrcodes/.gitkeep

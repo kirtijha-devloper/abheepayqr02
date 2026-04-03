@@ -25,6 +25,7 @@ import reportRoutes from "./routes/reports";
 import settingsRoutes from "./routes/settings";
 import bankAccountsRoutes from "./routes/bankAccounts";
 import callbackLogsRoutes from "./routes/callbackLogs";
+import { errorHandler } from "./middleware/errorHandler";
 
 export const prisma = new PrismaClient();
 
@@ -82,6 +83,9 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/bank-accounts", bankAccountsRoutes);
 app.use("/api/callback-logs", callbackLogsRoutes);
+
+// Global Error Handler must be the last middleware
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`✅ AbheePay backend running on http://localhost:${PORT}`);
