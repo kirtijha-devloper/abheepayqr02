@@ -149,14 +149,14 @@ const AdminDashboard = () => {
             <h3 className="section-title">SYSTEM ALERTS & ACTIVITY</h3>
             <div className="activity-list">
                 <div className="activity-item">
-                    <span className="activity-icon warning">Warn</span>
+                    <span className="activity-icon warning">Alert</span>
                     <div className="activity-details">
                         <p>Merchant <strong>Sub-Agent 04</strong> reached 90% of their daily limit.</p>
                         <span className="activity-time">2 mins ago</span>
                     </div>
                 </div>
                 <div className="activity-item">
-                    <span className="activity-icon info">Info</span>
+                    <span className="activity-icon info">Update</span>
                     <div className="activity-details">
                         <p>New Merchant <strong>Global Tech</strong> registered and awaiting verification.</p>
                         <span className="activity-time">1 hour ago</span>
