@@ -1,95 +1,102 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
-import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config';
+import { useToast } from '../context/ToastContext';
 import './AdminSettingsPage.css';
 
+const defaultPayoutConfig = {
+  type: 'flat',
+  ranges: [{ min: 0, max: 1000, value: 10 }],
+  default: 20,
+};
+
+const defaultLocalSettings = {
+  appName: 'TeleRing',
+  language: 'English (US)',
+  timezone: 'IST (India Standard Time) - GMT+5:30',
+  notifications: { txnAlerts: true, securityAlerts: true, monthlyReports: false },
+};
+
 const AdminSettingsPage = () => {
-    const { token } = useAuth();
-    const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('general');
-    
-    // Remote settings state (from DB)
-    const [dbSettings, setDbSettings] = useState({
-        payout_config: JSON.stringify({
-            type: 'flat',
-            ranges: [{ min: 0, max: 1000, value: 10 }],
-            default: 20
-        })
-    });
+  const navigate = useNavigate();
+  const { success, error } = useToast();
+  const [activeTab, setActiveTab] = useState('payouts');
+  const [dbSettings, setDbSettings] = useState({
+    payout_config: JSON.stringify(defaultPayoutConfig),
+  });
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('teleringAdminSettings');
+    return saved ? JSON.parse(saved) : defaultLocalSettings;
+  });
 
-    const parsedConfig = (() => {
-        try {
-            return JSON.parse(dbSettings.payout_config);
-        } catch (e) {
-            return { type: 'flat', ranges: [], default: 0 };
+  const parsedConfig = (() => {
+    try {
+      return JSON.parse(dbSettings.payout_config);
+    } catch (e) {
+      return defaultPayoutConfig;
+    }
+  })();
+
+  const updateConfig = (newConfig) => {
+    setDbSettings({ ...dbSettings, payout_config: JSON.stringify(newConfig) });
+  };
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const authToken = sessionStorage.getItem('authToken');
+      try {
+        const res = await fetch(`${API_BASE}/settings`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDbSettings({
+            payout_config: data.payout_config || JSON.stringify(defaultPayoutConfig),
+          });
         }
-    })();
-
-    const updateConfig = (newConfig) => {
-        setDbSettings({ ...dbSettings, payout_config: JSON.stringify(newConfig) });
+      } catch (err) {
+        console.error('Failed to load DB settings', err);
+      }
     };
 
-    // Local UI settings state
-    const [settings, setSettings] = useState(() => {
-        const saved = localStorage.getItem('teleringAdminSettings');
-        return saved ? JSON.parse(saved) : {
-            appName: 'My Application',
-            notifications: { txnAlerts: true, securityAlerts: true, monthlyReports: false }
-        };
-    });
+    fetchSettings();
+  }, []);
 
-    useEffect(() => {
-        // Fetch DB settings
-        const fetchSettings = async () => {
-            const authToken = sessionStorage.getItem('authToken');
-            try {
-                const res = await fetch(`${API_BASE}/settings`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setDbSettings({
-                        payout_config: data.payout_config || dbSettings.payout_config
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to load DB settings", err);
-            }
-        };
-        fetchSettings();
-    }, []);
+  const handleSave = async () => {
+    localStorage.setItem('teleringAdminSettings', JSON.stringify(settings));
+    const authToken = sessionStorage.getItem('authToken');
+    try {
+      const res = await fetch(`${API_BASE}/settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(dbSettings),
+      });
+      if (res.ok) {
+        success('Settings saved successfully.');
+      } else {
+        error('Failed to save some system settings.');
+      }
+    } catch (err) {
+      console.error(err);
+      error('Error saving settings to network.');
+    }
+  };
 
-    const handleSave = async () => {
-        localStorage.setItem('teleringAdminSettings', JSON.stringify(settings));
-        const authToken = sessionStorage.getItem('authToken');
-        try {
-            const res = await fetch(`${API_BASE}/settings`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}` 
-                },
-                body: JSON.stringify(dbSettings)
-            });
-            if (res.ok) {
-                alert('Settings saved successfully!');
-            } else {
-                alert('Failed to save some system settings.');
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Error saving settings to network.');
-        }
-    };
+  const handleReset = () => {
+    setSettings(defaultLocalSettings);
+    setDbSettings({ payout_config: JSON.stringify(defaultPayoutConfig) });
+  };
 
-    const tabs = [
-        { id: 'payouts', label: 'Payout Charges', icon: '💸' },
-        { id: 'notifications', label: 'Notifications', icon: '🔔' },
-        { id: 'security', label: 'Security', icon: '🛡️' },
-    ];
+  const tabs = [
+    { id: 'payouts', label: 'Payout Charges', icon: 'PC' },
+    { id: 'notifications', label: 'Notifications', icon: 'NT' },
+    { id: 'security', label: 'Security', icon: 'SC' },
+  ];
 
   return (
     <div className="dashboard-layout">
@@ -119,7 +126,7 @@ const AdminSettingsPage = () => {
                   </button>
                 ))}
               </div>
-              
+
               <div className="settings-info-box">
                 <h4>Need Help?</h4>
                 <p>Read our documentation for advanced configuration guides.</p>
@@ -128,52 +135,6 @@ const AdminSettingsPage = () => {
             </div>
 
             <div className="settings-main-portal">
-              {activeTab === 'general' && (
-                <div className="portal-card card animated-fade-in">
-                  <div className="portal-header">
-                    <h3>General Preferences</h3>
-                    <p>Core application identity and localization.</p>
-                  </div>
-                  <div className="portal-content">
-                    <div className="form-grid-v2">
-                      <div className="form-group-v2">
-                        <label>Platform Name</label>
-                        <input 
-                          type="text" 
-                          className="premium-input"
-                          value={settings.appName} 
-                          onChange={e => setSettings({...settings, appName: e.target.value})} 
-                        />
-                      </div>
-                      <div className="form-group-v2">
-                        <label>Default Language</label>
-                        <select 
-                          className="premium-select"
-                          value={settings.language} 
-                          onChange={e => setSettings({...settings, language: e.target.value})}
-                        >
-                          <option>English (US)</option>
-                          <option>Hindi (India)</option>
-                          <option>Spanish</option>
-                        </select>
-                      </div>
-                      <div className="form-group-v2 full-width">
-                        <label>System Timezone</label>
-                        <select 
-                          className="premium-select"
-                          value={settings.timezone} 
-                          onChange={e => setSettings({...settings, timezone: e.target.value})}
-                        >
-                          <option>IST (India Standard Time) - GMT+5:30</option>
-                          <option>UTC (Coordinated Universal Time)</option>
-                          <option>PST (Pacific Standard Time)</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {activeTab === 'notifications' && (
                 <div className="portal-card card animated-fade-in">
                   <div className="portal-header">
@@ -184,19 +145,19 @@ const AdminSettingsPage = () => {
                     <div className="option-list">
                       {[
                         { key: 'txnAlerts', label: 'Transaction Success Alerts', desc: 'Receive instant alerts for every processed payment.' },
-                        { key: 'securityAlerts', label: 'Security & Login Alerts', desc: 'Get notified of new logins or suspicious activities.' },
-                        { key: 'monthlyReports', label: 'Monthly Performance Reports', desc: 'Summary of volume, commission and growth.' }
-                      ].map(item => (
+                        { key: 'securityAlerts', label: 'Security and Login Alerts', desc: 'Get notified of new logins or suspicious activities.' },
+                        { key: 'monthlyReports', label: 'Monthly Performance Reports', desc: 'Summary of volume, commission and growth.' },
+                      ].map((item) => (
                         <div className="option-item" key={item.key}>
                           <div className="option-info">
                             <div className="option-label">{item.label}</div>
                             <div className="option-desc">{item.desc}</div>
                           </div>
                           <label className="premium-switch">
-                            <input 
-                              type="checkbox" 
-                              checked={settings.notifications[item.key]} 
-                              onChange={e => setSettings({...settings, notifications: {...settings.notifications, [item.key]: e.target.checked}})} 
+                            <input
+                              type="checkbox"
+                              checked={settings.notifications[item.key]}
+                              onChange={(e) => setSettings({ ...settings, notifications: { ...settings.notifications, [item.key]: e.target.checked } })}
                             />
                             <span className="switch-slider"></span>
                           </label>
@@ -217,7 +178,7 @@ const AdminSettingsPage = () => {
                     <div className="security-section">
                       <div className="form-group-v2">
                         <label>Current Password</label>
-                        <input type="password" placeholder="••••••••" className="premium-input" />
+                        <input type="password" placeholder="Current password" className="premium-input" />
                       </div>
                       <div className="form-row-grid">
                         <div className="form-group-v2">
@@ -255,101 +216,81 @@ const AdminSettingsPage = () => {
                     <p>Configure how much merchants are charged for bank withdrawals based on the amount range.</p>
                   </div>
                   <div className="portal-content">
-
-                    {/* Charge Mode */}
-                    <div style={{ marginBottom: '28px' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Global Charge Mode</label>
+                    <div className="payout-config-block">
+                      <label className="settings-section-label">Global Charge Mode</label>
                       <select
                         className="premium-select"
                         value={parsedConfig.type}
-                        onChange={e => updateConfig({...parsedConfig, type: e.target.value})}
+                        onChange={(e) => updateConfig({ ...parsedConfig, type: e.target.value })}
                       >
-                        <option value="flat">Flat Fee (₹)</option>
+                        <option value="flat">Flat Fee (Rs)</option>
                         <option value="percentage">Percentage (%)</option>
                       </select>
                     </div>
 
-                    {/* Header Labels */}
-                    <div style={{ marginBottom: '10px' }}>
-                      <label style={{ display: 'block', marginBottom: '12px', fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Charge Ranges</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 40px', gap: '10px', padding: '0 4px', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>From (₹)</span>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>To (₹)</span>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{parsedConfig.type === 'flat' ? 'Fee (₹)' : 'Fee (%)'}</span>
+                    <div className="payout-config-block payout-ranges-header-block">
+                      <label className="settings-section-label">Charge Ranges</label>
+                      <div className="payout-range-head">
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>From (Rs)</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>To (Rs)</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{parsedConfig.type === 'flat' ? 'Fee (Rs)' : 'Fee (%)'}</span>
                         <span></span>
                       </div>
                     </div>
 
-                    {/* Range Rows */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+                    <div className="payout-ranges-list">
                       {parsedConfig.ranges.map((range, index) => {
-                        // Auto-derive the minimum: it must be prev.max + 1, read-only
                         const autoMin = index === 0 ? 0 : (parsedConfig.ranges[index - 1].max + 1);
                         return (
-                          <div
-                            key={index}
-                            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 40px', gap: '10px', alignItems: 'center', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px' }}
-                          >
-                            {/* FROM — read-only, auto-calculated */}
+                          <div key={index} className="payout-range-row">
+                            <input type="number" className="premium-input payout-readonly-input" value={autoMin} readOnly />
                             <input
                               type="number"
                               className="premium-input"
-                              value={autoMin}
-                              readOnly
-                              style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-mute)', cursor: 'not-allowed', border: '1px solid transparent' }}
-                            />
-                            {/* TO — editable, min is autoMin+1, no negatives */}
-                            <input
-                              type="number"
-                              className="premium-input"
-                              placeholder="Max (₹)"
+                              placeholder="Max (Rs)"
                               min={autoMin + 1}
                               value={range.max || ''}
-                              onChange={e => {
+                              onChange={(e) => {
                                 const val = Math.max(autoMin + 1, Number(e.target.value) || 0);
                                 const newRanges = [...parsedConfig.ranges];
                                 newRanges[index] = { ...newRanges[index], min: autoMin, max: val };
-                                // Cascade: fix all subsequent range mins
-                                for (let i = index + 1; i < newRanges.length; i++) {
+                                for (let i = index + 1; i < newRanges.length; i += 1) {
                                   const prevMax = newRanges[i - 1].max;
                                   newRanges[i] = { ...newRanges[i], min: prevMax + 1 };
                                   if (newRanges[i].max <= newRanges[i].min) {
                                     newRanges[i].max = newRanges[i].min + 1;
                                   }
                                 }
-                                updateConfig({...parsedConfig, ranges: newRanges});
+                                updateConfig({ ...parsedConfig, ranges: newRanges });
                               }}
                             />
-                            {/* FEE — editable, no negatives */}
                             <input
                               type="number"
                               className="premium-input"
                               placeholder={parsedConfig.type === 'flat' ? 'e.g. 10' : 'e.g. 2'}
                               min={0}
                               value={range.value || ''}
-                              onChange={e => {
+                              onChange={(e) => {
                                 const val = Math.max(0, Number(e.target.value) || 0);
                                 const newRanges = [...parsedConfig.ranges];
                                 newRanges[index] = { ...newRanges[index], value: val };
-                                updateConfig({...parsedConfig, ranges: newRanges});
+                                updateConfig({ ...parsedConfig, ranges: newRanges });
                               }}
                             />
-                            {/* DELETE */}
                             <button
                               onClick={() => {
                                 const newRanges = parsedConfig.ranges.filter((_, i) => i !== index);
-                                updateConfig({...parsedConfig, ranges: newRanges});
+                                updateConfig({ ...parsedConfig, ranges: newRanges });
                               }}
-                              style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#ef4444', cursor: 'pointer', fontSize: '16px', fontWeight: 700, flexShrink: 0 }}
+                              className="payout-delete-btn"
                             >
-                              ×
+                              X
                             </button>
                           </div>
                         );
                       })}
                     </div>
 
-                    {/* Add Range Button */}
                     <button
                       onClick={() => {
                         const lastMax = parsedConfig.ranges.length > 0
@@ -358,46 +299,34 @@ const AdminSettingsPage = () => {
                         const newMin = lastMax + 1;
                         updateConfig({
                           ...parsedConfig,
-                          ranges: [...parsedConfig.ranges, { min: newMin, max: newMin + 999, value: 0 }]
+                          ranges: [...parsedConfig.ranges, { min: newMin, max: newMin + 999, value: 0 }],
                         });
                       }}
-                      style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(124,108,248,0.08)', border: '1px dashed var(--primary)', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem', transition: 'background 0.2s' }}
+                      className="payout-add-btn"
                     >
-                      + Add New Range
+                      Add New Range
                     </button>
 
-                    {/* Default Fee */}
-                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Default Fee (if no range matches)</label>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--text-mute)', marginBottom: '12px' }}>Applied when the merchant's withdrawal amount doesn't fall in any range above.</p>
+                    <div className="payout-default-block">
+                      <label className="settings-section-label">Default Fee (if no range matches)</label>
+                      <p className="settings-helper-text">Applied when the merchant withdrawal amount does not fall in any range above.</p>
                       <input
                         type="number"
-                        className="premium-input"
+                        className="premium-input payout-default-input"
                         min={0}
-                        style={{ maxWidth: '200px' }}
                         value={parsedConfig.default ?? ''}
-                        onChange={e => {
+                        onChange={(e) => {
                           const val = Math.max(0, Number(e.target.value) || 0);
-                          updateConfig({...parsedConfig, default: val});
+                          updateConfig({ ...parsedConfig, default: val });
                         }}
                       />
                     </div>
-
-                  </div>
-                </div>
-              )}
-
-              {!['notifications', 'security', 'payouts'].includes(activeTab) && (
-                <div className="portal-card card animated-fade-in">
-                  <div className="empty-portal">
-                    <h3>Coming Soon</h3>
-                    <p>The {activeTab} settings module is currently under development.</p>
                   </div>
                 </div>
               )}
 
               <div className="portal-actions">
-                <button className="settings-cancel-btn">Reset to Default</button>
+                <button className="settings-cancel-btn" onClick={handleReset}>Reset to Default</button>
                 <button className="settings-save-btn" onClick={handleSave}>Apply Settings</button>
               </div>
             </div>

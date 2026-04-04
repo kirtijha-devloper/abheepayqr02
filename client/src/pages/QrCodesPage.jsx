@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import jsQR from 'jsqr';
 import { API_BASE, UPLOADS_BASE } from '../config';
 import './QrCodesPage.css';
@@ -11,6 +12,7 @@ import './QrCodesPage.css';
 const QrCodesPage = () => {
   const { qrCodes, updateQrCode, unassignQrCode } = useAppContext();
   const { user } = useAuth();
+  const { success, error } = useToast();
   const [activeTab, setActiveTab] = useState('My QR');
   const [viewMode, setViewMode] = useState('physical'); // default: show original uploaded image
   const [dynamicAmount, setDynamicAmount] = useState('');
@@ -22,13 +24,14 @@ const QrCodesPage = () => {
   const updateUpiId = async (id, upiId) => {
     setIsFixing(true);
     try {
-        await updateQrCode(id, { upiId });
+        const result = await updateQrCode(id, { upiId });
+        if (!result?.success) throw new Error(result?.error || 'Failed to update UPI ID');
         setFixingQr(null);
         setManualUpi('');
-        alert("UPI ID updated successfully!");
+        success('UPI ID updated successfully.');
     } catch (err) {
         console.error("Failed to update UPI ID:", err);
-        alert("Failed to update UPI ID. Please try again.");
+        error('Failed to update UPI ID. Please try again.');
     } finally {
         setIsFixing(false);
     }
@@ -145,7 +148,7 @@ const QrCodesPage = () => {
                 <button className="close-modal" onClick={() => setShowPreview(false)}>×</button>
                 <div className="preview-label">Original Uploaded QR Image</div>
                 <img 
-                    src={`http://localhost:4001${activeQr.imagePath}`} 
+                    src={`${UPLOADS_BASE}${activeQr.imagePath}`} 
                     alt="Original QR" 
                     className="full-image"
                 />

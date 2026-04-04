@@ -3,6 +3,8 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import ManualQrModal from '../components/ManualQrModal';
 import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
+import { UPLOADS_BASE } from '../config';
 import jsQR from 'jsqr';
 import JSZip from 'jszip';
 import './QrCodesAdminPage.css';
@@ -37,14 +39,11 @@ const QrCodesAdminPage = () => {
   const [editQrData, setEditQrData] = useState(null);
 
   const fileInputRef = useRef(null);
+  const { success, error } = useToast();
   const { 
     qrCodes, addQrCode, bulkAddQrCodes, assignQrByTid, assignQrByIds, 
-    unassignQrCode, merchants, deleteQrCode, updateQrCode 
+    unassignQrCode, merchants, deleteQrCode, updateQrCode, fetchData 
   } = useAppContext();
-
-
-  console.log("QR Admin Page - Merchants:", merchants.length);
-  console.log("QR Admin Page - QR Codes:", qrCodes.length);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -145,7 +144,6 @@ const QrCodesAdminPage = () => {
         setBulkFiles(allFiles);
         setSelectedFile(allFiles.length > 1 ? { name: `${allFiles.length} files extracted/selected` } : allFiles[0]);
         setScanError('');
-        console.log(`${allFiles.length} files ready for bulk processing.`);
     }
   };
 
@@ -168,10 +166,8 @@ const QrCodesAdminPage = () => {
   };
 
   const handleUpload = async () => {
-    console.log("Starting upload...", { uploadMode, bulkFilesCount: bulkFiles.length });
-    
     if ((uploadMode === 'single' && !selectedFile) || (uploadMode === 'bulk' && bulkFiles.length === 0)) {
-        alert("Please select file(s) first.");
+        error('Please select file(s) first.');
         return;
     }
 
@@ -189,7 +185,6 @@ const QrCodesAdminPage = () => {
             const batchPrefix = Math.random().toString(36).substr(2, 3).toUpperCase();
 
             for (const file of bulkFiles) {
-                console.log(`Scanning file: ${file.name}`);
                 const upiId = await scanQrCode(file);
                 scannedCount++;
                 
@@ -217,21 +212,18 @@ const QrCodesAdminPage = () => {
 
             formDataObj.append('qrcodes', JSON.stringify(qrcodesMetadata));
 
-            console.log(`Scanning complete. Onboarding ${qrcodesMetadata.length} QR codes.`);
-
             if (qrcodesMetadata.length > 0) {
                 const result = await bulkAddQrCodes(formDataObj);
                 if (result.success) {
-                    alert(`Successfully onboarded all ${result.count} QR codes in the batch!`);
+                    success(`Successfully onboarded all ${result.count} QR codes in the batch.`);
                 } else {
-                    alert(`Server Error: ${result.error || "Bulk upload failed"}`);
+                    error(result.error || 'Bulk upload failed');
                 }
             } else {
-                alert(`No valid files selected.`);
+                error('No valid files selected.');
             }
             setIsScanning(false);
         } else {
-            console.log("Uploading single QR code...");
             formDataObj.append('qrImage', selectedFile);
             formDataObj.append('label', formData.label || "QR Code");
             formDataObj.append('upiId', formData.upiId);
@@ -242,7 +234,7 @@ const QrCodesAdminPage = () => {
             formDataObj.append('type', 'single');
 
             await addQrCode(formDataObj);
-            alert("QR Code onboarded successfully!");
+            success('QR code onboarded successfully.');
         }
 
         // Reset
@@ -251,18 +243,18 @@ const QrCodesAdminPage = () => {
         setFormData({ label: '', mid: '', tid: '', upiId: '', merchantId: '' });
     } catch (err) {
         console.error("Critical error during upload:", err);
-        alert(`Critical Error: ${err.message}`);
+        error(`Critical error: ${err.message}`);
         setIsScanning(false);
     }
   };
 
   const handleAssignByTid = async () => {
     if (!assignMerchantId) {
-      alert("Please select a merchant first.");
+      error('Please select a merchant first.');
       return;
     }
     if (selectedTids.length === 0 && selectedQrIds.length === 0) {
-      alert("Please select at least one QR code.");
+      error('Please select at least one QR code.');
       return;
     }
     setIsAssigning(true);
@@ -292,16 +284,16 @@ const QrCodesAdminPage = () => {
     }
     
     if (errors.length > 0) {
-      alert(`⚠️ Errors:\n${errors.join('\n')}`);
+      error(errors.join(' | '));
     }
     if (successCount > 0) {
-      alert(`✅ Assigned ${successCount} QR code(s) successfully!`);
+      success(`Assigned ${successCount} QR code(s) successfully.`);
       setSelectedTids([]);
       setSelectedQrIds([]);
       setAssignTidInput('');
       setAssignMerchantId('');
     } else if (errors.length === 0) {
-      alert(`⚠️ 0 QR codes were updated. They may already be assigned.`);
+      error('0 QR codes were updated. They may already be assigned.');
     }
     setIsAssigning(false);
   };
@@ -321,11 +313,12 @@ const QrCodesAdminPage = () => {
             mid: editQrData.mid,
             tid: editQrData.tid
         });
+        if (!res?.success) throw new Error(res?.error || 'Failed to update QR code');
         setShowEditModal(false);
         setEditQrData(null);
-        alert("QR Code updated successfully!");
+        success('QR code updated successfully.');
     } catch (err) {
-        alert("Failed to update QR Code");
+        error(err.message || 'Failed to update QR code');
     }
   };
 
@@ -569,7 +562,6 @@ const QrCodesAdminPage = () => {
                                 style={{ padding: '10px 12px', cursor: 'pointer', color: '#e5e7eb', fontSize: '13px', borderBottom: '1px solid #374151', transition: 'background 0.2s' }}
                                 onMouseDown={(e) => {
                                   e.preventDefault(); // Stop onBlur from firing first
-                                  console.log("Selected TID from suggest:", q.tid);
                                   setSelectedTids(prev => [...new Set([...prev, q.tid])]);
                                   setAssignTidInput('');
                                   setShowTidSuggestions(false);
@@ -641,7 +633,7 @@ const QrCodesAdminPage = () => {
                         <button key={opt} className={`filter-btn-v2 ${assignFilter === opt ? 'active' : ''}`} onClick={() => setAssignFilter(opt)}>{opt}</button>
                      ))}
                   </div>
-                  <button className="refresh-btn-v2" onClick={() => window.location.reload()}>Refresh</button>
+                  <button className="refresh-btn-v2" onClick={fetchData}>Refresh</button>
                 </div>
               </div>
 
@@ -700,7 +692,6 @@ const QrCodesAdminPage = () => {
                             <tr 
                               key={item.id} 
                               onClick={() => {
-                                console.log("Row Click - Toggling ID:", item.id);
                                 if (selectedQrIds.includes(item.id)) {
                                   setSelectedQrIds(prev => prev.filter(id => id !== item.id));
                                 } else {
@@ -727,7 +718,7 @@ const QrCodesAdminPage = () => {
                                 <div className="qr-upi-cell">
                                   {item.imagePath ? (
                                       <div className="qr-thumb-small" style={{background: 'white', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                                          <img src={`http://localhost:4001${item.imagePath}`} alt="QR" style={{width: '20px', height: '20px', objectFit: 'contain'}} />
+                                          <img src={`${UPLOADS_BASE}${item.imagePath}`} alt="QR" style={{width: '20px', height: '20px', objectFit: 'contain'}} />
                                       </div>
                                   ) : (
                                       <div className="qr-thumb-small">▦</div>

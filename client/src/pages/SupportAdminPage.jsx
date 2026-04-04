@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import { useToast } from '../context/ToastContext';
 import './SupportPage.css';
 
 import { API_BASE } from '../config';
 
 const SupportAdminPage = () => {
+    const { success, error: showError } = useToast();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedTicket, setSelectedTicket] = useState(null);
@@ -67,19 +69,21 @@ const SupportAdminPage = () => {
             
             setSelectedTicket(null);
             fetchTickets();
+            success('Reply saved successfully.');
         } catch (err) {
-            alert(err.message);
+            showError(err.message);
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <div className="app-container">
+        <div className="dashboard-layout">
             <Sidebar />
             <div className="main-content">
                 <Header />
-                <div className="support-container">
+                <main className="dashboard-body animated">
+                <div className="support-container support-admin-container">
                     <header className="support-header">
                         <div className="support-header-icon">🎫</div>
                         <div>
@@ -88,59 +92,61 @@ const SupportAdminPage = () => {
                         </div>
                     </header>
 
-                    <section className="support-card admin-mode">
-                        <h2>Support Tickets Management</h2>
-                        <div className="tickets-table-container">
-                            {loading ? (
-                                <p>Loading tickets...</p>
-                            ) : error ? (
-                                <div className="error-state">
-                                    <strong>Error:</strong> {error}
-                                    <button onClick={fetchTickets}>Retry</button>
-                                </div>
-                            ) : !Array.isArray(tickets) || tickets.length === 0 ? (
-                                <p className="empty-state">No tickets to manage yet.</p>
-                            ) : (
-                                <table className="admin-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Merchant</th>
-                                            <th>Subject</th>
-                                            <th>Category</th>
-                                            <th>Status</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {tickets.map(ticket => (
-                                            <tr key={ticket.id}>
-                                                <td>{new Date(ticket.createdAt).toLocaleDateString()}</td>
-                                                <td>
-                                                    <div className="merchant-meta">
-                                                        <span className="merchant-name">{ticket.user?.profile?.businessName || ticket.user?.profile?.fullName || 'Individual'}</span>
-                                                        <span className="merchant-email">{ticket.user?.email}</span>
-                                                    </div>
-                                                </td>
-                                                <td><span style={{fontWeight: 600}}>{ticket.subject}</span></td>
-                                                <td><span className="category-tag">{ticket.category}</span></td>
-                                                <td>
-                                                    <span className={`status-pill ${ticket.status.toLowerCase()}`}>
-                                                        {ticket.status}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <button className="action-btn btn-reply" onClick={() => handleOpenModal(ticket)}>
-                                                        {ticket.adminReply ? 'Update Reply' : 'Reply'}
-                                                    </button>
-                                                </td>
+                    <div className="support-grid admin-mode">
+                        <section className="support-card admin-mode">
+                            <h2>Support Tickets Management</h2>
+                            <div className="tickets-table-container">
+                                {loading ? (
+                                    <p>Loading tickets...</p>
+                                ) : error ? (
+                                    <div className="error-state">
+                                        <strong>Error:</strong> {error}
+                                        <button onClick={fetchTickets}>Retry</button>
+                                    </div>
+                                ) : !Array.isArray(tickets) || tickets.length === 0 ? (
+                                    <p className="empty-state">No tickets to manage yet.</p>
+                                ) : (
+                                    <table className="admin-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Merchant</th>
+                                                <th>Subject</th>
+                                                <th>Category</th>
+                                                <th>Status</th>
+                                                <th>Action</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </section>
+                                        </thead>
+                                        <tbody>
+                                            {tickets.map(ticket => (
+                                                <tr key={ticket.id}>
+                                                    <td>{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                                                    <td>
+                                                        <div className="merchant-meta">
+                                                            <span className="merchant-name">{ticket.user?.profile?.businessName || ticket.user?.profile?.fullName || 'Individual'}</span>
+                                                            <span className="merchant-email">{ticket.user?.email}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td><span style={{fontWeight: 600}}>{ticket.subject}</span></td>
+                                                    <td><span className="category-tag">{ticket.category}</span></td>
+                                                    <td>
+                                                        <span className={`status-pill ${ticket.status.toLowerCase()}`}>
+                                                            {ticket.status}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <button className="action-btn btn-reply" onClick={() => handleOpenModal(ticket)}>
+                                                            {ticket.adminReply ? 'Update Reply' : 'Reply'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </section>
+                    </div>
 
                     {selectedTicket && (
                         <div className="reply-modal-overlay">
@@ -186,6 +192,7 @@ const SupportAdminPage = () => {
                         </div>
                     )}
                 </div>
+                </main>
             </div>
         </div>
     );

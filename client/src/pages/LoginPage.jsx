@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import './LoginPage.css';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, user } = useAuth();
+  const { info } = useToast();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,6 +42,16 @@ const LoginPage = () => {
     } else {
       setError(result.message);
     }
+  };
+
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    info('Please contact your admin or support team to reset your password.');
+  };
+
+  const handleCreateAccount = (e) => {
+    e.preventDefault();
+    info('Accounts are created by the admin team. Please ask your admin to onboard you.');
   };
 
   return (
@@ -140,7 +152,7 @@ const LoginPage = () => {
               <div className={`input-group ${isFocused === 'password' ? 'focused' : ''}`}>
                 <div className="label-row">
                   <label htmlFor="password">Password</label>
-                  <a href="#" className="forgot-link">Forgot?</a>
+                  <a href="/" className="forgot-link" onClick={handleForgotPassword}>Forgot?</a>
                 </div>
                 <div className="input-wrapper">
                   <svg className="input-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -149,7 +161,7 @@ const LoginPage = () => {
                   <input 
                     type="password" 
                     id="password" 
-                    placeholder="••••••••" 
+                    placeholder="Password" 
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -168,7 +180,7 @@ const LoginPage = () => {
             </form>
             
             <p className="auth-footer">
-              Don't have an account? <a href="#">Create one</a>
+              Don't have an account? <a href="/" onClick={handleCreateAccount}>Create one</a>
             </p>
           </div>
         </div>

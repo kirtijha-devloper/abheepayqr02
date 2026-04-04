@@ -8,7 +8,6 @@ const execAsync = promisify(exec);
 import path from "path";
 import fs from "fs";
 
-// Routes
 import authRoutes from "./routes/auth";
 import walletRoutes from "./routes/wallet";
 import usersRoutes from "./routes/users";
@@ -26,16 +25,17 @@ import settingsRoutes from "./routes/settings";
 import bankAccountsRoutes from "./routes/bankAccounts";
 import callbackLogsRoutes from "./routes/callbackLogs";
 import { errorHandler } from "./middleware/errorHandler";
+import { getJwtSecret } from "./utils/env";
 
 export const prisma = new PrismaClient();
+getJwtSecret();
 
 const app = express();
 
-// Ensure uploads directory exists (Try-Catch for Vercel read-only system)
 try {
   const uploadsDir = path.join(__dirname, "../uploads/qrcodes");
   if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    fs.mkdirSync(uploadsDir, { recursive: true });
   }
 } catch (e) {
   console.warn("Could not create uploads directory (Expected on Vercel)");
@@ -43,30 +43,46 @@ try {
 
 const PORT = process.env.PORT || 4001;
 
+const configuredFrontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+const allowedOrigins = new Set([
+  configuredFrontendUrl,
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://ebazars.in",
+  "http://ebazars.in",
+  "https://kailasha247.com",
+  "http://kailasha247.com",
+]);
+
+if (configuredFrontendUrl.includes("localhost")) {
+  allowedOrigins.add(configuredFrontendUrl.replace("localhost", "127.0.0.1"));
+}
+if (configuredFrontendUrl.includes("127.0.0.1")) {
+  allowedOrigins.add(configuredFrontendUrl.replace("127.0.0.1", "localhost"));
+}
+
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || "http://localhost:5173",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://ebazars.in",
-    "http://ebazars.in",
-    "https://kailasha247.com",
-    "http://kailasha247.com"
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
   credentials: true,
 }));
 
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// Health check
 app.get("/health", (_req, res) => {
-  const msg = `[${new Date().toISOString()}] Health check hit from ${_req.ip}`;
-  console.log(msg);
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-// API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/users", usersRoutes);
@@ -84,11 +100,10 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/bank-accounts", bankAccountsRoutes);
 app.use("/api/callback-logs", callbackLogsRoutes);
 
-// Global Error Handler must be the last middleware
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`✅ AbheePay backend running on http://localhost:${PORT}`);
+  console.log(`AbheePay backend listening on port ${PORT}`);
 });
 
 export default app;

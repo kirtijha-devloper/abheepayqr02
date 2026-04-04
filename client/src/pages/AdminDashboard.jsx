@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import MetricCard from '../components/MetricCard';
@@ -19,6 +20,7 @@ const trendData = [
 const COLORS = ['#8B5CF6', '#FCA5A5'];
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const { transactions, merchants, qrCodes } = useAppContext();
 
   const metrics = useMemo(() => {
@@ -74,7 +76,9 @@ const AdminDashboard = () => {
                 <span className="admin-hero-stat-value">{metrics.todaysCount}</span>
                 <span className="admin-hero-stat-label">TOTAL REQUESTS</span>
               </div>
-              <button className="admin-cta-btn">View System Logs</button>
+              <button className="admin-cta-btn" onClick={() => navigate('/admin/callbacks')}>
+                View System Logs
+              </button>
             </div>
           </div>
 
@@ -86,6 +90,7 @@ const AdminDashboard = () => {
               iconBg="accent"
               change="+5"
               period="new this week"
+              to="/admin/merchants"
             />
             <MetricCard 
               title="SYSTEM SUCCESS" 
@@ -94,6 +99,7 @@ const AdminDashboard = () => {
               iconBg="success"
               change="+0.2%"
               period="vs last month"
+              to="/admin/transactions"
             />
             <MetricCard 
               title="ACTIVE QR CODES" 
@@ -101,6 +107,7 @@ const AdminDashboard = () => {
               icon="⊞" 
               iconBg="warning"
               period="on-field devices"
+              to="/admin/qr-codes"
             />
             <MetricCard 
               title="PENDING PAYOUTS" 
@@ -108,6 +115,7 @@ const AdminDashboard = () => {
               icon="💳" 
               iconBg="danger"
               period="requires approval"
+              to="/admin/settlements"
             />
           </div>
 
@@ -115,7 +123,7 @@ const AdminDashboard = () => {
             <div className="activity-card card">
               <div className="activity-header">
                 <h3 className="activity-title">Live Transaction Trend</h3>
-                <a href="#" className="view-all-link">Detailed Analytics</a>
+                <button type="button" className="view-all-link" onClick={() => navigate('/admin/transactions')}>Detailed Analytics</button>
               </div>
               <div className="chart-canvas">
                 <ResponsiveContainer width="100%" height={260}>
@@ -141,14 +149,14 @@ const AdminDashboard = () => {
             <h3 className="section-title">SYSTEM ALERTS & ACTIVITY</h3>
             <div className="activity-list">
                 <div className="activity-item">
-                    <span className="activity-icon warning">⚠️</span>
+                    <span className="activity-icon warning">Warn</span>
                     <div className="activity-details">
                         <p>Merchant <strong>Sub-Agent 04</strong> reached 90% of their daily limit.</p>
                         <span className="activity-time">2 mins ago</span>
                     </div>
                 </div>
                 <div className="activity-item">
-                    <span className="activity-icon info">ℹ️</span>
+                    <span className="activity-icon info">Info</span>
                     <div className="activity-details">
                         <p>New Merchant <strong>Global Tech</strong> registered and awaiting verification.</p>
                         <span className="activity-time">1 hour ago</span>

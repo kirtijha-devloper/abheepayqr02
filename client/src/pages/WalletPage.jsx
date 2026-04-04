@@ -1,106 +1,135 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import './WalletPage.css';
 
+const defaultPayoutConfig = { type: 'flat', ranges: [], default: 0 };
+
 const WalletPage = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
   const { user } = useAuth();
-  const { wallet, walletHistory, addFunds, requestFunds, requestSettlement, bankAccounts, getSystemSetting } = useAppContext();
-  
+  const { success, error, info } = useToast();
+  const { wallet, walletHistory, requestFunds, requestSettlement, bankAccounts, getSystemSetting } = useAppContext();
+
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState('');
   const [payoutFee, setPayoutFee] = useState(0);
   const [payoutTotal, setPayoutTotal] = useState(0);
   const [payoutLoading, setPayoutLoading] = useState(false);
-  const [chargeType, setChargeType] = useState('flat');
-  const [chargeValue, setChargeValue] = useState(0);
+  const [payoutConfig, setPayoutConfig] = useState(defaultPayoutConfig);
   const [selectedBankId, setSelectedBankId] = useState('');
   const [showFundModal, setShowFundModal] = useState(false);
   const [fundAmount, setFundAmount] = useState('');
   const [fundRemarks, setFundRemarks] = useState('');
   const [fundLoading, setFundLoading] = useState(false);
+  const itemsPerPage = 10;
 
   const handleOpenPayout = async () => {
     if (bankAccounts.length === 0) {
-        alert("Please add a bank account in Settings first.");
-        return;
+      info('Please add a bank account in Settings first.');
+      navigate('/settings');
+      return;
     }
+
     const configStr = await getSystemSetting('payout_config');
-    let config = { type: 'flat', ranges: [], default: 0 };
+    let config = defaultPayoutConfig;
     try {
-        if (configStr) config = JSON.parse(configStr);
-    } catch (e) {}
-    
-    setChargeType(config.type || 'flat');
-    // We'll store the whole ranges array in a temporary state if needed, 
-    // but for the preview we just need to re-calculate based on the amount.
-    // Let's just store the config itself for easier use in useEffect.
-    setChargeValue(config); 
+      if (configStr) config = JSON.parse(configStr);
+    } catch (e) {
+      config = defaultPayoutConfig;
+    }
+
+    setPayoutConfig(config);
+    setSelectedBankId('');
+    setPayoutAmount('');
     setShowPayoutModal(true);
   };
 
   useEffect(() => {
-    const amt = Number(payoutAmount) || 0;
+    const amount = Number(payoutAmount) || 0;
+    const applicableRange = payoutConfig.ranges?.find((range) => amount >= range.min && amount <= range.max);
+
     let fee = 0;
-    const config = chargeValue && typeof chargeValue === 'object' ? chargeValue : { ranges: [], default: 0, type: 'flat' };
-    
-    const applicableRange = config.ranges?.find(r => amt >= r.min && amt <= r.max);
-    
     if (applicableRange) {
-      fee = config.type === 'percentage' ? amt * (applicableRange.value / 100) : applicableRange.value;
-    } else {
-      fee = amt > 0 ? (config.type === 'percentage' ? amt * (config.default / 100) : config.default) : 0;
+      fee = payoutConfig.type === 'percentage'
+        ? amount * (applicableRange.value / 100)
+        : applicableRange.value;
+    } else if (amount > 0) {
+      fee = payoutConfig.type === 'percentage'
+        ? amount * ((payoutConfig.default || 0) / 100)
+        : (payoutConfig.default || 0);
     }
-    
+
     setPayoutFee(fee);
-    setPayoutTotal(amt + fee);
-  }, [payoutAmount, chargeValue]);
+    setPayoutTotal(amount + fee);
+  }, [payoutAmount, payoutConfig]);
+
+  const chargeLabel = payoutConfig.type === 'percentage'
+    ? `${payoutConfig.default || 0}% default`
+    : `Rs ${payoutConfig.default || 0} default`;
 
   const handleConfirmPayout = async () => {
-    if (!payoutAmount || Number(payoutAmount) <= 0) return alert("Enter valid amount");
-    if (!selectedBankId) return alert("Please select a bank account");
-    if (payoutTotal > wallet.balance) return alert("Insufficient wallet balance");
+    if (!payoutAmount || Number(payoutAmount) <= 0) return error('Enter a valid amount.');
+    if (!selectedBankId) return error('Please select a bank account.');
+    if (payoutTotal > Number(wallet?.balance || 0)) return error('Insufficient wallet balance.');
 
     setPayoutLoading(true);
     const res = await requestSettlement(payoutAmount, selectedBankId);
     setPayoutLoading(false);
 
     if (res.success) {
-      alert("Settlement request submitted successfully! Funds are on hold pending approval.");
+      success('Settlement request submitted successfully. Funds are on hold pending approval.');
       setShowPayoutModal(false);
       setPayoutAmount('');
+      setSelectedBankId('');
     } else {
-      alert(res.error || "Request failed");
+      error(res.error || 'Settlement request failed.');
     }
   };
 
   const handleConfirmFundRequest = async () => {
-    if (!fundAmount || Number(fundAmount) <= 0) return alert("Enter valid amount");
+    if (!fundAmount || Number(fundAmount) <= 0) return error('Enter a valid amount.');
     setFundLoading(true);
     const res = await requestFunds(fundAmount, fundRemarks);
-    setFundLoading(true);
+    setFundLoading(false);
+
     if (res.success) {
-      alert("Fund request submitted! Please deposit the amount to the company bank account. Your wallet will be credited once admin approves.");
+      success('Fund request submitted. Your wallet will be credited once the admin approves it.');
       setShowFundModal(false);
       setFundAmount('');
       setFundRemarks('');
     } else {
-      alert(res.error || "Request failed");
+      error(res.error || 'Fund request failed.');
     }
-    setFundLoading(false);
   };
 
-  const filteredTransactions = (walletHistory || []).filter(t => {
-      if (!t) return false;
-      if (activeTab === 'All') return true;
-      const isDebit = Number(t.amount) < 0;
-      if (activeTab === 'Debit') return isDebit;
-      if (activeTab === 'Credit') return !isDebit;
-      return true;
+  const filteredTransactions = (walletHistory || []).filter((item) => {
+    if (!item) return false;
+    if (activeTab === 'All') return true;
+    const isDebit = Number(item.amount) < 0;
+    if (activeTab === 'Debit') return isDebit;
+    if (activeTab === 'Credit') return !isDebit;
+    return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / itemsPerPage));
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, walletHistory.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="dashboard-layout">
@@ -118,7 +147,7 @@ const WalletPage = () => {
           <div className="wallet-balance-card">
             <div className="balance-info-wrapper">
               <div className="balance-label">CURRENT BALANCE</div>
-              <div className="balance-value">₹ {(Number(wallet?.balance) || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+              <div className="balance-value">Rs {(Number(wallet?.balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
               <div className="balance-stats-row">
                 <div className="stat-badge">
                   <span className="stat-label">Currency:</span>
@@ -126,115 +155,83 @@ const WalletPage = () => {
                 </div>
                 <div className="stat-badge">
                   <span className="stat-label">Status:</span>
-                  <span className="stat-value" style={{color: 'var(--success)'}}>Active</span>
+                  <span className="stat-value" style={{ color: 'var(--success)' }}>Active</span>
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              {/* Only show Settlement for Merchants */}
+            <div className="wallet-actions">
               {user?.role !== 'admin' && (
                 <>
-                  <button 
-                    className="request-funds-btn" 
-                    onClick={() => setShowFundModal(true)}
-                    style={{ background: 'var(--primary)', border: '1px solid rgba(255,255,255,0.1)', padding: '12px 24px', borderRadius: '12px', color: '#fff', fontWeight: '600' }}
-                  >
-                    <span>➕</span> Add Money
+                  <button className="request-funds-btn" onClick={() => setShowFundModal(true)}>
+                    <span>Add</span> Add Money
                   </button>
-                  <button 
-                    className="request-funds-btn" 
-                    onClick={handleOpenPayout}
-                    style={{ background: 'var(--success)', border: '1px solid rgba(255,255,255,0.1)', padding: '12px 24px', borderRadius: '12px', color: '#fff', fontWeight: '600' }}
-                  >
-                    <span>💸</span> Request Settlement
+                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout}>
+                    <span>Settle</span> Request Settlement
                   </button>
                 </>
               )}
             </div>
           </div>
 
-          {/* Payout Modal */}
           {showPayoutModal && (
-            <div className="modal-overlay" style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-              padding: '20px'
-            }}>
-              <div className="payout-modal card animated-scale-up" style={{
-                width: '100%', maxWidth: '420px', background: '#0f172a', 
-                border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px',
-                padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
-              }}>
+            <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+              <div className="payout-modal card animated-scale-up" style={{ width: '100%', maxWidth: '420px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h3 style={{ margin: 0, color: '#fff', fontSize: '20px' }}>Withdraw Funds</h3>
                   <button onClick={() => setShowPayoutModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '24px' }}>&times;</button>
                 </div>
 
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Select Bank Account</label>
-                    <select 
-                      value={selectedBankId}
-                      onChange={e => setSelectedBankId(e.target.value)}
-                      style={{
-                        width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px'
-                      }}
-                    >
-                      <option value="">-- Choose Account --</option>
-                      {bankAccounts.map(b => (
-                        <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Select Bank Account</label>
+                  <select
+                    value={selectedBankId}
+                    onChange={(e) => setSelectedBankId(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px' }}
+                  >
+                    <option value="">-- Choose Account --</option>
+                    {bankAccounts.map((bank) => (
+                      <option key={bank.id} value={bank.id}>{bank.bankName} - {bank.accountNumber}</option>
+                    ))}
+                  </select>
+                </div>
 
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Amount to Request (₹)</label>
-                    <input 
-                      type="number" 
-                      placeholder="0.00"
-                      value={payoutAmount}
-                      onChange={e => setPayoutAmount(e.target.value)}
-                      style={{
-                        width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '12px', padding: '16px', color: '#fff', fontSize: '24px', fontWeight: '700'
-                      }}
-                    />
-                  </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Amount to Request (Rs)</label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    value={payoutAmount}
+                    onChange={(e) => setPayoutAmount(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '16px', color: '#fff', fontSize: '24px', fontWeight: '700' }}
+                  />
+                </div>
 
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <span style={{ color: '#94a3b8', fontSize: '14px' }}>Admin Fee ({chargeType === 'flat' ? `₹${chargeValue} flat` : `${chargeValue}%`})</span>
-                    <span style={{ color: '#ef4444', fontWeight: '600' }}>+ ₹{payoutFee.toFixed(2)}</span>
+                    <span style={{ color: '#94a3b8', fontSize: '14px' }}>Admin Fee ({chargeLabel})</span>
+                    <span style={{ color: '#ef4444', fontWeight: '600' }}>+ Rs {payoutFee.toFixed(2)}</span>
                   </div>
                   <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', marginBottom: '12px' }}></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#fff', fontWeight: '600' }}>Total Deduction</span>
-                    <span style={{ color: '#fff', fontWeight: '800', fontSize: '18px' }}>₹{payoutTotal.toFixed(2)}</span>
+                    <span style={{ color: '#fff', fontWeight: '800', fontSize: '18px' }}>Rs {payoutTotal.toFixed(2)}</span>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button 
-                    onClick={() => setShowPayoutModal(false)}
-                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', fontWeight: '600', cursor: 'pointer' }}
-                  >
+                  <button onClick={() => setShowPayoutModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', fontWeight: '600', cursor: 'pointer' }}>
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleConfirmPayout}
-                    disabled={payoutLoading || !payoutAmount || payoutTotal > (Number(wallet?.balance) || 0)}
-                    style={{ 
-                      flex: 1, padding: '14px', borderRadius: '12px', border: 'none', 
-                      background: 'var(--primary)', color: '#fff', fontWeight: '700', cursor: 'pointer',
-                      opacity: (payoutLoading || !payoutAmount || payoutTotal > (Number(wallet?.balance) || 0)) ? 0.5 : 1
-                    }}
+                    disabled={payoutLoading || !payoutAmount || payoutTotal > Number(wallet?.balance || 0)}
+                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: '700', cursor: 'pointer', opacity: (payoutLoading || !payoutAmount || payoutTotal > Number(wallet?.balance || 0)) ? 0.5 : 1 }}
                   >
-                    {payoutLoading ? "Processing..." : "Confirm Payout"}
+                    {payoutLoading ? 'Processing...' : 'Confirm Payout'}
                   </button>
                 </div>
-                {payoutTotal > (Number(wallet?.balance) || 0) && (
-                  <p style={{ color: '#ef4444', fontSize: '12px', textAlign: 'center', marginTop: '12px', margin: '12px 0 0 0' }}>
+                {payoutTotal > Number(wallet?.balance || 0) && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', textAlign: 'center', margin: '12px 0 0 0' }}>
                     Insufficient balance for this payout.
                   </p>
                 )}
@@ -242,68 +239,45 @@ const WalletPage = () => {
             </div>
           )}
 
-          {/* Fund Request Modal */}
           {showFundModal && (
-            <div className="modal-overlay" style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-              padding: '20px'
-            }}>
-              <div className="payout-modal card animated-scale-up" style={{
-                width: '100%', maxWidth: '420px', background: '#0f172a', 
-                border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px',
-                padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
-              }}>
+            <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+              <div className="payout-modal card animated-scale-up" style={{ width: '100%', maxWidth: '420px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h3 style={{ margin: 0, color: '#fff', fontSize: '20px' }}>Add Funds to Wallet</h3>
                   <button onClick={() => setShowFundModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '24px' }}>&times;</button>
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Amount to Add (₹)</label>
-                  <input 
-                    type="number" 
+                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Amount to Add (Rs)</label>
+                  <input
+                    type="number"
                     placeholder="0.00"
                     value={fundAmount}
-                    onChange={e => setFundAmount(e.target.value)}
-                    style={{
-                      width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '12px', padding: '16px', color: '#fff', fontSize: '24px', fontWeight: '700'
-                    }}
+                    onChange={(e) => setFundAmount(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '16px', color: '#fff', fontSize: '24px', fontWeight: '700' }}
                   />
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
                   <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Remarks (UTR / Ref No.)</label>
-                  <textarea 
+                  <textarea
                     placeholder="Enter payment details..."
                     value={fundRemarks}
-                    onChange={e => setFundRemarks(e.target.value)}
-                    style={{
-                      width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px', minHeight: '80px', resize: 'none'
-                    }}
+                    onChange={(e) => setFundRemarks(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px', minHeight: '80px', resize: 'none' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button 
-                    onClick={() => setShowFundModal(false)}
-                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', fontWeight: '600', cursor: 'pointer' }}
-                  >
+                  <button onClick={() => setShowFundModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', fontWeight: '600', cursor: 'pointer' }}>
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleConfirmFundRequest}
                     disabled={fundLoading || !fundAmount}
-                    style={{ 
-                      flex: 1, padding: '14px', borderRadius: '12px', border: 'none', 
-                      background: 'var(--primary)', color: '#fff', fontWeight: '700', cursor: 'pointer',
-                      opacity: (fundLoading || !fundAmount) ? 0.5 : 1
-                    }}
+                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: '700', cursor: 'pointer', opacity: (fundLoading || !fundAmount) ? 0.5 : 1 }}
                   >
-                    {fundLoading ? "Requesting..." : "Submit Request"}
+                    {fundLoading ? 'Requesting...' : 'Submit Request'}
                   </button>
                 </div>
               </div>
@@ -313,11 +287,11 @@ const WalletPage = () => {
           <div className="wallet-history-section card">
             <div className="history-toolbar">
               <h3 className="history-title">Funds Movement History</h3>
-              <div className="txn-filters">
-                {['All', 'Debit', 'Credit'].map(tab => (
-                  <button 
-                    key={tab} 
-                    className={`txn-pill-filter ${activeTab === tab ? 'active' : ''}`}
+              <div className="wallet-filter-group">
+                {['All', 'Debit', 'Credit'].map((tab) => (
+                  <button
+                    key={tab}
+                    className={`wallet-filter-btn ${activeTab === tab ? 'active' : ''}`}
                     onClick={() => setActiveTab(tab)}
                   >
                     {tab}
@@ -339,7 +313,7 @@ const WalletPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransactions.map((item, idx) => (
+                  {paginatedTransactions.map((item, idx) => (
                     <tr key={idx}>
                       <td className="date-cell">{new Date(item.createdAt).toLocaleString()}</td>
                       <td className="ref-cell">{item.id.substring(0, 12)}...</td>
@@ -349,21 +323,28 @@ const WalletPage = () => {
                         </span>
                       </td>
                       <td className={`amount-cell ${(item.type || '').toLowerCase()}`}>
-                        {item.type === 'debit' || Number(item.amount) < 0 ? '-' : '+'}₹{Math.abs(Number(item.amount) || 0).toFixed(2)}
+                        {item.type === 'debit' || Number(item.amount) < 0 ? '-' : '+'}Rs {Math.abs(Number(item.amount) || 0).toFixed(2)}
                       </td>
-                      <td className="after-cell">₹ { (Number(item.toBalanceAfter) || 0).toFixed(2) }</td>
-                      <td className="note-cell">{item.description || '—'}</td>
+                      <td className="after-cell">Rs {(Number(item.toBalanceAfter) || 0).toFixed(2)}</td>
+                      <td className="note-cell">{item.description || 'No note'}</td>
                     </tr>
                   ))}
+                  {filteredTransactions.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="wallet-empty-state">
+                        No wallet records found for this filter.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-                        <div className="txn-table-footer">
-               <span className="txn-count-text">Showing {filteredTransactions.length} of {walletHistory.length} records</span>
+            <div className="txn-table-footer">
+              <span className="txn-count-text">Showing {paginatedTransactions.length} of {filteredTransactions.length} records</span>
               <div className="pagination-v2">
-                <button className="nav-btn-v2">Prev</button>
-                <button className="nav-num-v2 active">1</button>
-                <button className="nav-btn-v2">Next</button>
+                <button className="nav-btn-v2" type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1}>Prev</button>
+                <button className="nav-num-v2 active" type="button">{currentPage}</button>
+                <button className="nav-btn-v2" type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages || filteredTransactions.length === 0}>Next</button>
               </div>
             </div>
           </div>

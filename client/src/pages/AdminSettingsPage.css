@@ -18,9 +18,14 @@
 
 .settings-grid {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
   gap: 2rem;
   align-items: start;
+}
+
+.settings-nav-sidebar,
+.settings-main-portal {
+  min-width: 0;
 }
 
 /* Settings Nav Sidebar */
@@ -119,6 +124,7 @@
 /* Main Portal Content */
 .portal-card {
   margin-bottom: 1.5rem;
+  overflow: hidden;
 }
 
 .portal-header {
@@ -140,6 +146,7 @@
 
 .portal-content {
   padding: 2rem;
+  min-width: 0;
 }
 
 /* Form Styles */
@@ -169,6 +176,7 @@
 
 .premium-input,
 .premium-select {
+  width: 100%;
   background: var(--bg-card-2);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -188,6 +196,21 @@
 
 .premium-select {
   cursor: pointer;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #94A3B8 50%),
+    linear-gradient(135deg, #94A3B8 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2.5rem;
+}
+
+.premium-select option {
+  background: #191b2a;
+  color: var(--text-h);
 }
 
 /* Switches */
@@ -319,6 +342,7 @@ input:checked + .switch-slider:before {
   margin-top: 2rem;
   padding-top: 2rem;
   border-top: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .settings-save-btn {
@@ -352,6 +376,112 @@ input:checked + .switch-slider:before {
 .settings-cancel-btn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-h);
+}
+
+.settings-section-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.settings-helper-text {
+  font-size: 0.8125rem;
+  color: var(--text-mute);
+  margin-bottom: 0.75rem;
+}
+
+.payout-config-block {
+  margin-bottom: 1.5rem;
+}
+
+.payout-ranges-header-block {
+  margin-bottom: 0.75rem;
+}
+
+.payout-range-head {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 40px;
+  gap: 0.625rem;
+  padding: 0 0.25rem;
+}
+
+.payout-range-head span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.payout-ranges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-bottom: 0.75rem;
+}
+
+.payout-range-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 40px;
+  gap: 0.625rem;
+  align-items: center;
+  padding: 0.75rem 0.875rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.payout-readonly-input {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-mute);
+  cursor: not-allowed;
+  border-color: transparent;
+}
+
+.payout-delete-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.payout-add-btn {
+  width: 100%;
+  padding: 0.8rem;
+  border-radius: 12px;
+  background: rgba(124, 108, 248, 0.08);
+  border: 1px dashed var(--primary);
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.payout-add-btn:hover {
+  background: rgba(124, 108, 248, 0.14);
+  transform: translateY(-1px);
+}
+
+.payout-default-block {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.payout-default-input {
+  max-width: 220px;
 }
 
 .empty-portal {
@@ -400,6 +530,17 @@ input:checked + .switch-slider:before {
     width: 20px;
     height: 3px;
     border-radius: 3px 3px 0 0;
+  }
+
+  .portal-content,
+  .portal-header {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .payout-range-head,
+  .payout-range-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 36px;
   }
 }
 
@@ -473,4 +614,44 @@ input:checked + .switch-slider:before {
 .premium-btn.primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(124, 108, 248, 0.4);
+}
+
+@media (max-width: 720px) {
+  .settings-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .settings-header h2 {
+    font-size: 1.6rem;
+  }
+
+  .form-grid-v2,
+  .form-row-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-actions {
+    justify-content: stretch;
+  }
+
+  .settings-save-btn,
+  .settings-cancel-btn {
+    width: 100%;
+  }
+
+  .payout-range-head {
+    display: none;
+  }
+
+  .payout-range-row {
+    grid-template-columns: 1fr;
+  }
+
+  .payout-delete-btn {
+    width: 100%;
+  }
+
+  .payout-default-input {
+    max-width: 100%;
+  }
 }

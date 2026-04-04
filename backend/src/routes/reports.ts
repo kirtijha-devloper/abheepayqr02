@@ -118,10 +118,6 @@ router.post("/upload", requireAuth, requireAdmin, upload.single("report"), async
     // Convert to JSON with headers mapped to lowercase and trimmed
     const rawData: any[] = XLSX.utils.sheet_to_json(worksheet);
     
-    if (rawData.length > 0) {
-        console.log("[REPORT DEBUG] First raw row keys:", Object.keys(rawData[0]));
-    }
-
     // Normalize headers: lowercase and trim
     const results = rawData.map(row => {
         const normalizedRow: any = {};
@@ -132,7 +128,6 @@ router.post("/upload", requireAuth, requireAdmin, upload.single("report"), async
     });
 
     if (results.length > 0) {
-        console.log("[REPORT DEBUG] First normalized row:", results[0]);
         // Only write debug files locally
         if (!process.env.VERCEL) {
             fs.writeFileSync("last_report_debug.json", JSON.stringify({

@@ -24,14 +24,20 @@ const CallbacksPage = () => {
         try {
             const token = sessionStorage.getItem('authToken');
             const [profileRes, logsRes] = await Promise.all([
-                fetch(`${API_BASE}/auth/profile`, { 
+                fetch(`${API_BASE}/users/profile`, { 
                     headers: { 'Authorization': `Bearer ${token}` },
                     credentials: 'include' 
-                }).then(r => r.json()),
+                }).then(async (r) => {
+                    if (!r.ok) throw new Error('Failed to fetch profile');
+                    return r.json();
+                }),
                 fetch(`${API_BASE}/callback-logs`, { 
                     headers: { 'Authorization': `Bearer ${token}` },
                     credentials: 'include' 
-                }).then(r => r.json())
+                }).then(async (r) => {
+                    if (!r.ok) throw new Error('Failed to fetch callback logs');
+                    return r.json();
+                })
             ]);
             setCallbackUrl(profileRes.callbackUrl || '');
             setLogs(logsRes || []);

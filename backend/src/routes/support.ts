@@ -9,10 +9,8 @@ router.get("/tickets", requireAuth, async (req: AuthRequest, res) => {
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
     const isAdmin = roleRow?.role === "admin";
-    console.log(`[Support] Fetching tickets for user ${req.userId}. Role: ${roleRow?.role}, isAdmin: ${isAdmin}`);
 
     const where = isAdmin ? {} : { userId: req.userId! };
-    const totalInDb = await prisma.supportTicket.count();
     const tickets = await prisma.supportTicket.findMany({
       where,
       include: {
@@ -30,7 +28,6 @@ router.get("/tickets", requireAuth, async (req: AuthRequest, res) => {
       },
       orderBy: { createdAt: "desc" },
     });
-    console.log(`[Support] Total in DB: ${totalInDb}, Returned to user: ${tickets.length}`);
 
     res.json(tickets);
   } catch (e: any) {
