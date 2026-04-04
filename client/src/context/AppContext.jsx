@@ -47,7 +47,9 @@ export const AppProvider = ({ children }) => {
 
             if (results[1].status === 'fulfilled' && results[1].value.ok) {
                 const data = await results[1].value.json();
-                if (Array.isArray(data)) setMerchants(data);
+                if (Array.isArray(data)) {
+                    setMerchants(data.filter((user) => user.role !== 'admin'));
+                }
             }
 
             if (results[2].status === 'fulfilled' && results[2].value.ok) {
@@ -214,16 +216,23 @@ export const AppProvider = ({ children }) => {
                 headers: getHeaders(),
                 body: JSON.stringify({
                     email: merchant.email,
-                    password: 'Password123!', // Default password
+                    password: merchant.password,
                     full_name: merchant.name,
                     role: 'retailer',
-                    business_name: merchant.name,
-                    phone: '0000000000'
+                    business_name: merchant.businessName || merchant.name,
+                    phone: merchant.phone || '',
+                    callbackUrl: merchant.callbackUrl || null
                 })
             });
-            if (res.ok) await fetchData();
+            const data = await res.json();
+            if (res.ok) {
+                await fetchData();
+                return { success: true, data };
+            }
+            return { success: false, error: data.error || 'Failed to create merchant' };
         } catch (err) {
             console.error("Add merchant failed", err);
+            return { success: false, error: "Network error" };
         }
     };
 
@@ -253,9 +262,15 @@ export const AppProvider = ({ children }) => {
                 headers: getHeaders(),
                 body: JSON.stringify({ status })
             });
-            if (res.ok) await fetchData();
+            if (res.ok) {
+                await fetchData();
+                return { success: true };
+            }
+            const data = await res.json();
+            return { success: false, error: data.error || 'Failed to update merchant status' };
         } catch (err) {
             console.error("Update merchant status failed", err);
+            return { success: false, error: "Network error" };
         }
     };
 
@@ -399,21 +414,22 @@ export const AppProvider = ({ children }) => {
     };
 
     const updateQrCode = async (id, qrData) => {
-        console.log(`Updating QR ${id} with:`, qrData);
         try {
             const res = await fetch(`${API_BASE}/qrcodes/${id}`, {
                 method: 'PATCH',
                 headers: getHeaders(),
                 body: JSON.stringify(qrData)
             });
-            console.log(`Update QR response: ${res.status}`);
-            if (res.ok) await fetchData();
-            else {
-                const errData = await res.json();
-                console.error("Update QR failed server-side:", errData);
+            if (res.ok) {
+                await fetchData();
+                return { success: true };
             }
+            const errData = await res.json();
+            console.error("Update QR failed server-side:", errData);
+            return { success: false, error: errData.error || 'Update failed' };
         } catch (err) {
             console.error("Update QR network error:", err);
+            return { success: false, error: 'Network error' };
         }
     };
 

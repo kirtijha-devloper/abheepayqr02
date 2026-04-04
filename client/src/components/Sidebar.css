@@ -11,6 +11,23 @@
   top: 0;
   z-index: 100;
   overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 15, 0.62);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 140;
+}
+
+.sidebar-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Logo */
@@ -189,3 +206,36 @@
 }
 
 .logout-btn:hover { opacity: 0.7; }
+
+@media (max-width: 940px) {
+  .sidebar {
+    width: min(82vw, 320px);
+    transform: translateX(-100%);
+    z-index: 150;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-footer {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    width: min(88vw, 320px);
+  }
+
+  .sidebar-nav {
+    gap: 1px;
+  }
+
+  .nav-item {
+    gap: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem;
+  }
+}

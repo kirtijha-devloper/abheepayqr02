@@ -27,8 +27,6 @@ export async function triggerTransactionCallback(transactionId: string) {
       sender: txn.sender
     };
 
-    console.log(`[Callback] Triggering for txn ${transactionId} to ${callbackUrl}`);
-
     // Create a pending log entry
     const log = await prisma.transactionCallbackLog.create({
       data: {
@@ -61,8 +59,6 @@ export async function triggerTransactionCallback(transactionId: string) {
           response: responseText.slice(0, 1000) // Limit response log
         }
       });
-
-      console.log(`[Callback] Result for ${transactionId}: ${response.status}`);
     } catch (err: any) {
       console.error(`[Callback] Error for ${transactionId}:`, err.message);
       await prisma.transactionCallbackLog.update({

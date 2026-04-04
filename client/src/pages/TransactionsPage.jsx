@@ -2,12 +2,14 @@ import React, { useState, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import './TransactionsPage.css';
 
 import { API_BASE } from '../config';
 
 const TransactionsPage = () => {
   const { transactions } = useAppContext();
+  const { success, error } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [resendingId, setResendingId] = useState(null);
@@ -22,10 +24,10 @@ const TransactionsPage = () => {
         credentials: 'include'
       });
       if (!res.ok) throw new Error("Retry failed");
-      alert("Callback re-triggered successfully!");
+      success('Callback re-triggered successfully.');
     } catch (err) {
       console.error("Callback retry failed:", err);
-      alert("Failed to re-trigger callback.");
+      error('Failed to re-trigger callback.');
     } finally {
       setResendingId(null);
     }

@@ -2,8 +2,9 @@ import { Request, Response } from "express";
 import { prisma } from "../index";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from "../utils/env";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
+const JWT_SECRET = getJwtSecret();
 
 export const registerUser = async (req: Request, res: Response) => {
   const { email, password, fullName, role } = req.body;

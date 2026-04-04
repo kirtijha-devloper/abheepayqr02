@@ -2,10 +2,12 @@ import React from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import './ReconciliationPage.css';
 
 const ReconciliationPage = () => {
   const { uploadReport, mappingTrace, fetchMappingTrace } = useAppContext();
+  const { success, error } = useToast();
   const fileInputRef = React.useRef(null);
   const [uploadStatus, setUploadStatus] = React.useState('');
   const [isUploading, setIsUploading] = React.useState(false);
@@ -33,11 +35,11 @@ const ReconciliationPage = () => {
             errors ? `Errors ${errors}` : null
         ].filter(Boolean).join(", ");
         setUploadStatus(`Success: ${details}`);
-        alert(`Upload complete. ${details}`);
+        success(`Upload complete. ${details}`);
         fetchMappingTrace();
     } else {
         setUploadStatus(`Error: ${result.error}`);
-        alert(`Upload failed: ${result.error}`);
+        error(`Upload failed: ${result.error}`);
     }
   };
 
@@ -105,7 +107,7 @@ const ReconciliationPage = () => {
                   className={`recon-card card ${isUploading ? 'disabled' : ''}`}
                 >
                 <div className="recon-icon-banner">
-                    <div className="recon-banner-icon">{isUploading && type.name === 'Manual Upload' ? 'â³' : 'ðŸ“‚'}</div>
+                    <div className="recon-banner-icon">{isUploading && type.name === 'Manual Upload' ? '...' : 'File'}</div>
                 </div>
                 <div className="recon-content">
                     <h3>{type.name} Settlement</h3>
@@ -118,7 +120,7 @@ const ReconciliationPage = () => {
                         onDrop={type.name === 'Manual Upload' ? onDrop : undefined}
                         style={{cursor: type.name === 'Manual Upload' ? 'pointer' : 'default'}}
                     >
-                        <span className="upload-icon">â˜ï¸</span>
+                        <span className="upload-icon">Upload</span>
                         <p>{isUploading && type.name === 'Manual Upload' ? 'Processing...' : <>Drag file or <span>select export</span></>}</p>
                     </div>
                 </div>
@@ -131,7 +133,7 @@ const ReconciliationPage = () => {
               <h3 className="section-title">Recent Recon Logs</h3>
             </div>
             <div className="empty-state-v2">
-                <span>ðŸ•</span>
+                <span>Logs</span>
                 <p>No reconciliation runs found for this period.</p>
             </div>
           </div>

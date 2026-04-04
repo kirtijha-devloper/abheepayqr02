@@ -1,103 +1,93 @@
-# AbheePay / Telering Platform (Monorepo)
+# AbheePay / Telering Platform
 
-A complete platform composed of a React admin/merchant dashboard and an Express + Prisma backend.
+Monorepo with:
+- `client/`: React + Vite frontend
+- `backend/`: Express + Prisma backend
 
-## 📂 Project Structure
+## Local Development
 
-This project has been restructured into a clean monorepo.
+Run both apps from the repo root:
 
-*   `client/` - The React + Vite frontend application.
-*   `backend/` - The Express.js + Prisma backend application.
-
----
-
-## 🛠️ Tech Stack
-
-**Frontend (`client/`)**
-*   [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
-*   React Router DOM (Routing)
-*   Recharts (Charts/Analytics)
-
-**Backend (`backend/`)**
-*   Node.js + [Express.js](https://expressjs.com/)
-*   [Prisma ORM](https://www.prisma.io/)
-*   PostgreSQL ([Neon Serverless DB](https://neon.tech/))
-*   jsQR + Jimp (AI QR Decoding)
-*   Multer (File Uploads)
-
----
-
-## 🚀 Local Development Guide
-
-Since the project is a monorepo, you will need to run the Frontend and Backend separately in two different terminal windows.
-
-### 1. Setting up the Backend
-Open your first terminal and run:
 ```bash
-cd backend
 npm install
-```
-
-**Environment Variables:**
-Create a `.env` file inside `backend/` and add your keys:
-```env
-DATABASE_URL="your-neon-postgres-url"
-JWT_SECRET="your-secret-key"
-FRONTEND_URL="http://localhost:5173"
-PORT=4001
-# InstantPay API keys if required
-```
-
-**Run Database Migrations & Start:**
-```bash
-npx prisma generate
-npx prisma db push
 npm run dev
 ```
-*Backend will run on `http://localhost:4001`*
 
-### 2. Setting up the Frontend
-Open your second terminal and run:
+Frontend:
+- `http://127.0.0.1:5173`
+
+Backend:
+- `http://127.0.0.1:4001`
+
+## Environment Files
+
+Frontend env example is in [`.env.example`](/c:/Users/kirti/.gemini/antigravity/scratch/abheepayqr02/.env.example).
+
+Backend env example is in [`backend/.env.example`](/c:/Users/kirti/.gemini/antigravity/scratch/abheepayqr02/backend/.env.example).
+
+For local work:
+- copy `.env.example` to `client/.env`
+- copy `backend/.env.example` to `backend/.env`
+
+## Fresh Domain Deployment
+
+This project can be deployed on a completely new domain. Nothing in the templates now depends on an old domain.
+
+Example production setup:
+- frontend: `https://app.yournewdomain.com`
+- backend API: `https://api.yournewdomain.com`
+
+### 1. Frontend env
+
+Create `client/.env.production`:
+
+```env
+VITE_API_URL=https://api.yournewdomain.com/api
+VITE_UPLOADS_URL=https://api.yournewdomain.com
+```
+
+### 2. Backend env
+
+Create `backend/.env` on the server:
+
+```env
+PORT=4001
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
+JWT_SECRET=replace-with-a-long-random-secret
+FRONTEND_URL=https://app.yournewdomain.com
+BACKEND_URL=https://api.yournewdomain.com
+NODE_ENV=production
+```
+
+### 3. Database
+
+Run these once on the production backend:
+
+```bash
+cd backend
+npx prisma generate
+npx prisma db push
+```
+
+If you want starter users:
+
+```bash
+npx tsx src/seed.ts
+```
+
+### 4. Build the frontend
+
 ```bash
 cd client
 npm install
+npm run build
 ```
 
-**Environment Variables:**
-Create `.env` (for local) or `.env.production` inside `client/`:
-```env
-VITE_API_URL=http://localhost:4001/api
-VITE_UPLOADS_URL=http://localhost:4001/uploads
-```
+Upload the contents of `client/dist/` to your frontend hosting path.
 
-**Start Development Server:**
-```bash
-npm run dev
-```
-*Frontend will run on `http://localhost:5173`*
+### 5. React routing on cPanel/Apache
 
----
-
-## 🌐 Deployment Instructions
-
-### Backend (Vercel)
-The backend is completely configured for Vercel deployment as a serverless function.
-1. Connect this GitHub repository to Vercel.
-2. In Vercel Project Settings -> **Root Directory**, set it to `backend`.
-3. Add all your Environment Variables in the Vercel dashboard.
-4. The deployment will automatically run `npm run build` (which includes `prisma generate`) and use `vercel.json` to route traffic.
-
-### Frontend (cPanel / Hostitbro)
-The frontend should be built locally and uploaded to your shared hosting provider.
-1. Update `client/.env.production` to point to your live Vercel backend URL.
-2. Generate the build locally:
-   ```bash
-   cd client
-   npm run build
-   ```
-3. Copy the **contents** of the `client/dist/` folder.
-4. Upload all files into your cPanel's `public_html/` folder.
-5. **IMPORTANT**: Ensure you create an `.htaccess` file in `public_html/` to support React routing:
+Use an `.htaccess` file in the frontend public folder:
 
 ```apache
 <IfModule mod_rewrite.c>
@@ -111,11 +101,36 @@ The frontend should be built locally and uploaded to your shared hosting provide
 </IfModule>
 ```
 
----
+### 6. Backend hosting
 
-## ✨ Features
-*   **Role-Based Dashboards**: Master Admin, ASM, and Merchant views.
-*   **QR Management**: Bulk QR code generation, AI-based decoding, and automated assignment.
-*   **Transactions & Settlements**: Manual report upload mapping tracking.
-*   **Support System**: Interactive ticketing system for merchants.
-*   **KYC Portal**: Document uploads and verification system.
+The backend must run as a real Node process or platform service. Shared static hosting alone is not enough.
+
+You need:
+- Node.js support
+- environment variables
+- outbound internet access for your DB/API calls
+- a process manager or hosting platform restart policy
+
+Common choices:
+- VPS with PM2
+- Railway
+- Render
+- Vercel for frontend plus separate Node backend hosting
+- cPanel Node app support, if your host provides it
+
+## cPanel Frontend Deploy
+
+There is a template in [`.cpanel.yml`](/c:/Users/kirti/.gemini/antigravity/scratch/abheepayqr02/.cpanel.yml), but you must update the target path for your own account before using it.
+
+It now copies from `client/dist/`, which matches this repo structure.
+
+## Final Go-Live Checklist
+
+- set real production domain names
+- set frontend production env
+- set backend production env
+- deploy backend process
+- run Prisma on production DB
+- upload `client/dist`
+- add `.htaccess`
+- verify login, merchants, QR pages, wallet, settlements, support

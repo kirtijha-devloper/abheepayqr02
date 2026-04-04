@@ -1,116 +1,164 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import './MerchantsPage.css';
+
+const emptyForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  password: '',
+  businessName: '',
+  address: '',
+  city: '',
+  state: '',
+  pincode: '',
+  panNumber: '',
+  aadhaarNumber: '',
+  callbackUrl: '',
+  payoutChargeType: 'flat',
+  payoutChargeValue: 0,
+};
+
+const titleCase = (value = '') => value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : 'Active';
 
 const MerchantsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant } = useAppContext();
   const { getImpersonateToken } = useAuth();
-  const navigate = useNavigate();
+  const { success, error } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMerchant, setSelectedMerchant] = useState(null);
-
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    password: '',
-    businessName: '',
-    address: '',
-    city: '',
-    state: '',
-    pincode: '',
-    panNumber: '',
-    aadhaarNumber: '',
-    callbackUrl: 'https://your-server.com/payment/webhook',
-    payoutChargeType: 'flat',
-    payoutChargeValue: 0
-  });
+  const [formData, setFormData] = useState(emptyForm);
+  const itemsPerPage = 8;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleLoginAs = async (m) => {
-    const result = await getImpersonateToken(m.id);
+  const closeModal = () => {
+    setShowModal(false);
+    setIsEditing(false);
+    setSelectedMerchant(null);
+    setFormData(emptyForm);
+  };
+
+  const handleLoginAs = async (merchant) => {
+    const result = await getImpersonateToken(merchant.id);
     if (result.success) {
       window.open(`${window.location.origin}/?token=${result.token}`, '_blank');
     } else {
-      alert(result.message || 'Failed to login as merchant');
+      error(result.message || 'Failed to login as merchant');
     }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (isEditing && selectedMerchant) {
-        const res = await updateMerchant(selectedMerchant.id, {
-            fullName: formData.firstName + " " + formData.lastName,
-            email: formData.email,
-            phone: formData.phone,
-            businessName: formData.businessName,
-            callbackUrl: formData.callbackUrl,
-            payoutChargeType: formData.payoutChargeType,
-            payoutChargeValue: Number(formData.payoutChargeValue)
-        });
-        if (res.success) {
-            alert("Merchant updated successfully!");
-        } else {
-            alert(res.error || "Failed to update merchant");
-        }
-    } else {
-        const newMerchant = {
-          mid: `MID-${Math.floor(1000000 + Math.random() * 9000000)}`,
-          name: `${formData.firstName} ${formData.lastName}`.trim() || formData.businessName,
-          email: formData.email,
-          wallet: '₹0.00',
-          status: 'Active',
-        };
-        addMerchant(newMerchant);
-    }
-    
-    setShowModal(false);
-    setIsEditing(false);
-    setSelectedMerchant(null);
 
-    // Reset form
-    setFormData({
-      firstName: '', lastName: '', email: '', phone: '', password: '', 
-      businessName: '', address: '', city: '', state: '', pincode: '', 
-      panNumber: '', aadhaarNumber: '', callbackUrl: 'https://your-server.com/payment/webhook',
-      payoutChargeType: 'flat', payoutChargeValue: 0
+    if (isEditing && selectedMerchant) {
+      const res = await updateMerchant(selectedMerchant.id, {
+        fullName: `${formData.firstName} ${formData.lastName}`.trim(),
+        email: formData.email,
+        phone: formData.phone,
+        businessName: formData.businessName,
+        callbackUrl: formData.callbackUrl || null,
+        payoutChargeType: formData.payoutChargeType,
+        payoutChargeValue: Number(formData.payoutChargeValue),
+      });
+
+      if (!res.success) {
+        error(res.error || 'Failed to update merchant');
+        return;
+      }
+
+      success('Merchant updated successfully.');
+      closeModal();
+      return;
+    }
+
+    const res = await addMerchant({
+      name: `${formData.firstName} ${formData.lastName}`.trim() || formData.businessName,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+      businessName: formData.businessName,
+      callbackUrl: formData.callbackUrl,
     });
+
+    if (!res.success) {
+      error(res.error || 'Failed to create merchant');
+      return;
+    }
+
+    success('Merchant created successfully.');
+    closeModal();
   };
 
-  const handleEdit = (m) => {
-    setSelectedMerchant(m);
+  const handleEdit = (merchant) => {
+    setSelectedMerchant(merchant);
     setIsEditing(true);
-    const names = (m.fullName || "").split(" ");
+    const names = (merchant.fullName || '').split(' ');
     setFormData({
-        firstName: names[0] || "",
-        lastName: names.slice(1).join(" ") || "",
-        email: m.email || "",
-        phone: m.phone || "",
-        password: "", // Don't show password
-        businessName: m.businessName || "",
-        address: "", // Need to fetch full profile if needed, but let's assume what we have
-        city: "",
-        state: "",
-        pincode: "",
-        panNumber: "",
-        aadhaarNumber: "",
-        callbackUrl: m.callbackUrl || "https://your-server.com/payment/webhook",
-        payoutChargeType: m.payoutOverride?.chargeType || "flat",
-        payoutChargeValue: m.payoutOverride?.chargeValue || 0
+      firstName: names[0] || '',
+      lastName: names.slice(1).join(' ') || '',
+      email: merchant.email || '',
+      phone: merchant.phone || '',
+      password: '',
+      businessName: merchant.businessName || '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+      panNumber: '',
+      aadhaarNumber: '',
+      callbackUrl: merchant.callbackUrl || '',
+      payoutChargeType: merchant.payoutOverride?.chargeType || 'flat',
+      payoutChargeValue: merchant.payoutOverride?.chargeValue || 0,
     });
     setShowModal(true);
   };
+
+  const handleToggleStatus = async (merchant) => {
+    const currentStatus = (merchant.status || 'active').toLowerCase();
+    const nextStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const res = await updateMerchantStatus(merchant.id, nextStatus);
+
+    if (!res?.success) {
+      error(res?.error || 'Failed to update merchant status');
+      return;
+    }
+
+    success(`Merchant marked as ${nextStatus}.`);
+  };
+
+  const filteredMerchants = merchants.filter((merchant) => {
+    const normalizedStatus = (merchant.status || 'active').toLowerCase();
+    if (activeTab !== 'All' && normalizedStatus !== activeTab.toLowerCase()) return false;
+    const term = searchTerm.toLowerCase();
+    const nameMatch = merchant.fullName?.toLowerCase().includes(term);
+    const emailMatch = merchant.email?.toLowerCase().includes(term);
+    return !searchTerm || nameMatch || emailMatch;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredMerchants.length / itemsPerPage));
+  const paginatedMerchants = filteredMerchants.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm, merchants.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="dashboard-layout">
@@ -131,19 +179,19 @@ const MerchantsPage = () => {
           <div className="merchants-table-card">
             <div className="merchants-toolbar">
               <div className="merchant-search-wrap">
-                <span className="merchant-search-icon">🔍</span>
-                <input 
-                  type="text" 
+                <span className="merchant-search-icon">Search</span>
+                <input
+                  type="text"
                   placeholder="Filter merchants by MID, name, email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="txn-filters">
-                {['All', 'Active', 'Inactive'].map(tab => (
-                  <button 
-                    key={tab} 
-                    className={`txn-pill-filter ${activeTab === tab ? 'active' : ''}`}
+              <div className="merchant-filter-group">
+                {['All', 'Active', 'Inactive'].map((tab) => (
+                  <button
+                    key={tab}
+                    className={`merchant-filter-btn ${activeTab === tab ? 'active' : ''}`}
                     onClick={() => setActiveTab(tab)}
                   >
                     {tab}
@@ -165,53 +213,57 @@ const MerchantsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {merchants.filter(m => {
-                    if (activeTab !== 'All' && m.status !== activeTab) return false;
-                    const nameMatch = m.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
-                    const emailMatch = m.email?.toLowerCase().includes(searchTerm.toLowerCase());
-                    if (searchTerm && !nameMatch && !emailMatch) return false;
-                    return true;
-                  }).map((m) => (
-                    <tr key={m.id}>
-                      <td>
-                        <div className="merchant-name-cell">
-                          <div className="merchant-avatar">{m.fullName?.charAt(0) || '?'}</div>
-                          <div className="merchant-name-info">
-                            <div className="m-name">{m.fullName}</div>
-                            <div className="m-email">{m.email}</div>
+                  {paginatedMerchants.map((merchant) => {
+                    const currentStatus = (merchant.status || 'active').toLowerCase();
+                    return (
+                      <tr key={merchant.id}>
+                        <td>
+                          <div className="merchant-name-cell">
+                            <div className="merchant-avatar">{merchant.fullName?.charAt(0) || '?'}</div>
+                            <div className="merchant-name-info">
+                              <div className="m-name">{merchant.fullName}</div>
+                              <div className="m-email">{merchant.email}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td><span className="mid-badge">{m.mid || 'MID-102938'}</span></td>
-                      <td className="volume-cell">₹ {m.walletBalance || '0.00'}</td>
-                      <td><span className={`status-pill ${m.status?.toLowerCase() || 'active'}`}>{m.status}</span></td>
-                      <td style={{fontSize: '12px', fontWeight: '600'}}>
-                        {m.payoutOverride ? (
-                          <span style={{color: '#8B5CF6'}}>
-                            {m.payoutOverride.chargeType === 'flat' ? `₹${m.payoutOverride.chargeValue}` : `${m.payoutOverride.chargeValue}%`}
-                          </span>
-                        ) : 'Global'}
-                      </td>
-                      <td>
-                        <div className="merchant-actions">
-                          <button className="action-btn login-btn" onClick={() => handleLoginAs(m)}>Login</button>
-                          <button className="action-btn" onClick={() => handleEdit(m)}>Edit</button>
-                          <button className="action-btn" onClick={() => updateMerchantStatus(m.id, m.status?.toLowerCase() === 'active' ? 'inactive' : 'active')}>Toggle</button>
-                          <button className="action-btn danger-btn" onClick={() => deleteMerchant(m.id)}>Delete</button>
-                        </div>
+                        </td>
+                        <td><span className="mid-badge">{merchant.mid || 'MID-102938'}</span></td>
+                        <td className="volume-cell">Rs {merchant.walletBalance || '0.00'}</td>
+                        <td><span className={`status-pill ${currentStatus}`}>{titleCase(currentStatus)}</span></td>
+                        <td className="commission-cell">
+                          {merchant.payoutOverride ? (
+                            <span className="commission-value">
+                              {merchant.payoutOverride.chargeType === 'flat' ? `Rs ${merchant.payoutOverride.chargeValue}` : `${merchant.payoutOverride.chargeValue}%`}
+                            </span>
+                          ) : 'Global'}
+                        </td>
+                        <td>
+                          <div className="merchant-actions">
+                            <button className="action-btn login-btn" onClick={() => handleLoginAs(merchant)}>Login</button>
+                            <button className="action-btn" onClick={() => handleEdit(merchant)}>Edit</button>
+                            <button className="action-btn" onClick={() => handleToggleStatus(merchant)}>Toggle</button>
+                            <button className="action-btn danger-btn" onClick={() => deleteMerchant(merchant.id)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredMerchants.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="merchants-empty-state">
+                        No merchants found for the selected filter.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
-            
+
             <div className="txn-table-footer">
-              <span className="txn-count-text">Displaying {merchants.length} registered merchants</span>
+              <span className="txn-count-text">Showing {paginatedMerchants.length} of {filteredMerchants.length} merchants</span>
               <div className="pagination-v2">
-                <button className="nav-btn-v2">Prev</button>
-                <button className="nav-num-v2 active">1</button>
-                <button className="nav-btn-v2">Next</button>
+                <button className="nav-btn-v2" type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1}>Prev</button>
+                <button className="nav-num-v2 active" type="button">{currentPage}</button>
+                <button className="nav-btn-v2" type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages || filteredMerchants.length === 0}>Next</button>
               </div>
             </div>
           </div>
@@ -223,7 +275,7 @@ const MerchantsPage = () => {
           <div className="modal-container">
             <div className="modal-header-gradient">
               <h3>{isEditing ? 'Edit Merchant' : 'Add Merchant'}</h3>
-              <button className="close-modal" onClick={() => { setShowModal(false); setIsEditing(false); }}>&times;</button>
+              <button className="close-modal" onClick={closeModal}>&times;</button>
             </div>
             <form onSubmit={handleCreate}>
               <div className="modal-body">
@@ -243,8 +295,8 @@ const MerchantsPage = () => {
                   {!isEditing && (
                     <div className="form-group full-width">
                       <div className="password-input-wrapper">
-                        <input type="password" name="password" placeholder="Password *" className="form-input-box" required onChange={handleChange} />
-                        <span className="eye-icon">👁️</span>
+                        <input type="password" name="password" value={formData.password} placeholder="Password *" className="form-input-box" required onChange={handleChange} />
+                        <span className="eye-icon">Show</span>
                       </div>
                     </div>
                   )}
@@ -270,40 +322,38 @@ const MerchantsPage = () => {
                     <input type="text" name="aadhaarNumber" value={formData.aadhaarNumber} placeholder="Aadhaar Number" className="form-input-box" onChange={handleChange} />
                   </div>
                   <div className="form-group full-width">
-                    <label style={{ fontSize: '0.6875rem', fontWeight: '600', color: '#9CA3AF', marginBottom: '4px' }}>Callback URL</label>
-                    <input type="text" name="callbackUrl" value={formData.callbackUrl} className="form-input-box" onChange={handleChange} />
+                    <label className="callback-label">Callback URL</label>
+                    <input type="text" name="callbackUrl" value={formData.callbackUrl} placeholder="https://your-domain.com/payment/webhook" className="form-input-box" onChange={handleChange} />
                     <p className="help-text">POST endpoint for payment status notifications</p>
                   </div>
 
-                  <div className="form-group" style={{ borderTop: '1px solid #374151', paddingTop: '12px', marginTop: '8px', gridColumn: 'span 2' }}>
-                      <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#8B5CF6', marginBottom: '8px', display: 'block' }}>PAYOUT CHARGES (CUSTOM)</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                          <select 
-                            name="payoutChargeType" 
-                            className="form-input-box" 
-                            style={{ flex: 1 }}
-                            value={formData.payoutChargeType}
-                            onChange={handleChange}
-                          >
-                              <option value="flat">Flat (₹)</option>
-                              <option value="percentage">Percentage (%)</option>
-                          </select>
-                          <input 
-                            type="number" 
-                            name="payoutChargeValue" 
-                            placeholder="Charge Value" 
-                            className="form-input-box" 
-                            style={{ flex: 1 }}
-                            value={formData.payoutChargeValue}
-                            onChange={handleChange}
-                          />
-                      </div>
-                      <p className="help-text">Override global payout charges for this merchant.</p>
+                  <div className="form-group full-width payout-charge-block">
+                    <label className="payout-charge-label">PAYOUT CHARGES (CUSTOM)</label>
+                    <div className="payout-charge-row">
+                      <select
+                        name="payoutChargeType"
+                        className="form-input-box"
+                        value={formData.payoutChargeType}
+                        onChange={handleChange}
+                      >
+                        <option value="flat">Flat (Rs)</option>
+                        <option value="percentage">Percentage (%)</option>
+                      </select>
+                      <input
+                        type="number"
+                        name="payoutChargeValue"
+                        placeholder="Charge Value"
+                        className="form-input-box"
+                        value={formData.payoutChargeValue}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <p className="help-text">Override global payout charges for this merchant.</p>
                   </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn-cancel" onClick={() => { setShowModal(false); setIsEditing(false); }}>Cancel</button>
+                <button type="button" className="btn-cancel" onClick={closeModal}>Cancel</button>
                 <button type="submit" className="btn-create">{isEditing ? 'Save Changes' : 'Create Merchant'}</button>
               </div>
             </form>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
@@ -6,6 +7,7 @@ import { copyTextToClipboard } from '../utils/clipboard';
 import './DashboardPage.css';
 
 const ApiServicesPage = () => {
+  const navigate = useNavigate();
   const { apiKeys, generateApiKey } = useAppContext();
   const [copied, setCopied] = useState(null);
 
@@ -59,12 +61,12 @@ const ApiServicesPage = () => {
              <div className="card" style={{ padding: '1.5rem' }}>
                 <h3>Webhook Settings</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem' }}>Configure URLs to receive real-time payment notifications.</p>
-                <button className="btn-secondary" style={{ marginTop: '1rem' }}>Configure Webhooks</button>
+                <button className="btn-secondary" type="button" style={{ marginTop: '1rem' }} onClick={() => navigate('/callbacks')}>Configure Webhooks</button>
              </div>
              <div className="card" style={{ padding: '1.5rem' }}>
                 <h3>API Documentation</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem' }}>Read our comprehensive guides and API reference.</p>
-                <button className="btn-secondary" style={{ marginTop: '1rem' }}>View Docs</button>
+                <button className="btn-secondary" type="button" style={{ marginTop: '1rem' }} onClick={() => navigate('/docs')}>View Docs</button>
              </div>
           </div>
         </main>

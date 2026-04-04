@@ -70,10 +70,11 @@ const SupportPage = () => {
     };
 
     return (
-        <div className="app-container">
+        <div className="dashboard-layout">
             <Sidebar />
             <div className="main-content">
                 <Header />
+                <main className="dashboard-body animated">
                 <div className="support-container">
                     <header className="support-header">
                         <div className="support-header-icon">🎫</div>
@@ -173,6 +174,7 @@ const SupportPage = () => {
                         </aside>
                     </div>
                 </div>
+                </main>
             </div>
         </div>
     );

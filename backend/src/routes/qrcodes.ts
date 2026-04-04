@@ -73,7 +73,6 @@ router.post("/", requireAuth, requireAdmin, upload.single("qrImage"), async (req
 router.patch("/:id", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   const { id } = req.params;
   const { label, upiId, mid, tid, merchantName, merchantId, status } = req.body;
-  console.log(`PATCH QR ${id}:`, { label, upiId, mid, tid, merchantName, merchantId, status });
   try {
     const qr = await prisma.qrCode.update({
       where: { id },
@@ -81,7 +80,6 @@ router.patch("/:id", requireAuth, requireAdmin, async (req: AuthRequest, res) =>
     });
     res.json(qr);
   } catch (e: any) {
-    console.error(`PATCH QR ERROR for ID ${id}:`, e.message);
     res.status(500).json({ error: e.message });
   }
 });

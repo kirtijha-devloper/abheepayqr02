@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from "../utils/env";
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -17,10 +18,8 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
 
   const token = authHeader.split(" ")[1];
   try {
-    const secret = process.env.JWT_SECRET || "fallback_secret";
-    const decoded = jwt.verify(token, secret) as any;
+    const decoded = jwt.verify(token, getJwtSecret()) as any;
     req.userId = decoded.sub; 
-    console.log(`[Auth] User ID ${req.userId} verified from token.`);
     next();
   } catch (err: any) {
     console.warn(`[Auth] Token verification failed: ${err.message}`);

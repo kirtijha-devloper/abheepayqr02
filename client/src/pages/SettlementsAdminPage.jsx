@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import './MerchantsPage.css'; // Reuse table styles
 
 const SettlementsAdminPage = () => {
   const { fetchSettlements, settlements, approveSettlement, rejectSettlement } = useAppContext();
+  const { success, error } = useToast();
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
 
@@ -21,16 +23,16 @@ const SettlementsAdminPage = () => {
   const handleApprove = async (id) => {
     if (!window.confirm("Are you sure you want to approve this settlement?")) return;
     const res = await approveSettlement(id);
-    if (res.success) alert("Settlement approved!");
-    else alert("Failed to approve");
+    if (res.success) success('Settlement approved.');
+    else error('Failed to approve settlement.');
   };
 
   const handleReject = async (id) => {
     const reason = prompt("Enter reason for rejection:");
     if (reason === null) return;
     const res = await rejectSettlement(id, reason);
-    if (res.success) alert("Settlement rejected and funds refunded.");
-    else alert("Failed to reject");
+    if (res.success) success('Settlement rejected and funds refunded.');
+    else error('Failed to reject settlement.');
   };
 
   const getBankDisplay = (bankJson) => {

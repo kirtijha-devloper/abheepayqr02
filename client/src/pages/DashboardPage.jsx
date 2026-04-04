@@ -91,6 +91,7 @@ const DashboardPage = () => {
               iconBg="accent"
               change="+12.5%"
               period="vs yesterday"
+              to="/transactions"
             />
             <MetricCard 
               title="TODAY'S VOLUME" 
@@ -99,6 +100,7 @@ const DashboardPage = () => {
               iconBg="success"
               change="+8.2%"
               period="vs yesterday"
+              to="/transactions"
             />
             <MetricCard 
               title="TOTAL TXNS" 
@@ -107,6 +109,7 @@ const DashboardPage = () => {
               iconBg="warning"
               change="+3.1%"
               period="this month"
+              to="/transactions"
             />
             <MetricCard 
               title="TOTAL VOLUME" 
@@ -115,6 +118,7 @@ const DashboardPage = () => {
               iconBg="danger"
               change="-1.4%"
               period="this month"
+              to="/transactions"
             />
             <MetricCard 
               title="SUCCESS RATE" 
@@ -123,6 +127,7 @@ const DashboardPage = () => {
               iconBg="success"
               change="+0.5%"
               period="avg performance"
+              to="/transactions"
             />
              <MetricCard 
               title="ACTIVE QR CODES" 
@@ -130,6 +135,7 @@ const DashboardPage = () => {
               icon="⊞" 
               iconBg="accent"
               period="currently live"
+              to="/qr-codes"
             />
           </section>
 

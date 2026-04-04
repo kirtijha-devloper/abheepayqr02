@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import './ManualQrModal.css';
 
 const ManualQrModal = ({ isOpen, onClose }) => {
   const [expandedSection, setExpandedSection] = useState('bank'); // Default open as per screenshot
   const { addQrCode } = useAppContext();
+  const { error, success } = useToast();
   const [formData, setFormData] = useState({ upiId: '', payeeName: '', label: '', mid: '' });
 
   const handleChange = (e) => {
@@ -14,7 +16,7 @@ const ManualQrModal = ({ isOpen, onClose }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.upiId || !formData.payeeName) {
-        alert("Please fill in required fields.");
+        error('Please fill in required fields.');
         return;
     }
     
@@ -28,6 +30,7 @@ const ManualQrModal = ({ isOpen, onClose }) => {
     // Note: No qrImage appended for manual creation
 
     addQrCode(fd);
+    success('QR code created successfully.');
     onClose();
   };
 

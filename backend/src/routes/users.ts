@@ -56,7 +56,11 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) return res.status(400).json({ error: "Email already exists" });
 
-    const passwordHash = await bcrypt.hash(password || "Password123!", 10);
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({

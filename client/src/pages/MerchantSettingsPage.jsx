@@ -26,13 +26,21 @@ const MerchantSettingsPage = () => {
         new: '',
         confirm: ''
     });
+    const [message, setMessage] = useState({ type: '', text: '' });
+
+    const showMessage = (type, text) => {
+        setMessage({ type, text });
+        window.setTimeout(() => {
+            setMessage((current) => (current.text === text ? { type: '', text: '' } : current));
+        }, 3000);
+    };
 
     useEffect(() => {
         // Fetch profile details
         const fetchProfile = async () => {
             const token = sessionStorage.getItem('authToken');
             try {
-                const res = await fetch(`${API_BASE}/auth/profile`, {
+                const res = await fetch(`${API_BASE}/users/profile`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
@@ -53,7 +61,7 @@ const MerchantSettingsPage = () => {
     const handleSaveProfile = async () => {
         const token = sessionStorage.getItem('authToken');
         try {
-            const res = await fetch(`${API_BASE}/auth/profile`, {
+            const res = await fetch(`${API_BASE}/users/profile`, {
                 method: 'PATCH',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -62,17 +70,21 @@ const MerchantSettingsPage = () => {
                 body: JSON.stringify(profile)
             });
             if (res.ok) {
-                alert('Profile updated successfully!');
+                showMessage('success', 'Profile updated successfully.');
             } else {
-                alert('Failed to update profile.');
+                const data = await res.json();
+                showMessage('error', data.error || 'Failed to update profile.');
             }
         } catch (err) {
-            alert('Error updating profile.');
+            showMessage('error', 'Error updating profile.');
         }
     };
 
     const handleChangePassword = async () => {
-        if (passwords.new !== passwords.confirm) return alert("Passwords do not match");
+        if (passwords.new !== passwords.confirm) {
+            showMessage('error', 'Passwords do not match.');
+            return;
+        }
         const token = sessionStorage.getItem('authToken');
         try {
             const res = await fetch(`${API_BASE}/auth/change-password`, {
@@ -87,25 +99,28 @@ const MerchantSettingsPage = () => {
                 })
             });
             if (res.ok) {
-                alert('Password changed successfully!');
+                showMessage('success', 'Password changed successfully.');
                 setPasswords({ current: '', new: '', confirm: '' });
             } else {
                 const data = await res.json();
-                alert(data.error || 'Failed to change password.');
+                showMessage('error', data.error || 'Failed to change password.');
             }
         } catch (err) {
-            alert('Error updating password.');
+            showMessage('error', 'Error updating password.');
         }
     };
 
     const handleAddBank = async () => {
-        if (!newBank.bankName || !newBank.accountNumber) return alert("Fill required fields");
+        if (!newBank.bankName || !newBank.accountNumber) {
+            showMessage('error', 'Fill the required bank details first.');
+            return;
+        }
         const res = await addBankAccount(newBank);
         if (res.success) {
-            alert("Bank account added!");
+            showMessage('success', 'Bank account added.');
             setNewBank({ bankName: '', accountName: '', accountNumber: '', ifscCode: '' });
         } else {
-            alert("Failed to add bank account");
+            showMessage('error', 'Failed to add bank account.');
         }
     };
 
@@ -140,6 +155,22 @@ const MerchantSettingsPage = () => {
                         </div>
 
                         <div className="settings-content-v2">
+                            {message.text && (
+                                <div
+                                    style={{
+                                        marginBottom: '16px',
+                                        padding: '12px 16px',
+                                        borderRadius: '12px',
+                                        border: `1px solid ${message.type === 'success' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+                                        background: message.type === 'success' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                                        color: message.type === 'success' ? '#34d399' : '#fca5a5',
+                                        fontSize: '14px',
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    {message.text}
+                                </div>
+                            )}
                             {activeTab === 'profile' && (
                                 <div className="portal-card card animated-fade-in">
                                     <div className="portal-header">

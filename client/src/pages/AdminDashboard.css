@@ -127,6 +127,10 @@
   font-weight: 600;
   color: var(--primary);
   text-decoration: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .activity-list {
