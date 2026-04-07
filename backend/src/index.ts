@@ -25,9 +25,10 @@ import settingsRoutes from "./routes/settings";
 import bankAccountsRoutes from "./routes/bankAccounts";
 import callbackLogsRoutes from "./routes/callbackLogs";
 import { errorHandler } from "./middleware/errorHandler";
-import { getJwtSecret } from "./utils/env";
+import { getJwtSecret, validateEnv } from "./utils/env";
 
 export const prisma = new PrismaClient();
+validateEnv();
 getJwtSecret();
 
 const app = express();
