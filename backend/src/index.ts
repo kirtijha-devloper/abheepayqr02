@@ -44,7 +44,7 @@ try {
 
 const PORT = process.env.PORT || 4001;
 
-const configuredFrontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+const configuredFrontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 const allowedOrigins = new Set([
   configuredFrontendUrl,
   "http://localhost:5173",
@@ -57,6 +57,8 @@ const allowedOrigins = new Set([
   "http://ebazars.in",
   "https://kailasha247.com",
   "http://kailasha247.com",
+  "https://qr.3bazar.com",
+  "http://qr.3bazar.com",
 ]);
 
 if (configuredFrontendUrl.includes("localhost")) {
