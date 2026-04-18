@@ -331,15 +331,26 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// GET /api/wallet/settlements — Admin lists all payout requests
+// GET /api/wallet/settlements — Admin/Merchant lists payout requests
 router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
     try {
         const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+        if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+            return res.status(403).json({ error: "Forbidden" });
+        }
 
         const { status } = req.query;
-        const where: any = { serviceType: "payout" };
+        let where: any = { serviceType: "payout" };
         if (status) where.status = status as string;
+
+        if (roleRow.role === "merchant") {
+            const downlineProfiles = await prisma.profile.findMany({
+                where: { parentId: req.userId! },
+                select: { userId: true }
+            });
+            const downlineIds = downlineProfiles.map(p => p.userId);
+            where.userId = { in: [...downlineIds, req.userId!] };
+        }
 
         const settlements = await prisma.transaction.findMany({
             where,
@@ -353,55 +364,63 @@ router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// POST /api/wallet/settlements/:id/approve — Admin approves payout
+// POST /api/wallet/settlements/:id/approve — Admin/Merchant approves payout
 router.post("/settlements/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     const { id } = req.params;
     try {
         const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+        if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+            return res.status(403).json({ error: "Forbidden" });
+        }
 
         const txn = await prisma.transaction.findUnique({ where: { id } });
         if (!txn || txn.status !== "pending") return res.status(400).json({ error: "Invalid transaction" });
 
-        // Find the admin user to credit the fee
-        const adminRole = await prisma.userRole.findFirst({
-            where: { role: "admin" }
-        });
-        
-        if (!adminRole) return res.status(500).json({ error: "Admin account not found for fee credit" });
+        if (roleRow.role === "merchant" && txn.userId !== req.userId!) {
+            const requesterProfile = await prisma.profile.findUnique({ where: { userId: txn.userId } });
+            if (requesterProfile?.parentId !== req.userId!) {
+                return res.status(403).json({ error: "You can only approve settlements for your own branches." });
+            }
+        }
 
-        const adminWallet = await prisma.wallet.findUnique({ where: { userId: adminRole.userId } });
+        // Target to credit the fee: The Admin, OR the Merchant (if Merchant is approving downline)
+        let feeTargetUserId = null;
+        if (roleRow.role === "admin") {
+            const adminRole = await prisma.userRole.findFirst({ where: { role: "admin" } });
+            if (adminRole) feeTargetUserId = adminRole.userId;
+        } else if (roleRow.role === "merchant" && txn.userId !== req.userId!) {
+            feeTargetUserId = req.userId; // the merchant themselves!
+        }
+
+        const targetWallet = feeTargetUserId ? await prisma.wallet.findUnique({ where: { userId: feeTargetUserId } }) : null;
         const charge = Number(txn.fee || 0);
 
         await prisma.$transaction(async (tx) => {
-            // Update the payout transaction status
             await tx.transaction.update({
                 where: { id },
                 data: { status: "success" }
             });
 
-            // If there's a charge, credit it to the admin wallet
-            if (charge > 0 && adminWallet) {
-                const newAdminBalance = Number(adminWallet.balance) + charge;
+            if (charge > 0 && targetWallet && feeTargetUserId) {
+                const newBalance = Number(targetWallet.balance) + charge;
                 await tx.wallet.update({
-                    where: { userId: adminRole.userId },
-                    data: { balance: newAdminBalance }
+                    where: { userId: feeTargetUserId },
+                    data: { balance: newBalance }
                 });
 
                 await tx.walletTransaction.create({
                     data: {
-                        toUserId: adminRole.userId,
+                        toUserId: feeTargetUserId,
                         fromUserId: txn.userId,
                         amount: charge,
                         type: "commission",
                         description: `Payout Fee for Txn ${txn.id.substring(0, 8)}`,
-                        toBalanceAfter: newAdminBalance,
+                        toBalanceAfter: newBalance,
                         createdBy: req.userId!
                     }
                 });
             }
 
-            // Notify the user
             await tx.notification.create({
                 data: {
                     userId: txn.userId,
@@ -418,24 +437,31 @@ router.post("/settlements/:id/approve", requireAuth, async (req: AuthRequest, re
     }
 });
 
-// POST /api/wallet/settlements/:id/reject — Admin rejects payout and refunds
+// POST /api/wallet/settlements/:id/reject — Admin/Merchant rejects payout and refunds
 router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res) => {
     const { id } = req.params;
     const { reason } = req.body;
     try {
         const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+        if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+            return res.status(403).json({ error: "Forbidden" });
+        }
 
         const txn = await prisma.transaction.findUnique({ where: { id } });
         if (!txn || txn.status !== "pending") return res.status(400).json({ error: "Invalid transaction" });
 
-        // Calculate original total deduction to refund
-        // Usually we stored the total deduction in WalletTransaction, let's find it.
+        if (roleRow.role === "merchant" && txn.userId !== req.userId!) {
+            const requesterProfile = await prisma.profile.findUnique({ where: { userId: txn.userId } });
+            if (requesterProfile?.parentId !== req.userId!) {
+                return res.status(403).json({ error: "You can only reject settlements for your own branches." });
+            }
+        }
+
         const walletTxn = await prisma.walletTransaction.findFirst({
             where: { 
                 fromUserId: txn.userId, 
                 type: "payout",
-                createdAt: { gte: new Date(txn.createdAt.getTime() - 5000) } // Match by time proximity
+                createdAt: { gte: new Date(txn.createdAt.getTime() - 5000) }
             }
         });
 

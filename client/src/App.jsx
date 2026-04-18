@@ -48,15 +48,19 @@ function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/admin/login" element={<LoginPage />} />
 
-                  <Route path="/dashboard" element={<ProtectedRoute requiredRole="merchant"><DashboardPage /></ProtectedRoute>} />
-                  <Route path="/transactions" element={<ProtectedRoute requiredRole="merchant"><TransactionsPage /></ProtectedRoute>} />
-                  <Route path="/reports" element={<ProtectedRoute requiredRole="merchant"><ReportsPage /></ProtectedRoute>} />
-                  <Route path="/qr-codes" element={<ProtectedRoute requiredRole="merchant"><QrCodesPage /></ProtectedRoute>} />
-                  <Route path="/wallet" element={<ProtectedRoute requiredRole="merchant"><WalletPage /></ProtectedRoute>} />
+                  <Route path="/dashboard" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><DashboardPage /></ProtectedRoute>} />
+                  <Route path="/transactions" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><TransactionsPage /></ProtectedRoute>} />
+                  <Route path="/reports" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><ReportsPage /></ProtectedRoute>} />
+                  <Route path="/qr-codes" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><QrCodesPage /></ProtectedRoute>} />
+                  <Route path="/wallet" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><WalletPage /></ProtectedRoute>} />
                   <Route path="/api-services" element={<ProtectedRoute requiredRole="merchant"><ApiServicesPage /></ProtectedRoute>} />
+                  <Route path="/branches" element={<ProtectedRoute requiredRole="merchant"><MerchantsPage /></ProtectedRoute>} />
                   <Route path="/callbacks" element={<ProtectedRoute requiredRole="merchant"><CallbacksPage /></ProtectedRoute>} />
-                  <Route path="/support" element={<ProtectedRoute requiredRole="merchant"><SupportPage /></ProtectedRoute>} />
-                  <Route path="/settings" element={<ProtectedRoute requiredRole="merchant"><MerchantSettingsPage /></ProtectedRoute>} />
+                  <Route path="/support" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><SupportPage /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><MerchantSettingsPage /></ProtectedRoute>} />
+                  <Route path="/reconciliation" element={<ProtectedRoute requiredRole="merchant"><ReconciliationPage /></ProtectedRoute>} />
+                  <Route path="/settlements" element={<ProtectedRoute requiredRole="merchant"><SettlementsAdminPage /></ProtectedRoute>} />
+                  <Route path="/fund-requests" element={<ProtectedRoute requiredRole="merchant"><FundRequestsAdminPage /></ProtectedRoute>} />
 
                   <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/transactions" element={<ProtectedRoute requiredRole="admin"><TransactionsPage /></ProtectedRoute>} />

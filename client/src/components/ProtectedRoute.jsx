@@ -16,9 +16,12 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 
     const normalizeRole = (r) => r === 'retailer' ? 'merchant' : r;
     const userRole = normalizeRole(user?.role);
-    const expectedRole = normalizeRole(requiredRole);
+    
+    const isAuthorized = Array.isArray(requiredRole) 
+        ? requiredRole.map(normalizeRole).includes(userRole)
+        : userRole === normalizeRole(requiredRole);
 
-    if (requiredRole && userRole !== expectedRole) {
+    if (requiredRole && !isAuthorized) {
         // User logged in but wrong role (e.g., merchant trying to access admin)
         return <Navigate to={userRole === 'admin' ? "/admin/dashboard" : "/dashboard"} replace />;
     }

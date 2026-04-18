@@ -101,17 +101,28 @@ export const getMe = async (req: any, res: Response) => {
 
 export const loginAsUser = async (req: any, res: Response) => {
   const callerId = req.userId!;
-  const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
+  const callerProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
+  const myRoleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
+  const myRole = myRoleRow?.role;
   
-  if (myRole?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+  if (myRole !== "admin" && myRole !== "merchant") {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
 
-  const { id } = req.params; // This is the PROFILE id in the merchants table
+  const { id } = req.params; // Profile ID
   const targetProfile = await prisma.profile.findUnique({ 
     where: { id },
     include: { user: { include: { roles: true, wallet: true } } }
   });
 
-  if (!targetProfile || !targetProfile.user) return res.status(404).json({ error: "Merchant not found" });
+  if (!targetProfile || !targetProfile.user) return res.status(404).json({ error: "User not found" });
+
+  // Security Check: If merchant, can only impersonate their own branches
+  if (myRole === "merchant") {
+    if (targetProfile.parentId !== callerProfile?.id) {
+        return res.status(403).json({ error: "You can only impersonate your own branches" });
+    }
+  }
 
   const token = jwt.sign({ sub: targetProfile.user.id, email: targetProfile.user.email }, JWT_SECRET, { expiresIn: "7d" });
 

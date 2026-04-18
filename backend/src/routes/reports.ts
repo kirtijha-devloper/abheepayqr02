@@ -14,7 +14,7 @@ const router = Router();
 const uploadDest = process.env.VERCEL ? "/tmp" : "uploads/";
 const upload = multer({ dest: uploadDest });
 
-router.get("/mapping-trace", requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+router.get("/mapping-trace", requireAuth, async (_req: AuthRequest, res) => {
   try {
     if (!fs.existsSync(reportLogPath)) {
       return res.json({ entries: [] });
@@ -61,9 +61,20 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
     const isAdmin = roleRow?.role === "admin";
+    const isMerchant = roleRow?.role === "merchant";
 
     const where: any = { provider: "Bank Report" };
-    if (!isAdmin) where.userId = req.userId!;
+    if (!isAdmin && !isMerchant) {
+        where.userId = req.userId!;
+    } else if (isMerchant) {
+        const downlineProfiles = await prisma.profile.findMany({
+            where: { parentId: req.userId! },
+            select: { userId: true }
+        });
+        const downlineIds = downlineProfiles.map(p => p.userId);
+        where.userId = { in: [...downlineIds, req.userId!] };
+    }
+
     if (status && (status as string).toLowerCase() !== "all") {
       where.status = status;
     }
@@ -99,7 +110,16 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-router.post("/upload", requireAuth, requireAdmin, upload.single("report"), async (req: AuthRequest, res) => {
+router.post("/upload", requireAuth, upload.single("report"), async (req: AuthRequest, res) => {
+  try {
+    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
+    if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+        return res.status(403).json({ error: "Forbidden" });
+    }
+  } catch (e) {
+    return res.status(500).json({ error: "Role check failed" });
+  }
+
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
