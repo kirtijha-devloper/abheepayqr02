@@ -10,9 +10,27 @@ export const getDownlineUsers = async (req: any, res: Response) => {
   }
 
   const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
+  const isAdmin = myRole?.role === "admin";
+  const parentIdQuery = req.query.parentId as string;
 
-  // Admin sees all
-  const whereClause = myRole?.role === "admin" ? {} : { parentId: myProfile.id };
+  let whereClause: any = {};
+
+  if (isAdmin) {
+    if (parentIdQuery) {
+      whereClause = { parentId: parentIdQuery };
+    } else {
+      whereClause = {
+        user: {
+          roles: {
+            some: { role: "merchant" }
+          }
+        }
+      };
+    }
+  } else {
+    // Merchants see their children
+    whereClause = { parentId: myProfile.id };
+  }
 
   const profiles = await prisma.profile.findMany({
     where: whereClause,
@@ -40,5 +58,6 @@ export const getDownlineUsers = async (req: any, res: Response) => {
     payoutOverride: p.user?.userCommissionOverrides?.find((ov: any) => ov.serviceKey === 'payout'),
   }));
 
+  console.log(`[getDownlineUsers] Returning ${result.length} users for caller ${callerId}`);
   res.json(result);
 };

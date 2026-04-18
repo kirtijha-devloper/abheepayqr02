@@ -22,15 +22,34 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// GET /api/qrcodes — list all QR codes (admin sees all, merchant sees assigned to them)
+// GET /api/qrcodes — list all QR codes (admin sees all, merchant sees assigned to them or their branches)
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
+    const callerId = req.userId!;
+    const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
     const isAdmin = roleRow?.role === "admin";
+    const isMerchant = roleRow?.role === "merchant";
 
-    const where: any = {};
+    let where: any = {};
     if (!isAdmin) {
-      where.merchantId = req.userId!;
+      if (isMerchant) {
+        // Find own profile to find branches
+        const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
+        if (myProfile) {
+          // Find all branches (users whose profile.parentId is myProfile.id)
+          const branches = await prisma.profile.findMany({
+            where: { parentId: myProfile.id },
+            select: { userId: true }
+          });
+          const branchUserIds = branches.map(b => b.userId);
+          where.merchantId = { in: [callerId, ...branchUserIds] };
+        } else {
+          where.merchantId = callerId;
+        }
+      } else {
+        // Branches or others only see their own
+        where.merchantId = callerId;
+      }
     }
 
     const qrs = await prisma.qrCode.findMany({
@@ -220,51 +239,68 @@ router.post("/assign-by-tid", requireAuth, requireAdmin, async (req: AuthRequest
   }
 });
 
-// POST /api/qrcodes/assign-by-ids — Assign QR codes by their IDs (admin only)
-router.post("/assign-by-ids", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+// POST /api/qrcodes/assign-by-ids — Assign QR codes by their IDs (admin or merchant)
+router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
   const { ids, merchantId } = req.body;
   if (!Array.isArray(ids) || ids.length === 0 || !merchantId) {
     return res.status(400).json({ error: "Missing ids array or merchantId" });
   }
 
   try {
-    const user = await prisma.user.findUnique({
+    const callerId = req.userId!;
+    const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
+    const isAdmin = roleRow?.role === "admin";
+    const isMerchant = roleRow?.role === "merchant";
+
+    if (!isAdmin && !isMerchant) {
+        return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const targetUser = await prisma.user.findUnique({
       where: { id: merchantId },
       include: { profile: true },
     });
 
-    if (!user) return res.status(404).json({ error: "Merchant not found" });
+    if (!targetUser) return res.status(404).json({ error: "Target user not found" });
 
-    // Check if any of these IDs are already assigned to DIFFERENT merchants
-    const alreadyAssignedToOthers = await prisma.qrCode.findMany({
-        where: { 
-            id: { in: ids },
-            AND: [
-                { NOT: { merchantId: null } },
-                { NOT: { merchantId: merchantId } }
-            ]
+    // If Merchant is assigning, verify the target is THEIR branch
+    if (isMerchant) {
+        const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
+        if (targetUser.profile?.parentId !== myProfile?.id) {
+            return res.status(403).json({ error: "You can only assign QRs to your own branches." });
         }
+    }
+
+    // Check ownership of the QRs being assigned
+    const qrsToAssign = await prisma.qrCode.findMany({
+        where: { id: { in: ids } }
     });
 
-    if (alreadyAssignedToOthers.length > 0) {
-        return res.status(400).json({ 
-            error: `${alreadyAssignedToOthers.length} QR code(s) are already assigned to other merchants. Please unassign them first.` 
-        });
+    if (qrsToAssign.length !== ids.length) {
+        return res.status(400).json({ error: "Some QR codes not found." });
+    }
+
+    if (!isAdmin) {
+        // Merchant can only assign QRs currently assigned to themselves
+        const invalidQrs = qrsToAssign.filter(qr => qr.merchantId !== callerId);
+        if (invalidQrs.length > 0) {
+            return res.status(403).json({ error: "You can only assign QRs that are currently assigned to you." });
+        }
     }
 
     const updated = await prisma.qrCode.updateMany({
       where: { id: { in: ids } },
       data: {
-        merchantId: user.id,
-        merchantName: user.profile?.fullName || user.email,
+        merchantId: targetUser.id,
+        merchantName: targetUser.profile?.fullName || targetUser.email,
       },
     });
 
-    // Notify the merchant
+    // Notify the target user
     if (updated.count > 0) {
       await prisma.notification.create({
         data: {
-          userId: user.id,
+          userId: targetUser.id,
           title: "QR Codes Assigned",
           message: `${updated.count} QR code(s) have been assigned to your account.`,
           type: "info",

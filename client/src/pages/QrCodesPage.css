@@ -167,7 +167,7 @@
     flex-direction: column;
 }
 
-.close-modal {
+.qr-close-modal {
     position: absolute;
     top: -15px;
     right: -15px;

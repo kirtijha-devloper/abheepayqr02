@@ -162,11 +162,9 @@ const WalletPage = () => {
             <div className="wallet-actions">
               {user?.role !== 'admin' && (
                 <>
-                  <button className="request-funds-btn" onClick={() => setShowFundModal(true)}>
-                    <span>Add</span> Add Money
-                  </button>
+                  {/* Removed Add Money as per request */}
                   <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout}>
-                    <span>Settle</span> Request Settlement
+                    <span style={{ fontSize: '1.2rem' }}>💸</span> Request Settlement
                   </button>
                 </>
               )}

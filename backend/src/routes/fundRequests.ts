@@ -4,11 +4,26 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
-// GET /api/fund-requests — get fund requests (my own + downline for admins)
+// GET /api/fund-requests — get fund requests (my own + downline for admins/merchants)
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const myRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const where = myRole?.role === "admin" ? {} : { requesterId: req.userId! };
+    let where: any = {};
+
+    if (myRole?.role === "admin") {
+      where = {};
+    } else if (myRole?.role === "merchant") {
+      const downlineProfiles = await prisma.profile.findMany({
+        where: { parentId: req.userId! },
+        select: { userId: true }
+      });
+      const downlineIds = downlineProfiles.map(p => p.userId);
+      where = {
+        requesterId: { in: [...downlineIds, req.userId!] }
+      };
+    } else {
+      where = { requesterId: req.userId! };
+    }
 
     const requests = await prisma.fundRequest.findMany({
       where,
@@ -104,16 +119,54 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     const fundReq = await prisma.fundRequest.findUnique({ where: { id: req.params.id } });
     if (!fundReq) return res.status(404).json({ error: "Not found" });
 
-    // Credit wallet
-    const wallet = await prisma.wallet.findUnique({ where: { userId: fundReq.requesterId } });
-    const newBalance = Number(wallet?.balance ?? 0) + Number(fundReq.amount);
+    const approverRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
+    if (approverRole?.role === "merchant" && fundReq.requesterId !== req.userId!) {
+      // Must ensure the requester is a direct branch of this merchant
+      const requesterProfile = await prisma.profile.findUnique({ where: { userId: fundReq.requesterId } });
+      if (requesterProfile?.parentId !== req.userId!) {
+        return res.status(403).json({ error: "You can only approve requests for your own branches." });
+      }
 
-    const [, txn, updatedReq] = await prisma.$transaction([
-      prisma.wallet.update({
+      // Check merchant's own wallet balance!
+      const merchantWallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });
+      if (!merchantWallet || Number(merchantWallet.balance) < Number(fundReq.amount)) {
+        return res.status(400).json({ error: "Insufficient wallet balance to approve downline fund request." });
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // If merchant is approving branch, deduct from merchant.
+      if (approverRole?.role === "merchant" && fundReq.requesterId !== req.userId!) {
+        const mWallet = await tx.wallet.findUnique({ where: { userId: req.userId! } });
+        const mNewBal = Number(mWallet!.balance) - Number(fundReq.amount);
+        await tx.wallet.update({
+          where: { userId: req.userId! },
+          data: { balance: mNewBal }
+        });
+        await tx.walletTransaction.create({
+          data: {
+            fromUserId: req.userId!,
+            toUserId: fundReq.requesterId,
+            amount: -Number(fundReq.amount),
+            type: "transfer",
+            description: "Approved Branch Fund Request",
+            fromBalanceAfter: mNewBal,
+            toBalanceAfter: mNewBal,
+            createdBy: req.userId!
+          }
+        });
+      }
+
+      // Credit wallet to requester
+      const wallet = await tx.wallet.findUnique({ where: { userId: fundReq.requesterId } });
+      const newBalance = Number(wallet?.balance ?? 0) + Number(fundReq.amount);
+
+      await tx.wallet.update({
         where: { userId: fundReq.requesterId },
         data: { balance: newBalance },
-      }),
-      prisma.walletTransaction.create({
+      });
+
+      await tx.walletTransaction.create({
         data: {
           toUserId: fundReq.requesterId,
           amount: Number(fundReq.amount),
@@ -122,12 +175,13 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
           toBalanceAfter: newBalance,
           createdBy: req.userId!,
         },
-      }),
-      prisma.fundRequest.update({
+      });
+
+      await tx.fundRequest.update({
         where: { id: req.params.id },
         data: { status: "approved", approvedBy: req.userId!, approvedAt: new Date() },
-      }),
-    ]);
+      });
+    });
 
     // Notify requester
     await prisma.notification.create({
@@ -149,6 +203,17 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
 router.patch("/:id/reject", requireAuth, async (req: AuthRequest, res) => {
   const { reason } = req.body;
   try {
+    const fundReqCurrent = await prisma.fundRequest.findUnique({ where: { id: req.params.id } });
+    if (!fundReqCurrent) return res.status(404).json({ error: "Not found" });
+
+    const rejecterRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
+    if (rejecterRole?.role === "merchant" && fundReqCurrent.requesterId !== req.userId!) {
+      const requesterProfile = await prisma.profile.findUnique({ where: { userId: fundReqCurrent.requesterId } });
+      if (requesterProfile?.parentId !== req.userId!) {
+        return res.status(403).json({ error: "You can only reject requests for your own branches." });
+      }
+    }
+
     const fundReq = await prisma.fundRequest.update({
       where: { id: req.params.id },
       data: { status: "rejected", rejectionReason: reason || "Not specified" },
@@ -179,11 +244,13 @@ router.get("/bank-accounts", requireAuth, async (_req, res) => {
   }
 });
 
-// GET /api/fund-requests/bank-accounts/all — get all company bank accounts (admin only)
+// GET /api/fund-requests/bank-accounts/all — get all company bank accounts (admin/merchant only)
 router.get("/bank-accounts/all", requireAuth, async (req: AuthRequest, res) => {
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+       return res.status(403).json({ error: "Forbidden" });
+    }
 
     const accounts = await prisma.companyBankAccount.findMany({ orderBy: { createdAt: "asc" } });
     res.json(accounts);

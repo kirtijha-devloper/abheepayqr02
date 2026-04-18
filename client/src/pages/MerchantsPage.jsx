@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { API_BASE } from '../config';
 import './MerchantsPage.css';
 
 const emptyForm = {
@@ -29,7 +30,7 @@ const titleCase = (value = '') => value ? value.charAt(0).toUpperCase() + value.
 const MerchantsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant } = useAppContext();
-  const { getImpersonateToken } = useAuth();
+  const { user, getImpersonateToken } = useAuth();
   const { success, error } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
@@ -48,6 +49,36 @@ const MerchantsPage = () => {
     setIsEditing(false);
     setSelectedMerchant(null);
     setFormData(emptyForm);
+  };
+
+  const [viewingBranches, setViewingBranches] = useState(null);
+  const [branchesData, setBranchesData] = useState([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+
+  const fetchBranches = async (merchantId) => {
+    setLoadingBranches(true);
+    try {
+        const token = sessionStorage.getItem('authToken');
+        const res = await fetch(`${API_BASE}/users?parentId=${merchantId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setBranchesData(data);
+        } else {
+            error('Failed to load branches.');
+        }
+    } catch (err) {
+        console.error(err);
+        error('Error fetching branches.');
+    } finally {
+        setLoadingBranches(false);
+    }
+  };
+
+  const handleViewBranches = (merchant) => {
+    setViewingBranches(merchant);
+    fetchBranches(merchant.id);
   };
 
   const handleLoginAs = async (merchant) => {
@@ -139,6 +170,7 @@ const MerchantsPage = () => {
   };
 
   const filteredMerchants = merchants.filter((merchant) => {
+    // console.log("Filtering merchant", merchant);
     const normalizedStatus = (merchant.status || 'active').toLowerCase();
     if (activeTab !== 'All' && normalizedStatus !== activeTab.toLowerCase()) return false;
     const term = searchTerm.toLowerCase();
@@ -160,19 +192,95 @@ const MerchantsPage = () => {
     }
   }, [currentPage, totalPages]);
 
+  const isMerchant = user?.role === 'merchant';
+  const entitySingular = isMerchant ? 'Branch' : 'Merchant';
+  const entityPlural = isMerchant ? 'Branches' : 'Merchants';
+
   return (
     <div className="dashboard-layout">
+      {viewingBranches && (
+        <div className="modal-overlay" onClick={() => setViewingBranches(null)}>
+          <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '1200px', width: '95%' }}>
+            <div className="modal-header-gradient">
+              <h3>{viewingBranches.fullName}'s Branches</h3>
+              <button className="close-modal" onClick={() => setViewingBranches(null)}>&times;</button>
+            </div>
+            
+            <div className="modal-body hide-scrollbar" style={{ padding: '0', maxHeight: '600px', overflowY: 'auto' }}>
+              {loadingBranches ? (
+                 <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-mute)' }}>
+                    <div className="shimmer" style={{ width: '40px', height: '40px', borderRadius: '50%', margin: '0 auto 1rem' }}></div>
+                    Synchronizing branch fleet...
+                 </div>
+              ) : (
+                 <div className="table-responsive">
+                    <table className="merchants-table" style={{ width: '100%', textAlign: 'left', margin: 0 }}>
+                       <thead>
+                         <tr>
+                           <th>Branch Identity</th>
+                           <th>Contact Info</th>
+                           <th>Wallet Balance</th>
+                           <th>Status</th>
+                           <th>Quick Actions</th>
+                         </tr>
+                       </thead>
+                       <tbody>
+                         {branchesData.length > 0 ? branchesData.map(branch => (
+                            <tr key={branch.id}>
+                              <td>
+                                <div className="merchant-name-cell">
+                                  <div className="merchant-avatar" style={{ background: 'linear-gradient(135deg, #3b82f633, #1d4ed833)', color: '#60a5fa' }}>
+                                      {branch.fullName?.charAt(0) || '?'}
+                                  </div>
+                                  <div className="merchant-name-info">
+                                    <div className="m-name">{branch.fullName}</div>
+                                    <div className="m-email" style={{ fontSize: '11px', opacity: 0.6 }}>MID: {branch.id?.substring(0,8)}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td><div style={{color: 'var(--text-mute)', fontSize: '0.875rem'}}>{branch.email}</div></td>
+                              <td className="volume-cell">Rs {Number(branch.walletBalance || 0).toFixed(2)}</td>
+                              <td><span className={`status-pill ${(branch.status || 'active').toLowerCase()}`}>{titleCase(branch.status || 'active')}</span></td>
+                              <td className="merchant-actions">
+                                {user?.role === 'admin' && (
+                                  <button title="Login as Branch" className="action-btn login-btn" onClick={() => handleLoginAsMerchant(branch.id)}>
+                                    Login As
+                                  </button>
+                                )}
+                                <button className="action-btn edit-btn" onClick={() => openEditModal(branch)}>Edit</button>
+                                <button className="action-btn danger-btn" onClick={() => handleToggleStatus(branch)}>
+                                  {(branch.status || 'active').toLowerCase() === 'active' ? 'Disable' : 'Enable'}
+                                </button>
+                              </td>
+                            </tr>
+                         )) : (
+                            <tr>
+                               <td colSpan="5" style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-mute)' }}>
+                                  <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.2 }}>👥</div>
+                                  No branches found for this merchant.
+                               </td>
+                            </tr>
+                         )}
+                       </tbody>
+                    </table>
+                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <Sidebar />
       <div className="main-content">
         <Header />
         <main className="dashboard-body animated">
           <div className="merchants-header">
             <div className="merchants-title">
-              <h2>Merchants Fleet</h2>
-              <p>Onboard and manage platform merchant sub-agents.</p>
+              <h2>{entityPlural} Fleet</h2>
+              <p>Onboard and manage platform {entitySingular.toLowerCase()} sub-agents.</p>
             </div>
             <button className="add-merchant-btn" onClick={() => setShowModal(true)}>
-              <span>+</span> New Merchant
+              <span>+</span> New {entitySingular}
             </button>
           </div>
 
@@ -238,6 +346,9 @@ const MerchantsPage = () => {
                         </td>
                         <td>
                           <div className="merchant-actions">
+                            {!isMerchant && (
+                                <button className="action-btn" style={{background: 'var(--brand-primary)', color: 'white'}} onClick={() => handleViewBranches(merchant)}>See Branches</button>
+                            )}
                             <button className="action-btn login-btn" onClick={() => handleLoginAs(merchant)}>Login</button>
                             <button className="action-btn" onClick={() => handleEdit(merchant)}>Edit</button>
                             <button className="action-btn" onClick={() => handleToggleStatus(merchant)}>Toggle</button>
@@ -250,7 +361,7 @@ const MerchantsPage = () => {
                   {filteredMerchants.length === 0 && (
                     <tr>
                       <td colSpan="6" className="merchants-empty-state">
-                        No merchants found for the selected filter.
+                        No {entityPlural.toLowerCase()} found for the selected filter.
                       </td>
                     </tr>
                   )}
@@ -259,7 +370,7 @@ const MerchantsPage = () => {
             </div>
 
             <div className="txn-table-footer">
-              <span className="txn-count-text">Showing {paginatedMerchants.length} of {filteredMerchants.length} merchants</span>
+              <span className="txn-count-text">Showing {paginatedMerchants.length} of {filteredMerchants.length} {entityPlural.toLowerCase()}</span>
               <div className="pagination-v2">
                 <button className="nav-btn-v2" type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1}>Prev</button>
                 <button className="nav-num-v2 active" type="button">{currentPage}</button>

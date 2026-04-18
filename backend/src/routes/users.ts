@@ -47,22 +47,44 @@ router.patch("/profile", requireAuth, async (req: AuthRequest, res) => {
 
 // POST /api/users — creation of a new user
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
-  const { email, password, full_name, role, parent_id, ...extra } = req.body;
+  const { email, password, full_name, ...extra } = req.body;
+  
+  if (!password || String(password).length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+  }
+
   try {
     const callerId = req.userId!;
-    const callerRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
-    if (!callerRole) return res.status(403).json({ error: "Forbidden" });
-
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) return res.status(400).json({ error: "Email already exists" });
-
-    if (!password || String(password).length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters long" });
-    }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await prisma.$transaction(async (tx) => {
+      // Find caller's profile and role
+      const caller = await tx.user.findUnique({
+        where: { id: callerId },
+        include: { profile: true, roles: true }
+      });
+
+      if (!caller || !caller.roles.length) throw new Error("Caller not found or has no roles");
+      const callerRole = caller.roles[0].role;
+      const callerProfileId = caller.profile?.id;
+
+      // Determine new user's role and parent
+      let targetRole: AppRole = "retailer";
+      let targetParentId: string | null = null;
+
+      if (callerRole === "admin") {
+        targetRole = "merchant";
+        targetParentId = callerProfileId || null;
+      } else if (callerRole === "merchant") {
+        targetRole = "branch";
+        targetParentId = callerProfileId || null;
+      } else {
+        throw new Error("Unauthorized to create users");
+      }
+
       const user = await tx.user.create({
         data: {
           email,
@@ -72,14 +94,14 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
               fullName: full_name,
               phone: extra.phone,
               businessName: extra.business_name,
-              parentId: parent_id,
+              parentId: targetParentId,
               status: "active",
               kycStatus: "pending",
             },
           },
           roles: {
             create: {
-              role: role || "retailer",
+              role: targetRole,
             },
           },
           wallet: {

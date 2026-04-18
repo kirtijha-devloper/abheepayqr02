@@ -50,9 +50,22 @@ const Sidebar = () => {
   const merchantItems = [
     { name: 'Dashboard', icon: '▦', path: '/dashboard' },
     { name: 'Transactions', icon: '⇄', path: '/transactions' },
+    { name: 'Branches', icon: '👥', path: '/branches' },
     { name: 'QR Codes', icon: '🔳', path: '/qr-codes' },
+    { name: 'Settlements', icon: '💸', path: '/settlements' },
+    { name: 'Fund Requests', icon: '📥', path: '/fund-requests' },
+    { name: 'Reconciliation', icon: '⚖', path: '/reconciliation' },
     { name: 'Wallet', icon: '💳', path: '/wallet' },
     { name: 'Callbacks', icon: '⚡', path: '/callbacks' },
+    { name: 'Support', icon: '🎧', path: '/support' },
+    { name: 'Settings', icon: '⚙', path: '/settings' },
+  ];
+
+  const branchItems = [
+    { name: 'Dashboard', icon: '▦', path: '/dashboard' },
+    { name: 'Transactions', icon: '⇄', path: '/transactions' },
+    { name: 'QR Codes', icon: '🔳', path: '/qr-codes' },
+    { name: 'Wallet', icon: '💳', path: '/wallet' },
     { name: 'Support', icon: '🎧', path: '/support' },
     { name: 'Settings', icon: '⚙', path: '/settings' },
   ];
@@ -70,7 +83,14 @@ const Sidebar = () => {
     { name: 'Settings', icon: '⚙', path: '/admin/settings' },
   ];
 
-  const menuItems = isAdmin ? adminItems : merchantItems;
+  const getMenuItems = () => {
+    if (isAdmin) return adminItems;
+    if (user?.role === 'merchant') return merchantItems;
+    if (user?.role === 'branch') return branchItems;
+    return merchantItems; // Fallback
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <>

@@ -53,11 +53,11 @@ const FundRequestsAdminPage = () => {
               </h2>
               <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>Review and approve manual fund credit requests from merchants.</p>
             </div>
-            <div className="txn-filters" style={{ background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div className="merchant-filter-group">
               {['pending', 'approved', 'rejected', 'all'].map(tab => (
                 <button 
                   key={tab}
-                  className={`txn-pill-filter ${filter === tab ? 'active' : ''}`}
+                  className={`merchant-filter-btn ${filter === tab ? 'active' : ''}`}
                   onClick={() => setFilter(tab)}
                   style={{ textTransform: 'capitalize' }}
                 >

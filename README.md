@@ -108,7 +108,7 @@ The backend must run as a real Node process or platform service. Shared static h
 You need:
 - Node.js support
 - environment variables
-- outbound internet access for your DB/API calls
+- outbound  internet access for your DB/API calls
 - a process manager or hosting platform restart policy
 
 Common choices:
