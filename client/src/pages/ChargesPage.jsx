@@ -60,15 +60,17 @@ const ChargesPage = () => {
             return error("Invalid range. Max must be greater than Min.");
         }
 
-                console.log("Saving slab for targetUser:", targetUser);
-                const res = await fetch(`${API_BASE}/commission/overrides`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        target_user_id: targetUser.userId,
+        try {
+            const token = sessionStorage.getItem('authToken');
+            console.log("Saving slab for targetUser:", targetUser);
+            const res = await fetch(`${API_BASE}/commission/overrides`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    target_user_id: targetUser.userId,
                     service_key: 'payout',
                     service_label: 'Transfer Charge',
                     min_amount: Number(minAmount),
