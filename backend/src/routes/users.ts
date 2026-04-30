@@ -21,6 +21,7 @@ router.get("/all", requireAuth, async (req: AuthRequest, res) => {
 
     const result = users.map(u => ({
       id: u.id,
+      profileId: u.profile?.id,
       email: u.email,
       role: u.roles[0]?.role,
       fullName: u.profile?.fullName,
@@ -105,18 +106,34 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       // Determine new user's role and parent
       let targetRole: AppRole = "branch";
       let targetParentId: string | null = null;
-
-      if (callerRole === "admin") {
-        targetRole = "master";
-        targetParentId = callerProfileId || null;
-      } else if (callerRole === "master") {
-        targetRole = "merchant";
-        targetParentId = callerProfileId || null;
-      } else if (callerRole === "merchant") {
-        targetRole = "branch";
-        targetParentId = callerProfileId || null;
+      
+      const requestedParentId = extra.parentId;
+      
+      if (requestedParentId) {
+          // Find requested parent
+          const parentProfile = await tx.profile.findUnique({ where: { id: requestedParentId }, include: { user: { include: { roles: true } } } });
+          if (!parentProfile) throw new Error("Requested parent profile not found");
+          
+          const parentRole = parentProfile.user.roles[0]?.role;
+          if (parentRole === "admin") targetRole = "master";
+          else if (parentRole === "master") targetRole = "merchant";
+          else if (parentRole === "merchant") targetRole = "branch";
+          else throw new Error("Cannot add downline to this parent role");
+          
+          targetParentId = requestedParentId;
       } else {
-        throw new Error("Unauthorized to create users");
+          if (callerRole === "admin") {
+            targetRole = "master";
+            targetParentId = callerProfileId || null;
+          } else if (callerRole === "master") {
+            targetRole = "merchant";
+            targetParentId = callerProfileId || null;
+          } else if (callerRole === "merchant") {
+            targetRole = "branch";
+            targetParentId = callerProfileId || null;
+          } else {
+            throw new Error("Unauthorized to create users");
+          }
       }
 
       const user = await tx.user.create({

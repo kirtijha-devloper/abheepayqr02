@@ -23,6 +23,7 @@ const emptyForm = {
   callbackUrl: '',
   payoutChargeType: 'flat',
   payoutChargeValue: 0,
+  parentId: '',
 };
 
 const titleCase = (value = '') => value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : 'Active';
@@ -32,13 +33,42 @@ const MerchantsPage = () => {
   const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant } = useAppContext();
   const { user, getImpersonateToken } = useAuth();
   const { success, error } = useToast();
+  const isAdmin = user?.role === 'admin';
+  const isMaster = user?.role === 'master';
+  const isMerchant = user?.role === 'merchant';
+  const entitySingular = isAdmin ? 'Master' : (isMaster ? 'Merchant' : 'Branch');
+  const entityPlural = isAdmin ? 'Masters' : (isMaster ? 'Merchants' : 'Branches');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
+  const [uplineMembers, setUplineMembers] = useState([]);
   const itemsPerPage = 8;
+
+  useEffect(() => {
+    const fetchUplineMembers = async () => {
+        try {
+            const token = sessionStorage.getItem('authToken');
+            const endpoint = isAdmin ? `${API_BASE}/users/all` : `${API_BASE}/users`;
+            const res = await fetch(endpoint, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                // Filter out branches because branches cannot be uplines
+                setUplineMembers(data.filter(u => u.role && u.role !== 'branch'));
+            }
+        } catch (err) {
+            console.error('Failed to fetch upline members', err);
+        }
+    };
+    if (showModal && !isEditing) {
+        fetchUplineMembers();
+    }
+  }, [showModal, isEditing, isAdmin]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -121,6 +151,7 @@ const MerchantsPage = () => {
       password: formData.password,
       businessName: formData.businessName,
       callbackUrl: formData.callbackUrl,
+      parentId: formData.parentId,
     });
 
     if (!res.success) {
@@ -192,11 +223,7 @@ const MerchantsPage = () => {
     }
   }, [currentPage, totalPages]);
 
-  const isAdmin = user?.role === 'admin';
-  const isMaster = user?.role === 'master';
-  const isMerchant = user?.role === 'merchant';
-  const entitySingular = isAdmin ? 'Master' : (isMaster ? 'Merchant' : 'Branch');
-  const entityPlural = isAdmin ? 'Masters' : (isMaster ? 'Merchants' : 'Branches');
+
 
   return (
     <div className="dashboard-layout">
@@ -411,6 +438,20 @@ const MerchantsPage = () => {
                         <input type="password" name="password" value={formData.password} placeholder="Password *" className="form-input-box" required onChange={handleChange} />
                         <span className="eye-icon">Show</span>
                       </div>
+                    </div>
+                  )}
+                  {!isEditing && (
+                    <div className="form-group full-width">
+                      <label className="callback-label" style={{marginBottom: '5px', display: 'block', fontSize: '11px', color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600}}>Upline Member</label>
+                      <select name="parentId" value={formData.parentId} onChange={handleChange} className="form-input-box" style={{background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.1)'}}>
+                        <option value="">-- Direct Downline (Self) --</option>
+                        {uplineMembers.map(member => (
+                          <option key={member.id || member.profile?.id || member.profileId} value={member.profileId || member.profile?.id || member.id}>
+                            {member.fullName || member.email} ({member.role?.toUpperCase()})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="help-text">Select under whom this new user will be created.</p>
                     </div>
                   )}
                   <div className="form-group full-width">
