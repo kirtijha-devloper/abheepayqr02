@@ -223,41 +223,16 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
     const wallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });
     if (!wallet) return res.status(404).json({ error: "Wallet not found" });
 
-    // Fetch dynamic Admin Rules for Payouts
-    const configSetting = await prisma.appSetting.findUnique({ where: { key: "payout_config" } });
-    
-    let fee = 0;
-    let config: any = { type: 'flat', ranges: [], default: 0 };
-    if (configSetting) {
-        try {
-            config = JSON.parse(configSetting.value);
-        } catch (e) {
-            console.error("Failed to parse payout config", e);
-        }
+    // Withdrawals from Payout Wallet have NO fees as per new requirements
+    const fee = 0;
+    const totalDeduction = withdrawalAmount;
+
+    // Check Payout Wallet (eWalletBalance)
+    if (Number(wallet.eWalletBalance) < totalDeduction) {
+      return res.status(400).json({ error: `Insufficient payout wallet balance. Available: ₹${Number(wallet.eWalletBalance).toFixed(2)}` });
     }
 
-    // Range-aware fee calculation
-    const applicableRange = config.ranges?.find((r: any) => withdrawalAmount >= r.min && withdrawalAmount <= r.max);
-    
-    if (applicableRange) {
-        fee = config.type === 'percentage' 
-            ? withdrawalAmount * (applicableRange.value / 100) 
-            : applicableRange.value;
-    } else {
-        // Use default if no range matches
-        fee = config.type === 'percentage' 
-            ? withdrawalAmount * (config.default / 100) 
-            : config.default;
-    }
-
-    const totalDeduction = withdrawalAmount + fee;
-
-    // Check balance
-    if (Number(wallet.balance) < totalDeduction) {
-      return res.status(400).json({ error: `Insufficient wallet balance. Total needed including fees (₹${fee.toFixed(2)}): ₹${totalDeduction.toFixed(2)}` });
-    }
-
-    const newBalance = Number(wallet.balance) - totalDeduction;
+    const newEWalletBalance = Number(wallet.eWalletBalance) - totalDeduction;
 
     // Fetch bank account details for snapshot
     const bankAccount = await (prisma as any).merchantBankAccount.findUnique({
@@ -273,7 +248,7 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
     });
 
     const [, , pTxn] = await prisma.$transaction([
-      prisma.wallet.update({ where: { userId: req.userId! }, data: { balance: newBalance } }),
+      prisma.wallet.update({ where: { userId: req.userId! }, data: { eWalletBalance: newEWalletBalance } }),
       prisma.walletTransaction.create({
         data: {
           toUserId: req.userId!,
@@ -468,7 +443,7 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
         const refundAmount = walletTxn ? Math.abs(Number(walletTxn.amount)) : Number(txn.amount);
 
         const wallet = await prisma.wallet.findUnique({ where: { userId: txn.userId } });
-        const newBalance = Number(wallet?.balance || 0) + refundAmount;
+        const newEWalletBalance = Number(wallet?.eWalletBalance || 0) + refundAmount;
 
         await prisma.$transaction([
             prisma.transaction.update({
@@ -477,7 +452,7 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
             }),
             prisma.wallet.update({
                 where: { userId: txn.userId },
-                data: { balance: newBalance }
+                data: { eWalletBalance: newEWalletBalance }
             }),
             prisma.walletTransaction.create({
                 data: {
@@ -485,7 +460,7 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
                     amount: refundAmount,
                     type: "refund",
                     description: `Refund for Rejected Settlement - Ref: ${id.substring(0,8)}. Reason: ${reason || "Admin rejection"}`,
-                    toBalanceAfter: newBalance,
+                    toBalanceAfter: newEWalletBalance,
                     createdBy: req.userId!
                 }
             })

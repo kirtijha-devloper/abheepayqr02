@@ -59,6 +59,7 @@ const Sidebar = () => {
     { name: 'Wallet', icon: '💳', path: '/wallet' },
     { name: 'Callbacks', icon: '⚡', path: '/callbacks' },
     { name: 'Support', icon: '🎧', path: '/support' },
+    { name: 'Charges', icon: '％', path: '/charges' },
     { name: 'Settings', icon: '⚙', path: '/settings' },
   ];
 
@@ -83,6 +84,7 @@ const Sidebar = () => {
     { name: 'Reports', icon: '📊', path: '/admin/reports' },
     { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks' },
     { name: 'Support', icon: '🎧', path: '/admin/support' },
+    { name: 'Charges', icon: '％', path: '/admin/charges' },
     { name: 'Settings', icon: '⚙', path: '/admin/settings' },
   ];
 
@@ -98,6 +100,7 @@ const Sidebar = () => {
     { name: 'Reports', icon: '📊', path: '/master/reports' },
     { name: 'Callbacks', icon: '⚡', path: '/master/callbacks' },
     { name: 'Support', icon: '🎧', path: '/master/support' },
+    { name: 'Charges', icon: '％', path: '/master/charges' },
     { name: 'Settings', icon: '⚙', path: '/master/settings' },
   ];
 

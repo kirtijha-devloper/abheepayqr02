@@ -201,11 +201,11 @@ model CompanyBankAccount {
 model FundRequest {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   requesterId      String    @map("requester_id") @db.Uuid
-  bankAccountId    String    @map("bank_account_id") @db.Uuid
+  bankAccountId    String?   @map("bank_account_id") @db.Uuid
   amount           Decimal
   paymentMode      String    @default("bank_transfer") @map("payment_mode")
-  paymentReference String    @map("payment_reference")
-  paymentDate      DateTime  @map("payment_date") @db.Date
+  paymentReference String?   @map("payment_reference")
+  paymentDate      DateTime? @map("payment_date") @db.Date
   receiptPath      String?   @map("receipt_path")
   receiptName      String?   @map("receipt_name")
   remarks          String?
@@ -217,7 +217,7 @@ model FundRequest {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  bankAccount CompanyBankAccount @relation(fields: [bankAccountId], references: [id])
+  bankAccount CompanyBankAccount? @relation(fields: [bankAccountId], references: [id])
   requester   User               @relation("Requester", fields: [requesterId], references: [id])
   approver    User?              @relation("Approver", fields: [approvedBy], references: [id])
 

@@ -62,7 +62,7 @@ const SettlementsAdminPage = () => {
               <h2 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Settlement Requests
               </h2>
-              <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>Review and process merchant withdrawal requests across the platform.</p>
+              <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>Review and process merchant withdrawal requests from their <strong>Payout Wallets</strong> (0 Fee).</p>
             </div>
             <div className="merchant-filter-group">
               {['pending', 'success', 'failed'].map(tab => (

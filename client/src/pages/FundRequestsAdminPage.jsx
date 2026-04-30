@@ -73,10 +73,10 @@ const FundRequestsAdminPage = () => {
                 <thead>
                   <tr>
                     <th>Requester Identity</th>
-                    <th>Destination Bank</th>
-                    <th>Credit Amount</th>
-                    <th>Payment Reference</th>
-                    <th>Request Status</th>
+                    <th>Transfer Type</th>
+                    <th>Amount</th>
+                    <th>Ref / Remark</th>
+                    <th>Status</th>
                     <th style={{ textAlign: 'right' }}>Management</th>
                   </tr>
                 </thead>
@@ -105,14 +105,20 @@ const FundRequestsAdminPage = () => {
                         </div>
                       </td>
                       <td>
-                        <div style={{ color: '#fff', fontSize: '13px' }}>{r.bankName || 'Company Bank'}</div>
+                        <div style={{ color: '#fff', fontSize: '13px' }}>
+                          {r.bankName ? (
+                            <span>🏦 {r.bankName}</span>
+                          ) : (
+                            <span style={{ color: '#34d399' }}>🔄 Internal Transfer</span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>₹ {Number(r.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                       </td>
                       <td>
-                        <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#60a5fa' }}>{r.paymentReference}</div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(r.paymentDate).toLocaleDateString()}</div>
+                        <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#60a5fa' }}>{r.paymentReference || r.remarks || 'N/A'}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(r.createdAt).toLocaleDateString()}</div>
                       </td>
                       <td>
                         <span className={`status-pill ${r.status?.toLowerCase() === 'approved' ? 'active' : r.status?.toLowerCase() === 'rejected' ? 'suspended' : 'pending'}`}>

@@ -86,27 +86,40 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Amount is required" });
   }
   try {
-    // Resolve bank account — use provided one, or the first active one, or none
-    let resolvedBankAccountId = bank_account_id;
-    if (!resolvedBankAccountId || resolvedBankAccountId === 'default') {
-      const firstBank = await prisma.companyBankAccount.findFirst({ where: { isActive: true } });
-      resolvedBankAccountId = firstBank?.id;
+    const wallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });
+    if (!wallet || Number(wallet.balance) < Number(amount)) {
+      return res.status(400).json({ error: "Insufficient Main Wallet balance for this transfer request" });
     }
 
-    if (!resolvedBankAccountId) {
-      return res.status(400).json({ error: "No active bank account found. Please contact admin." });
-    }
+    const newBalance = Number(wallet.balance) - Number(amount);
 
-    const request = await prisma.fundRequest.create({
-      data: {
-        requesterId: req.userId!,
-        bankAccountId: resolvedBankAccountId,
-        amount: Number(amount),
-        paymentMode: payment_mode || "bank_transfer",
-        paymentReference: payment_reference || `REQ-${Date.now()}`,
-        paymentDate: payment_date ? new Date(payment_date) : new Date(),
-        remarks: remarks || "Manual fund request",
-      },
+    let request: any;
+    await prisma.$transaction(async (tx) => {
+        // Deduct balance immediately
+        await tx.wallet.update({
+            where: { userId: req.userId! },
+            data: { balance: newBalance }
+        });
+
+        await tx.walletTransaction.create({
+            data: {
+                toUserId: req.userId!,
+                amount: Number(amount),
+                type: "transfer_hold",
+                description: `Fund Request (Transfer to Payout) Hold`,
+                toBalanceAfter: newBalance,
+                createdBy: req.userId!
+            }
+        });
+
+        request = await tx.fundRequest.create({
+          data: {
+            requesterId: req.userId!,
+            amount: Number(amount),
+            paymentMode: "wallet_transfer",
+            remarks: remarks || "Main to Payout Transfer Request",
+          },
+        });
     });
 
     // Notify the DIRECT UPLINE (parent) of the requester
@@ -154,79 +167,132 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     const approverRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
     const approverProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
 
-    // Non-admin/master must verify the requester is their direct downline
     if (approverRole?.role !== "admin") {
-      const requesterProfile = await prisma.profile.findUnique({ where: { userId: fundReq.requesterId } });
-      if (requesterProfile?.parentId !== approverProfile?.id) {
-        return res.status(403).json({ error: "You can only approve requests from your direct downline." });
-      }
+      return res.status(403).json({ error: "Only admins can approve transfer requests." });
     }
 
-    // Check approver's wallet (non-admin must have funds)
-    if (approverRole?.role !== "admin") {
-      const approverWallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });
-      if (!approverWallet || Number(approverWallet.balance) < Number(fundReq.amount)) {
-        return res.status(400).json({ error: "Insufficient wallet balance to approve this request." });
-      }
+    let currentUserId = fundReq.requesterId;
+    const chargeDistributions: { userId: string, amount: number }[] = [];
+
+    // Find the max charge applicable to the requester
+    const requesterOverride = await prisma.userCommissionOverride.findUnique({
+        where: { targetUserId_serviceKey: { targetUserId: fundReq.requesterId, serviceKey: 'payout' } }
+    });
+
+    const baseChargeValue = requesterOverride?.chargeValue ? Number(requesterOverride.chargeValue) : 0;
+    const baseChargeType = requesterOverride?.chargeType || "flat";
+
+    const totalCharge = baseChargeType === "percent" 
+        ? (Number(fundReq.amount) * baseChargeValue) / 100 
+        : baseChargeValue;
+
+    // Distribute totalCharge up the hierarchy based on differences
+    let lastChargeRate = baseChargeValue;
+    
+    // We need a while loop walking up profile.parentId
+    let profile = await prisma.profile.findUnique({ where: { userId: currentUserId } });
+    
+    while (profile?.parentId) {
+        const parentProfile = await prisma.profile.findUnique({ where: { id: profile.parentId } });
+        if (!parentProfile) break;
+        
+        const parentUserId = parentProfile.userId;
+        
+        // Find parent's charge rate that they pay to THEIR parent
+        const parentOverride = await prisma.userCommissionOverride.findUnique({
+             where: { targetUserId_serviceKey: { targetUserId: parentUserId, serviceKey: 'payout' } }
+        });
+        
+        const parentChargeRate = parentOverride?.chargeValue ? Number(parentOverride.chargeValue) : 0;
+        
+        // The parent earns the difference between what they charge the child, and what they pay their parent
+        const markupRate = lastChargeRate - parentChargeRate;
+        
+        if (markupRate > 0) {
+            const markupAmount = baseChargeType === "percent"
+                ? (Number(fundReq.amount) * markupRate) / 100
+                : markupRate;
+                
+            chargeDistributions.push({ userId: parentUserId, amount: markupAmount });
+        }
+        
+        lastChargeRate = parentChargeRate;
+        profile = parentProfile;
     }
+    
+    // The admin (at the top) gets the remaining lastChargeRate
+    if (lastChargeRate > 0) {
+        const adminAmount = baseChargeType === "percent"
+            ? (Number(fundReq.amount) * lastChargeRate) / 100
+            : lastChargeRate;
+        // adminUserId is req.userId! since only admins can approve
+        chargeDistributions.push({ userId: req.userId!, amount: adminAmount });
+    }
+
+    const netAmount = Number(fundReq.amount) - totalCharge;
 
     await prisma.$transaction(async (tx) => {
-      // Deduct from approver's wallet (except admin who tops up from system)
-      if (approverRole?.role !== "admin") {
-        const aWallet = await tx.wallet.findUnique({ where: { userId: req.userId! } });
-        const aNewBal = Number(aWallet!.balance) - Number(fundReq.amount);
-        await tx.wallet.update({ where: { userId: req.userId! }, data: { balance: aNewBal } });
-        await tx.walletTransaction.create({
-          data: {
-            fromUserId: req.userId!,
-            toUserId: fundReq.requesterId,
-            amount: -Number(fundReq.amount),
-            type: "fund_settlement",
-            description: `Approved Fund Request from downline`,
-            fromBalanceAfter: aNewBal,
-            toBalanceAfter: 0, // will be updated below
-            createdBy: req.userId!
-          }
+        // 1. Credit Net Amount to Requester's eWalletBalance
+        const reqWallet = await tx.wallet.findUnique({ where: { userId: fundReq.requesterId } });
+        const newEWalletBalance = Number(reqWallet?.eWalletBalance ?? 0) + netAmount;
+        
+        await tx.wallet.update({
+            where: { userId: fundReq.requesterId },
+            data: { eWalletBalance: newEWalletBalance }
         });
-      }
 
-      // Credit wallet to requester
-      const wallet = await tx.wallet.findUnique({ where: { userId: fundReq.requesterId } });
-      const newBalance = Number(wallet?.balance ?? 0) + Number(fundReq.amount);
+        await tx.walletTransaction.create({
+            data: {
+                toUserId: fundReq.requesterId,
+                amount: netAmount,
+                type: "transfer_credit",
+                description: `Transfer Approved (Net after ₹${totalCharge.toFixed(2)} charge)`,
+                toBalanceAfter: newEWalletBalance,
+                createdBy: req.userId!
+            }
+        });
 
-      await tx.wallet.update({
-        where: { userId: fundReq.requesterId },
-        data: { balance: newBalance },
-      });
+        // 2. Distribute Charges
+        for (const dist of chargeDistributions) {
+            const w = await tx.wallet.findUnique({ where: { userId: dist.userId } });
+            if (w && dist.amount > 0) {
+                const nBal = Number(w.balance) + dist.amount;
+                await tx.wallet.update({
+                    where: { userId: dist.userId },
+                    data: { balance: nBal }
+                });
+                
+                await tx.walletTransaction.create({
+                    data: {
+                        toUserId: dist.userId,
+                        amount: dist.amount,
+                        type: "commission",
+                        description: `Payout Transfer Commission from ${fundReq.requesterId.substring(0,8)}`,
+                        toBalanceAfter: nBal,
+                        createdBy: req.userId!
+                    }
+                });
+            }
+        }
 
-      await tx.walletTransaction.create({
-        data: {
-          toUserId: fundReq.requesterId,
-          amount: Number(fundReq.amount),
-          type: "fund_request",
-          description: "Fund Request Approved",
-          toBalanceAfter: newBalance,
-          createdBy: req.userId!,
-        },
-      });
-
-      await tx.fundRequest.update({
-        where: { id: req.params.id },
-        data: { status: "approved", approvedBy: req.userId!, approvedAt: new Date() },
-      });
+        // 3. Mark Approved
+        await tx.fundRequest.update({
+            where: { id: req.params.id },
+            data: { status: "approved", approvedBy: req.userId!, approvedAt: new Date() },
+        });
     });
 
     // Notify requester
     await prisma.notification.create({
       data: {
         userId: fundReq.requesterId,
-        title: "Fund Request Approved ✓",
-        message: `Your fund request of ₹${fundReq.amount} has been approved.`,
+        title: "Transfer Request Approved ✓",
+        message: `Your transfer of ₹${fundReq.amount} to Payout Wallet was approved. (Charge: ₹${totalCharge.toFixed(2)})`,
         type: "success",
       },
     });
 
-    res.json({ success: true, txnId: txn.id, request: updatedReq });
+    res.json({ success: true, request: fundReq });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -243,15 +309,34 @@ router.patch("/:id/reject", requireAuth, async (req: AuthRequest, res) => {
     const rejecterProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
 
     if (rejecterRole?.role !== "admin") {
-      const requesterProfile = await prisma.profile.findUnique({ where: { userId: fundReqCurrent.requesterId } });
-      if (requesterProfile?.parentId !== rejecterProfile?.id) {
-        return res.status(403).json({ error: "You can only reject requests from your direct downline." });
-      }
+      return res.status(403).json({ error: "Only admins can reject transfer requests." });
     }
 
-    const fundReq = await prisma.fundRequest.update({
-      where: { id: req.params.id },
-      data: { status: "rejected", rejectionReason: reason || "Not specified" },
+    let fundReq;
+    await prisma.$transaction(async (tx) => {
+        fundReq = await tx.fundRequest.update({
+            where: { id: req.params.id },
+            data: { status: "rejected", rejectionReason: reason || "Not specified" },
+        });
+
+        const reqWallet = await tx.wallet.findUnique({ where: { userId: fundReqCurrent.requesterId } });
+        const newBalance = Number(reqWallet?.balance ?? 0) + Number(fundReqCurrent.amount);
+
+        await tx.wallet.update({
+            where: { userId: fundReqCurrent.requesterId },
+            data: { balance: newBalance }
+        });
+
+        await tx.walletTransaction.create({
+            data: {
+                toUserId: fundReqCurrent.requesterId,
+                amount: Number(fundReqCurrent.amount),
+                type: "refund",
+                description: `Refund for Rejected Transfer Request`,
+                toBalanceAfter: newBalance,
+                createdBy: req.userId!
+            }
+        });
     });
 
     await prisma.notification.create({

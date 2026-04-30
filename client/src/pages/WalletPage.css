@@ -346,3 +346,15 @@
     justify-content: flex-end;
   }
 }
+
+.main-wallet {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+}
+
+.payout-wallet {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+}

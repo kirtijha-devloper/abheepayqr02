@@ -28,6 +28,7 @@ const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SupportAdminPage = lazy(() => import('./pages/SupportAdminPage'));
 const DocsPage = lazy(() => import('./pages/DocsPage'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
+const ChargesPage = lazy(() => import('./pages/ChargesPage'));
 
 const RouteLoader = () => (
   <div className="route-loader-shell">
@@ -63,6 +64,7 @@ function App() {
                   <Route path="/reconciliation" element={<ProtectedRoute requiredRole="merchant"><ReconciliationPage /></ProtectedRoute>} />
                   <Route path="/settlements" element={<ProtectedRoute requiredRole="merchant"><SettlementsAdminPage /></ProtectedRoute>} />
                   <Route path="/fund-requests" element={<ProtectedRoute requiredRole="merchant"><FundRequestsAdminPage /></ProtectedRoute>} />
+                  <Route path="/charges" element={<ProtectedRoute requiredRole="merchant"><ChargesPage /></ProtectedRoute>} />
 
                   <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/transactions" element={<ProtectedRoute requiredRole="admin"><TransactionsPage /></ProtectedRoute>} />
@@ -76,6 +78,7 @@ function App() {
                   <Route path="/admin/support" element={<ProtectedRoute requiredRole="admin"><SupportAdminPage /></ProtectedRoute>} />
                   <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettingsPage /></ProtectedRoute>} />
                   <Route path="/admin/reports" element={<ProtectedRoute requiredRole="admin"><AdminReportsPage /></ProtectedRoute>} />
+                  <Route path="/admin/charges" element={<ProtectedRoute requiredRole="admin"><ChargesPage /></ProtectedRoute>} />
 
                   {/* Master routes */}
                   <Route path="/master/dashboard" element={<ProtectedRoute requiredRole="master"><MasterDashboard /></ProtectedRoute>} />
@@ -90,6 +93,7 @@ function App() {
                   <Route path="/master/support" element={<ProtectedRoute requiredRole="master"><SupportAdminPage /></ProtectedRoute>} />
                   <Route path="/master/settings" element={<ProtectedRoute requiredRole="master"><AdminSettingsPage /></ProtectedRoute>} />
                   <Route path="/master/reports" element={<ProtectedRoute requiredRole="master"><ReportsPage /></ProtectedRoute>} />
+                  <Route path="/master/charges" element={<ProtectedRoute requiredRole="master"><ChargesPage /></ProtectedRoute>} />
 
                   <Route path="/docs" element={<DocsPage />} />
 

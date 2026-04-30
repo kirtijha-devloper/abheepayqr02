@@ -144,30 +144,33 @@ const WalletPage = () => {
             </div>
           </div>
 
-          <div className="wallet-balance-card">
-            <div className="balance-info-wrapper">
-              <div className="balance-label">CURRENT BALANCE</div>
-              <div className="balance-value">Rs {(Number(wallet?.balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              <div className="balance-stats-row">
-                <div className="stat-badge">
-                  <span className="stat-label">Currency:</span>
-                  <span className="stat-value">{wallet?.currency || 'INR'}</span>
-                </div>
-                <div className="stat-badge">
-                  <span className="stat-label">Status:</span>
-                  <span className="stat-value" style={{ color: 'var(--success)' }}>Active</span>
-                </div>
+          <div className="wallet-balance-card" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', background: 'transparent', padding: 0, boxShadow: 'none' }}>
+            {/* Main Wallet */}
+            <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
+              <div className="balance-label" style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>MAIN WALLET BALANCE</div>
+              <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: '#fff' }}>
+                Rs {(Number(wallet?.balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+              <div className="wallet-actions" style={{ marginTop: '20px' }}>
+                <button className="request-funds-btn" onClick={() => setShowFundModal(true)} style={{ width: '100%' }}>
+                  Transfer to Payout Wallet
+                </button>
               </div>
             </div>
-            <div className="wallet-actions">
-              {user?.role !== 'admin' && (
-                <>
-                  {/* Removed Add Money as per request */}
-                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout}>
-                    <span style={{ fontSize: '1.2rem' }}>💸</span> Request Settlement
+
+            {/* Payout Wallet */}
+            <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
+              <div className="balance-label" style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>PAYOUT WALLET BALANCE</div>
+              <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: '#fff' }}>
+                Rs {(Number(wallet?.eWalletBalance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+              <div className="wallet-actions" style={{ marginTop: '20px' }}>
+                {user?.role !== 'admin' && (
+                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
+                    <span style={{ fontSize: '1.2rem', marginRight: '8px' }}>💸</span> Request Settlement (Bank)
                   </button>
-                </>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
@@ -206,8 +209,8 @@ const WalletPage = () => {
 
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <span style={{ color: '#94a3b8', fontSize: '14px' }}>Admin Fee ({chargeLabel})</span>
-                    <span style={{ color: '#ef4444', fontWeight: '600' }}>+ Rs {payoutFee.toFixed(2)}</span>
+                    <span style={{ color: '#94a3b8', fontSize: '14px' }}>Transfer Fee</span>
+                    <span style={{ color: '#10b981', fontWeight: '600' }}>Free</span>
                   </div>
                   <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', marginBottom: '12px' }}></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -241,12 +244,12 @@ const WalletPage = () => {
             <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
               <div className="payout-modal card animated-scale-up" style={{ width: '100%', maxWidth: '420px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h3 style={{ margin: 0, color: '#fff', fontSize: '20px' }}>Add Funds to Wallet</h3>
+                  <h3 style={{ margin: 0, color: '#fff', fontSize: '20px' }}>Transfer to Payout Wallet</h3>
                   <button onClick={() => setShowFundModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '24px' }}>&times;</button>
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Amount to Add (Rs)</label>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Amount to Transfer (Rs)</label>
                   <input
                     type="number"
                     placeholder="0.00"
@@ -304,6 +307,7 @@ const WalletPage = () => {
                   <tr>
                     <th>Entry Date</th>
                     <th>Record ID</th>
+                    <th>Wallet</th>
                     <th>Type</th>
                     <th>Amount</th>
                     <th>Balance Post Txn</th>
@@ -316,8 +320,13 @@ const WalletPage = () => {
                       <td className="date-cell">{new Date(item.createdAt).toLocaleString()}</td>
                       <td className="ref-cell">{item.id.substring(0, 12)}...</td>
                       <td>
+                        <span className={`status-pill ${['transfer_credit', 'payout', 'payout_refund'].includes(item.type) ? 'payout-wallet' : 'main-wallet'}`}>
+                          {['transfer_credit', 'payout', 'payout_refund'].includes(item.type) ? 'Payout' : 'Main'}
+                        </span>
+                      </td>
+                      <td>
                         <span className={`status-pill ${item.type ? item.type.toLowerCase() : ''}`}>
-                          {(item.type || '').toUpperCase()}
+                          {(item.type || '').toUpperCase().replace('_', ' ')}
                         </span>
                       </td>
                       <td className={`amount-cell ${(item.type || '').toLowerCase()}`}>
