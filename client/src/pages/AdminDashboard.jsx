@@ -21,7 +21,7 @@ const COLORS = ['#8B5CF6', '#FCA5A5'];
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { transactions, merchants, qrCodes } = useAppContext();
+  const { transactions, merchants, qrCodes, settlements } = useAppContext();
 
   const metrics = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -38,6 +38,10 @@ const AdminDashboard = () => {
       { name: 'Success', value: successCount || 1 },
       { name: 'Failed', value: failCount || 0 },
     ];
+
+    const pendingPayoutsTotal = (settlements || [])
+      .filter(s => s.status === 'pending')
+      .reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
     
     return {
       todaysCount: todaysTxns.length,
@@ -46,9 +50,10 @@ const AdminDashboard = () => {
       successRate: (transactions || []).length ? ((successCount / transactions.length) * 100).toFixed(1) : '0.0',
       activeQrs: (qrCodes || []).filter(q => q && q.status === 'Active').length,
       statusData,
-      successPercent: (transactions || []).length ? Math.round((successCount / transactions.length) * 100) : 0
+      successPercent: (transactions || []).length ? Math.round((successCount / transactions.length) * 100) : 0,
+      pendingPayoutsTotal
     };
-  }, [transactions, merchants, qrCodes]);
+  }, [transactions, merchants, qrCodes, settlements]);
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -111,7 +116,7 @@ const AdminDashboard = () => {
             />
             <MetricCard 
               title="PENDING PAYOUTS" 
-              value="₹ 12,450" 
+              value={`₹ ${metrics.pendingPayoutsTotal.toLocaleString()}`} 
               icon="💳" 
               iconBg="danger"
               period="requires approval"

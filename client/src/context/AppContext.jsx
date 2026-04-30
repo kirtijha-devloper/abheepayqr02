@@ -73,6 +73,13 @@ export const AppProvider = ({ children }) => {
                 const data = await bankRes.json();
                 setBankAccounts(data);
             }
+
+            // Fetch Pending Settlements for Dashboard counters
+            const setRes = await fetch(`${API_BASE}/wallet/settlements?status=pending`, { headers: getHeaders() });
+            if (setRes.ok) {
+                const data = await setRes.json();
+                setSettlements(data);
+            }
         } catch (err) {
             console.error("Failed to fetch data", err);
         } finally {
