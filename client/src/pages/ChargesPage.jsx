@@ -69,7 +69,7 @@ const ChargesPage = () => {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    target_user_id: targetUser.id,
+                    target_user_id: targetUser.userId,
                     service_key: 'payout',
                     service_label: 'Transfer Charge',
                     min_amount: Number(minAmount),
@@ -152,17 +152,17 @@ const ChargesPage = () => {
                                     </thead>
                                     <tbody>
                                         {merchants.map(merchant => {
-                                            const userSlabs = overrides.filter(o => o.target_user_id === merchant.id && o.service_key === 'payout');
+                                            const userSlabs = overrides.filter(o => o.target_user_id === merchant.userId && o.service_key === 'payout');
                                             
                                             return (
-                                                <tr key={merchant.id}>
+                                                <tr key={merchant.userId}>
                                                     <td>
                                                         <div className="user-cell">
                                                             <div className="user-avatar-small">
-                                                                {(merchant.name || merchant.email || 'U').charAt(0).toUpperCase()}
+                                                                {(merchant.fullName || merchant.email || 'U').charAt(0).toUpperCase()}
                                                             </div>
                                                             <div className="user-info-text">
-                                                                <span className="user-name">{merchant.name || 'Unnamed Member'}</span>
+                                                                <span className="user-name">{merchant.fullName || 'Unnamed Member'}</span>
                                                                 <span className="user-email">{merchant.email}</span>
                                                             </div>
                                                         </div>
@@ -203,10 +203,10 @@ const ChargesPage = () => {
                         <div style={{ flex: 1, borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '24px' }}>
                             <h4 style={{ margin: '0 0 1rem 0', color: '#fff' }}>Existing Slabs</h4>
                             <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {overrides.filter(o => o.target_user_id === targetUser.id && o.service_key === 'payout').length === 0 ? (
+                                {overrides.filter(o => o.target_user_id === targetUser.userId && o.service_key === 'payout').length === 0 ? (
                                     <p style={{ color: '#64748b', fontSize: '13px' }}>No slabs defined.</p>
                                 ) : (
-                                    overrides.filter(o => o.target_user_id === targetUser.id && o.service_key === 'payout')
+                                    overrides.filter(o => o.target_user_id === targetUser.userId && o.service_key === 'payout')
                                         .sort((a,b) => a.min_amount - b.min_amount)
                                         .map(s => (
                                             <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -225,6 +225,7 @@ const ChargesPage = () => {
                         <div style={{ flex: 1.2 }}>
                             <button className="modal-close-btn" onClick={() => setShowModal(false)}>&times;</button>
                             <h4 style={{ margin: '0 0 1.5rem 0', color: '#fff' }}>Add New Amount Slab</h4>
+                            <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '-1rem', marginBottom: '1.5rem' }}>Setting for: <strong>{targetUser.fullName}</strong></p>
                             
                             <div style={{ display: 'flex', gap: '12px', marginBottom: '1rem' }}>
                                 <div className="charge-form-group" style={{ flex: 1, marginBottom: 0 }}>
