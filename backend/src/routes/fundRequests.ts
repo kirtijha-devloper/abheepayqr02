@@ -12,31 +12,10 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     let where: any = {};
 
     if (myRole?.role === "admin") {
-      // Admin sees master-level requests only (their direct downline)
-      const masterProfiles = await prisma.profile.findMany({
-        where: { parentId: myProfile?.id },
-        select: { userId: true }
-      });
-      const masterIds = masterProfiles.map(p => p.userId);
-      where = { requesterId: { in: masterIds } };
-    } else if (myRole?.role === "master") {
-      // Master sees merchant requests (their direct downline)
-      const merchantProfiles = await prisma.profile.findMany({
-        where: { parentId: myProfile?.id },
-        select: { userId: true }
-      });
-      const merchantIds = merchantProfiles.map(p => p.userId);
-      where = { requesterId: { in: merchantIds } };
-    } else if (myRole?.role === "merchant") {
-      // Merchant sees branch requests (their direct downline)
-      const branchProfiles = await prisma.profile.findMany({
-        where: { parentId: myProfile?.id },
-        select: { userId: true }
-      });
-      const branchIds = branchProfiles.map(p => p.userId);
-      where = { requesterId: { in: branchIds } };
+      // Admin sees ALL pending and historical requests to approve/review
+      where = {};
     } else {
-      // Branch sees only their own requests
+      // Everyone else (Master, Merchant, Branch) sees only their own requests and status
       where = { requesterId: req.userId! };
     }
 

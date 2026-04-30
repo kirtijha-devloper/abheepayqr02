@@ -3,10 +3,13 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import './MerchantsPage.css'; // Reuse table styles
 
 const SettlementsAdminPage = () => {
   const { fetchSettlements, settlements, approveSettlement, rejectSettlement } = useAppContext();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { success, error } = useToast();
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -60,9 +63,13 @@ const SettlementsAdminPage = () => {
           <div className="merchants-header" style={{ marginBottom: '24px' }}>
             <div className="merchants-title">
               <h2 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                Settlement Requests
+                {isAdmin ? 'Settlement Management' : 'Settlement Report'}
               </h2>
-              <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>Review and process merchant withdrawal requests from their <strong>Payout Wallets</strong> (0 Fee).</p>
+              <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>
+                {isAdmin 
+                  ? 'Review and process bank withdrawal requests from the Payout Wallet (0 Fee).' 
+                  : 'Track your bank withdrawal history and status.'}
+              </p>
             </div>
             <div className="merchant-filter-group">
               {['pending', 'success', 'failed'].map(tab => (
@@ -88,7 +95,7 @@ const SettlementsAdminPage = () => {
                     <th>Destination Bank</th>
                     <th>Request Date</th>
                     <th>Current Status</th>
-                    {filter === 'pending' && <th style={{ textAlign: 'right' }}>Management</th>}
+                    {isAdmin && filter === 'pending' && <th style={{ textAlign: 'right' }}>Management</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -135,7 +142,7 @@ const SettlementsAdminPage = () => {
                             </div>
                           )}
                         </td>
-                        {filter === 'pending' && (
+                        {isAdmin && filter === 'pending' && (
                           <td style={{ textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                               <button className="action-btn login-btn" onClick={() => handleApprove(s.id)} style={{ padding: '8px 16px', fontSize: '12px', background: '#22c55e22', color: '#4ade80', border: '1px solid #22c55e44' }}>

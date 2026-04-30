@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import './MerchantsPage.css'; // Reusing filter-tabs styles
 
 const FundRequestsAdminPage = () => {
   const { fundRequests, fetchFundRequests, approveFundRequest, rejectFundRequest } = useAppContext();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -49,9 +52,13 @@ const FundRequestsAdminPage = () => {
           <div className="merchants-header" style={{ marginBottom: '24px' }}>
             <div className="merchants-title">
               <h2 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                Fund Addition Requests
+                {isAdmin ? 'Fund Addition Requests' : 'My Payout Wallet Transfers'}
               </h2>
-              <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>Review and approve manual fund credit requests from merchants.</p>
+              <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>
+                {isAdmin 
+                  ? 'Review and approve manual fund credit requests from merchants.' 
+                  : 'Track your Main to Payout wallet transfer requests.'}
+              </p>
             </div>
             <div className="merchant-filter-group">
               {['pending', 'approved', 'rejected', 'all'].map(tab => (
@@ -77,7 +84,7 @@ const FundRequestsAdminPage = () => {
                     <th>Amount</th>
                     <th>Ref / Remark</th>
                     <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Management</th>
+                    {isAdmin && filter === 'pending' && <th style={{ textAlign: 'right' }}>Management</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -135,30 +142,32 @@ const FundRequestsAdminPage = () => {
                           </div>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        {r.status === 'pending' ? (
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                            <button 
-                              className="action-btn login-btn" 
-                              onClick={() => handleApprove(r.id)}
-                              disabled={actionLoading === r.id}
-                              style={{ padding: '8px 16px', fontSize: '12px', background: '#10b98122', color: '#34d399', border: '1px solid #10b98144' }}
-                            >
-                              Approve
-                            </button>
-                            <button 
-                              className="action-btn danger-btn" 
-                              onClick={() => handleReject(r.id)}
-                              disabled={actionLoading === r.id}
-                              style={{ padding: '8px 16px', fontSize: '12px' }}
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '12px', color: '#94a3b8' }}>Processed</span>
-                        )}
-                      </td>
+                      {isAdmin && (
+                        <td style={{ textAlign: 'right' }}>
+                          {r.status === 'pending' ? (
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <button 
+                                className="action-btn login-btn" 
+                                onClick={() => handleApprove(r.id)}
+                                disabled={actionLoading === r.id}
+                                style={{ padding: '8px 16px', fontSize: '12px', background: '#22c55e22', color: '#4ade80', border: '1px solid #22c55e44' }}
+                              >
+                                {actionLoading === r.id ? '...' : 'Approve'}
+                              </button>
+                              <button 
+                                className="action-btn danger-btn" 
+                                onClick={() => handleReject(r.id)}
+                                disabled={actionLoading === r.id}
+                                style={{ padding: '8px 16px', fontSize: '12px' }}
+                              >
+                                {actionLoading === r.id ? '...' : 'Reject'}
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: '#94a3b8' }}>Processed</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
