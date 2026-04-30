@@ -17,6 +17,7 @@ const ChargesPage = () => {
     const [allUsers, setAllUsers] = useState([]); // For search suggestion
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [isGlobalModal, setIsGlobalModal] = useState(false);
     
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
@@ -24,6 +25,7 @@ const ChargesPage = () => {
 
     // Modal State (for adding/editing a slab)
     const [targetUser, setTargetUser] = useState(null);
+    const [targetRole, setTargetRole] = useState('merchant');
     const [chargeType, setChargeType] = useState('percent');
     const [chargeValue, setChargeValue] = useState('');
     const [minAmount, setMinAmount] = useState('0');
@@ -55,7 +57,8 @@ const ChargesPage = () => {
         fetchData();
     }, []);
 
-    const handleOpenConfig = (userObj) => {
+    const handleOpenOverride = (userObj) => {
+        setIsGlobalModal(false);
         setTargetUser(userObj);
         setChargeType('percent');
         setChargeValue('');
@@ -66,59 +69,92 @@ const ChargesPage = () => {
         setShowSuggestions(false);
     };
 
+    const handleOpenGlobalSlab = () => {
+        setIsGlobalModal(true);
+        setTargetUser(null);
+        setTargetRole('merchant');
+        setChargeType('percent');
+        setChargeValue('');
+        setMinAmount('0');
+        setMaxAmount('999999');
+        setShowModal(true);
+    };
+
     const handleSaveSlab = async () => {
-        if (!targetUser) return;
         if (Number(chargeValue) < 0) return error("Charge value cannot be negative.");
         if (Number(minAmount) < 0 || Number(maxAmount) <= Number(minAmount)) {
             return error("Invalid range. Max must be greater than Min.");
         }
 
-        try {
-            const token = sessionStorage.getItem('authToken');
-            const res = await fetch(`${API_BASE}/commission/overrides`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    target_user_id: targetUser.userId || targetUser.id,
-                    service_key: 'payout',
-                    service_label: 'Transfer Charge',
-                    min_amount: Number(minAmount),
-                    max_amount: Number(maxAmount),
-                    charge_type: chargeType,
-                    charge_value: Number(chargeValue),
-                    commission_type: 'percent', 
-                    commission_value: 0
-                })
-            });
+        const token = sessionStorage.getItem('authToken');
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
 
-            if (res.ok) {
-                success("Slab saved successfully!");
-                fetchData();
-                setChargeValue('');
-                setMinAmount(Number(maxAmount) + 1);
-                setMaxAmount(Number(maxAmount) + 5000);
+        try {
+            if (isGlobalModal) {
+                // Save Global Default Slab
+                const res = await fetch(`${API_BASE}/commission/slabs`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        role: targetRole,
+                        service_key: 'payout',
+                        min_amount: Number(minAmount),
+                        max_amount: Number(max_amount),
+                        charge_type: chargeType,
+                        charge_value: Number(chargeValue),
+                    })
+                });
+                if (res.ok) {
+                    success("Global slab added.");
+                    setShowModal(false);
+                    fetchData();
+                } else {
+                    error("Failed to add global slab.");
+                }
             } else {
-                const data = await res.json();
-                error(data.error || "Failed to save slab.");
+                // Save User Override Slab
+                const res = await fetch(`${API_BASE}/commission/overrides`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        target_user_id: targetUser.userId || targetUser.id,
+                        service_key: 'payout',
+                        service_label: 'Transfer Charge',
+                        min_amount: Number(minAmount),
+                        max_amount: Number(max_amount),
+                        charge_type: chargeType,
+                        charge_value: Number(chargeValue),
+                        commission_type: 'percent', 
+                        commission_value: 0
+                    })
+                });
+                if (res.ok) {
+                    success("Override saved.");
+                    setShowModal(false);
+                    fetchData();
+                } else {
+                    error("Failed to save override.");
+                }
             }
         } catch (err) {
             error("Server error");
         }
     };
 
-    const handleDeleteSlab = async (id) => {
+    const handleDeleteSlab = async (id, type = 'override') => {
         if (!window.confirm("Delete this slab?")) return;
         try {
             const token = sessionStorage.getItem('authToken');
-            const res = await fetch(`${API_BASE}/commission/overrides/${id}`, {
+            const endpoint = type === 'global' ? `slabs/${id}` : `overrides/${id}`;
+            const res = await fetch(`${API_BASE}/commission/${endpoint}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
-                success("Slab deleted.");
+                success("Slab removed.");
                 fetchData();
             }
         } catch (err) {
@@ -141,7 +177,7 @@ const ChargesPage = () => {
                 })
             });
             if (res.ok) {
-                success("Default charge updated.");
+                success("Updated.");
                 fetchData();
             }
         } catch (err) {
@@ -188,7 +224,7 @@ const ChargesPage = () => {
                                         <div style={{ padding: '12px', color: '#64748b' }}>No users found.</div>
                                     ) : (
                                         suggestions.map(s => (
-                                            <div key={s.userId} className="suggestion-item" onClick={() => handleOpenConfig(s)}>
+                                            <div key={s.userId} className="suggestion-item" onClick={() => handleOpenOverride(s)}>
                                                 <div className="user-avatar-small" style={{ width: '32px', height: '32px' }}>{s.fullName?.charAt(0)}</div>
                                                 <div>
                                                     <div style={{ fontSize: '13px', color: '#fff' }}>{s.fullName}</div>
@@ -205,8 +241,9 @@ const ChargesPage = () => {
                     {/* Default Charges Section */}
                     {currentUser?.role === 'admin' && (
                         <>
-                            <div className="section-header">
+                            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3><span>⚙️</span> Default Global Charges (By Role)</h3>
+                                <button className="add-slab-btn" onClick={handleOpenGlobalSlab}>+ Add Default Slab</button>
                             </div>
                             <div className="charges-card animated-fade-in" style={{ background: 'rgba(99, 102, 241, 0.05)' }}>
                                 <div className="table-responsive">
@@ -214,8 +251,9 @@ const ChargesPage = () => {
                                         <thead>
                                             <tr>
                                                 <th>User Role</th>
+                                                <th>Range (Min - Max)</th>
                                                 <th>Charge Type</th>
-                                                <th>Default Value</th>
+                                                <th>Value</th>
                                                 <th style={{ textAlign: 'right' }}>Actions</th>
                                             </tr>
                                         </thead>
@@ -224,9 +262,14 @@ const ChargesPage = () => {
                                                 <tr key={slab.id}>
                                                     <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
                                                     <td>
+                                                        <span style={{ color: '#94a3b8', fontSize: '12px' }}>
+                                                            {slab.minAmount} - {slab.maxAmount >= 9999999 ? '∞' : slab.maxAmount}
+                                                        </span>
+                                                    </td>
+                                                    <td>
                                                         <select 
                                                             className="charge-input" 
-                                                            style={{ width: '140px', padding: '6px' }}
+                                                            style={{ width: '130px', padding: '4px' }}
                                                             value={slab.chargeType}
                                                             onChange={(e) => handleUpdateDefault(slab.id, slab.chargeValue, e.target.value)}
                                                         >
@@ -237,23 +280,17 @@ const ChargesPage = () => {
                                                     <td>
                                                         <input 
                                                             className="charge-input" 
-                                                            style={{ width: '100px', padding: '6px' }}
+                                                            style={{ width: '90px', padding: '4px' }}
                                                             type="number" 
                                                             value={slab.chargeValue}
-                                                            onChange={(e) => {
-                                                                // Local update for UI smoothness? Better to just patch.
-                                                                handleUpdateDefault(slab.id, e.target.value, slab.chargeType);
-                                                            }}
+                                                            onChange={(e) => handleUpdateDefault(slab.id, e.target.value, slab.chargeType)}
                                                         />
                                                     </td>
                                                     <td style={{ textAlign: 'right' }}>
-                                                        <span className="charge-badge active">Global Default</span>
+                                                        <button className="delete-btn-v2" onClick={() => handleDeleteSlab(slab.id, 'global')}>Delete</button>
                                                     </td>
                                                 </tr>
                                             ))}
-                                            {defaultCharges.length === 0 && (
-                                                <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b' }}>No global defaults set.</td></tr>
-                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -263,18 +300,14 @@ const ChargesPage = () => {
 
                     {/* Manual Overrides Section */}
                     <div className="section-header">
-                        <h3><span>✏️</span> Manual Overrides (Active Slabs)</h3>
+                        <h3><span>✏️</span> Manual Overrides (User Specific)</h3>
                     </div>
 
                     <div className="charges-card animated-fade-in">
                         {loading ? (
                             <div style={{ padding: '60px', textAlign: 'center' }}>
-                                <div className="shimmer" style={{ width: '40px', height: '40px', borderRadius: '50%', margin: '0 auto 16px' }}></div>
+                                <div className="route-loader-spinner" style={{ margin: '0 auto 20px' }}></div>
                                 <p style={{ color: '#94a3b8' }}>Loading overrides...</p>
-                            </div>
-                        ) : merchants.length === 0 ? (
-                            <div style={{ padding: '60px', textAlign: 'center' }}>
-                                <p style={{ color: '#64748b' }}>Use the search box above to add a manual override for any user.</p>
                             </div>
                         ) : (
                             <div className="table-responsive">
@@ -288,7 +321,9 @@ const ChargesPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {merchants.map(merchant => {
+                                        {merchants.length === 0 ? (
+                                            <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No user overrides configured yet.</td></tr>
+                                        ) : merchants.map(merchant => {
                                             const userSlabs = overrides.filter(o => o.target_user_id === merchant.userId && o.service_key === 'payout');
                                             return (
                                                 <tr key={merchant.userId}>
@@ -301,22 +336,22 @@ const ChargesPage = () => {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td><span className="role-badge">{merchant.role.replace('_', ' ')}</span></td>
+                                                    <td><span className="role-tag">{merchant.role}</span></td>
                                                     <td>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        <div className="slabs-list">
                                                             {userSlabs.length === 0 ? (
-                                                                <span className="charge-badge unset">Using Defaults</span>
-                                                            ) : (
-                                                                userSlabs.sort((a,b) => a.min_amount - b.min_amount).map(s => (
-                                                                    <span key={s.id} className="charge-badge active" style={{ fontSize: '11px', padding: '4px 8px' }}>
-                                                                        ₹{Number(s.min_amount)} - ₹{Number(s.max_amount)} → <strong>{s.charge_value}{s.charge_type === 'percent' ? '%' : ' Rs'}</strong>
-                                                                    </span>
-                                                                ))
-                                                            )}
+                                                                <span style={{ color: '#64748b', fontSize: '12px' }}>Using Global Defaults</span>
+                                                            ) : userSlabs.map(slab => (
+                                                                <div key={slab.id} className="slab-badge">
+                                                                    <span>₹{slab.min_amount} - ₹{slab.max_amount >= 999999 ? '∞' : slab.max_amount}: </span>
+                                                                    <strong>{slab.charge_type === 'percent' ? `${slab.charge_value}%` : `₹${slab.charge_value}`}</strong>
+                                                                    <button className="remove-slab" onClick={() => handleDeleteSlab(slab.id)}>&times;</button>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     </td>
                                                     <td style={{ textAlign: 'right' }}>
-                                                        <button onClick={() => handleOpenConfig(merchant)} className="set-charge-btn">Manage Slabs</button>
+                                                        <button className="add-btn-v2" onClick={() => handleOpenOverride(merchant)}>+ Add Slab</button>
                                                     </td>
                                                 </tr>
                                             );
@@ -329,63 +364,52 @@ const ChargesPage = () => {
                 </main>
             </div>
 
-            {/* Modal remains largely same but with userId support */}
-            {showModal && targetUser && (
-                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(4, 6, 15, 0.9)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div className="charge-modal-container animated-scale-up" style={{ maxWidth: '600px', display: 'flex', gap: '32px', padding: '2rem' }}>
-                        
-                        <div style={{ flex: 1, borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '24px' }}>
-                            <h4 style={{ margin: '0 0 1rem 0', color: '#fff' }}>Existing Slabs</h4>
-                            <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {overrides.filter(o => o.target_user_id === (targetUser.userId || targetUser.id) && o.service_key === 'payout').length === 0 ? (
-                                    <p style={{ color: '#64748b', fontSize: '13px' }}>No custom slabs. Using global defaults.</p>
-                                ) : (
-                                    overrides.filter(o => o.target_user_id === (targetUser.userId || targetUser.id) && o.service_key === 'payout')
-                                        .sort((a,b) => a.min_amount - b.min_amount)
-                                        .map(s => (
-                                            <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>₹{Number(s.min_amount)} - ₹{Number(s.max_amount)}</div>
-                                                    <div style={{ fontWeight: '700', color: '#34d399' }}>{s.charge_value}{s.charge_type === 'percent' ? '%' : ' Rs'}</div>
-                                                </div>
-                                                <button onClick={() => handleDeleteSlab(s.id)} style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '10px' }}>Remove</button>
-                                            </div>
-                                        ))
-                                )}
+            {/* Shared Modal for Adding Slabs */}
+            {showModal && (
+                <div className="modal-overlay" style={{ zIndex: 10000 }}>
+                    <div className="modal-container" style={{ width: '400px' }}>
+                        <div className="modal-header-gradient">
+                            <h3>{isGlobalModal ? 'Add Global Default Slab' : `Override for ${targetUser?.fullName}`}</h3>
+                            <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '20px' }}>
+                            {isGlobalModal && (
+                                <div className="form-group" style={{ marginBottom: '15px' }}>
+                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Target Role</label>
+                                    <select className="charge-input" style={{ width: '100%' }} value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
+                                        <option value="master">Master</option>
+                                        <option value="merchant">Merchant</option>
+                                        <option value="branch">Branch</option>
+                                        <option value="distributor">Distributor</option>
+                                        <option value="retailer">Retailer</option>
+                                    </select>
+                                </div>
+                            )}
+                            <div className="modal-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                <div className="form-group">
+                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Min Amount</label>
+                                    <input type="number" className="charge-input" style={{ width: '100%' }} value={minAmount} onChange={(e) => setMinAmount(e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Max Amount</label>
+                                    <input type="number" className="charge-input" style={{ width: '100%' }} value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Type</label>
+                                    <select className="charge-input" style={{ width: '100%' }} value={chargeType} onChange={(e) => setChargeType(e.target.value)}>
+                                        <option value="percent">Percent (%)</option>
+                                        <option value="flat">Flat (Rs)</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Charge Value</label>
+                                    <input type="number" className="charge-input" style={{ width: '100%' }} value={chargeValue} onChange={(e) => setChargeValue(e.target.value)} />
+                                </div>
                             </div>
                         </div>
-
-                        <div style={{ flex: 1.2 }}>
-                            <button className="modal-close-btn" onClick={() => setShowModal(false)}>&times;</button>
-                            <h4 style={{ margin: '0 0 1.5rem 0', color: '#fff' }}>Override Amount Slab</h4>
-                            <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '-1rem', marginBottom: '1.5rem' }}>Setting for: <strong>{targetUser.fullName || targetUser.email}</strong></p>
-                            
-                            <div style={{ display: 'flex', gap: '12px', marginBottom: '1rem' }}>
-                                <div className="charge-form-group" style={{ flex: 1, marginBottom: 0 }}>
-                                    <label>Min Amount (₹)</label>
-                                    <input className="charge-input" type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} />
-                                </div>
-                                <div className="charge-form-group" style={{ flex: 1, marginBottom: 0 }}>
-                                    <label>Max Amount (₹)</label>
-                                    <input className="charge-input" type="number" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} />
-                                </div>
-                            </div>
-
-                            <div className="charge-form-group">
-                                <label>Charge Type</label>
-                                <select className="charge-input charge-select" value={chargeType} onChange={e => setChargeType(e.target.value)}>
-                                    <option value="percent">Percentage (%)</option>
-                                    <option value="flat">Flat Amount (INR)</option>
-                                </select>
-                            </div>
-
-                            <div className="charge-form-group">
-                                <label>Charge Value</label>
-                                <input className="charge-input" type="number" value={chargeValue} onChange={e => setChargeValue(e.target.value)} placeholder="0.00" />
-                            </div>
-
-                            <button onClick={handleSaveSlab} className="charge-save-btn">Apply Override</button>
-                            <button onClick={() => setShowModal(false)} style={{ width: '100%', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', borderRadius: '14px', padding: '0.8rem', marginTop: '12px', cursor: 'pointer' }}>Close</button>
+                        <div className="modal-footer">
+                            <button className="btn-cancel" onClick={() => setShowModal(false)}>Cancel</button>
+                            <button className="btn-create" onClick={handleSaveSlab}>Save Slab</button>
                         </div>
                     </div>
                 </div>

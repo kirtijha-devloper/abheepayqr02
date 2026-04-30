@@ -119,3 +119,91 @@
     box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
     transform: translateY(-2px);
 }
+
+.add-slab-btn {
+    background: rgba(99, 102, 241, 0.1);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.add-slab-btn:hover {
+    background: #6366f1;
+    color: white;
+}
+
+.delete-btn-v2 {
+    background: rgba(244, 63, 94, 0.1);
+    color: #f43f5e;
+    border: 1px solid rgba(244, 63, 94, 0.2);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.delete-btn-v2:hover {
+    background: #f43f5e;
+    color: white;
+}
+
+.add-btn-v2 {
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.slabs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.slab-badge {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.remove-slab {
+    background: none;
+    border: none;
+    color: #f43f5e;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+.remove-slab:hover {
+    color: #ff4b6b;
+}
+
+.charge-input {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: white;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+.charge-input:focus {
+    border-color: #6366f1;
+    outline: none;
+}

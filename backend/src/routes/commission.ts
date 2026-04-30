@@ -103,12 +103,37 @@ router.get("/slabs", requireAuth, async (_req, res) => {
   try {
     const slabs = await prisma.commissionSlab.findMany({
       where: { isActive: true },
-      orderBy: [{ serviceKey: "asc" }, { role: "asc" }],
+      orderBy: [{ serviceKey: "asc" }, { role: "asc" }, { minAmount: "asc" }],
     });
     res.json(slabs);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// POST /api/commission/slabs — create a new global slab
+router.post("/slabs", requireAuth, async (req: AuthRequest, res) => {
+    const { role, service_key, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
+    if (!role || !service_key) return res.status(400).json({ error: "Role and service_key are required" });
+
+    try {
+        const slab = await prisma.commissionSlab.create({
+            data: {
+                role,
+                serviceKey: service_key,
+                minAmount: Number(min_amount || 0),
+                maxAmount: Number(max_amount || 99999999),
+                commissionType: commission_type || "percent",
+                commissionValue: Number(commission_value || 0),
+                chargeType: charge_type || "flat",
+                chargeValue: Number(charge_value || 0),
+                isActive: true
+            }
+        });
+        res.json(slab);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // PATCH /api/commission/slabs/:id — update a global slab
@@ -129,6 +154,16 @@ router.patch("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// DELETE /api/commission/slabs/:id — remove a global slab
+router.delete("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+        await prisma.commissionSlab.delete({ where: { id: req.params.id } });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // GET /api/commission/logs — get recent commission logs
