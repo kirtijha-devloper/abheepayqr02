@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Sidebar.css';
@@ -42,6 +42,20 @@ const Sidebar = () => {
     document.body.classList.toggle('sidebar-open', isMobileOpen);
     return () => document.body.classList.remove('sidebar-open');
   }, [isMobileOpen]);
+  
+  const navRef = useRef(null);
+
+  // Restore scroll position
+  useEffect(() => {
+    const savedScroll = localStorage.getItem('sidebar-scroll');
+    if (savedScroll && navRef.current) {
+      navRef.current.scrollTop = parseInt(savedScroll, 10);
+    }
+  }, []);
+
+  const handleScroll = (e) => {
+    localStorage.setItem('sidebar-scroll', e.target.scrollTop);
+  };
 
   const handleLogout = () => {
     logout();
@@ -129,7 +143,7 @@ const Sidebar = () => {
           </div>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" ref={navRef} onScroll={handleScroll}>
           {menuItems.map((item) => (
             <NavLink
               key={item.name}
