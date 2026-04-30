@@ -381,7 +381,11 @@ const MerchantsPage = () => {
                             <button className="action-btn login-btn" onClick={() => handleLoginAs(merchant)}>Login</button>
                             <button className="action-btn" onClick={() => handleEdit(merchant)}>Edit</button>
                             <button className="action-btn" onClick={() => handleToggleStatus(merchant)}>Toggle</button>
-                            <button className="action-btn danger-btn" onClick={() => deleteMerchant(merchant.id)}>Delete</button>
+                            <button className="action-btn danger-btn" onClick={async () => {
+                              const res = await deleteMerchant(merchant.id);
+                              if (res?.success) success('Merchant deleted successfully.');
+                              else if (res?.error) error(res.error);
+                            }}>Delete</button>
                           </div>
                         </td>
                       </tr>

@@ -266,5 +266,57 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // DELETE /api/users/:id — Delete user
+router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
+  const { id } = req.params; // This is the profile ID based on frontend calls
+  try {
+    const callerId = req.userId!;
+    const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
+    
+    // 1. Get the target profile and user
+    const targetProfile = await prisma.profile.findUnique({ where: { id } });
+    if (!targetProfile) return res.status(404).json({ error: "User profile not found" });
+    
+    const targetUserId = targetProfile.userId;
+
+    // 2. Permission check
+    if (myRole?.role !== "admin") {
+      const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
+      if (targetProfile.parentId !== myProfile?.id) {
+        return res.status(403).json({ error: "Forbidden: You can only delete your direct downline." });
+      }
+    }
+
+    // 3. Check for downlines (children)
+    const childrenCount = await prisma.profile.count({ where: { parentId: id } });
+    if (childrenCount > 0) {
+      return res.status(400).json({ error: "Cannot delete user who has downline members. Reassign or delete them first." });
+    }
+
+    // 4. Delete the user
+    // Profile, Wallet, and UserRole will cascade delete because of 'onDelete: Cascade' in schema.
+    // QrCodes, Transactions, and FundRequests do NOT cascade.
+    await prisma.$transaction(async (tx) => {
+        // Delete minor dependencies
+        await tx.notification.deleteMany({ where: { userId: targetUserId } });
+        await tx.userCommissionOverride.deleteMany({ where: { targetUserId: targetUserId } });
+        await tx.userServiceOverride.deleteMany({ where: { targetUserId: targetUserId } });
+        await tx.qrCode.deleteMany({ where: { merchantId: targetUserId } });
+        
+        // Try to delete the user
+        await tx.user.delete({ where: { id: targetUserId } });
+    });
+
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error(`[DELETE /api/users/:id] Error: ${e.message}`);
+    // Handle foreign key constraint errors (P2003)
+    if (e.code === 'P2003') {
+        return res.status(400).json({ 
+            error: "Cannot delete user with existing transactions or fund requests. Please suspend them instead." 
+        });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
 
 export default router;

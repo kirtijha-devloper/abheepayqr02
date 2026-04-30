@@ -275,15 +275,22 @@ export const AppProvider = ({ children }) => {
     };
 
     const deleteMerchant = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this merchant?")) return;
+        if (!window.confirm("Are you sure you want to delete this merchant?")) return { success: false };
         try {
             const res = await fetch(`${API_BASE}/users/${id}`, {
                 method: 'DELETE',
                 headers: getHeaders()
             });
-            if (res.ok) await fetchData();
+            if (res.ok) {
+                await fetchData();
+                return { success: true };
+            } else {
+                const data = await res.json();
+                return { success: false, error: data.error || 'Failed to delete merchant' };
+            }
         } catch (err) {
             console.error("Delete merchant failed", err);
+            return { success: false, error: 'Network error' };
         }
     };
 
