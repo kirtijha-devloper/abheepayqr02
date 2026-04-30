@@ -575,7 +575,7 @@ export const AppProvider = ({ children }) => {
             addBankAccount, deleteBankAccount, bankAccounts,
             requestSettlement, fetchSettlements, settlements,
             approveSettlement, rejectSettlement,
-            approveFundRequest, rejectFundRequest, fundRequests,
+            approveFundRequest, rejectFundRequest, fundRequests, fetchFundRequests,
             bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,
             unassignQrCode,
             updateQrCode,

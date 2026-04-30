@@ -1,27 +1,20 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import MetricCard from '../components/MetricCard';
 import { useAppContext } from '../context/AppContext';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './AdminDashboard.css';
-
-const trendData = [
-  { name: '12 Mar', value: 300 },
-  { name: '13 Mar', value: 600 },
-  { name: '14 Mar', value: 200 },
-  { name: '15 Mar', value: 800 },
-  { name: '16 Mar', value: 400 },
-  { name: '17 Mar', value: 900 },
-  { name: '18 Mar', value: 500 },
-];
-
-const COLORS = ['#8B5CF6', '#FCA5A5'];
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { transactions, merchants, qrCodes, settlements } = useAppContext();
+  const { transactions, merchants, qrCodes, settlements, fundRequests, fetchFundRequests } = useAppContext();
+  const [timeRange, setTimeRange] = useState(7); // Default 7 days
+
+  useEffect(() => {
+    fetchFundRequests();
+  }, [fetchFundRequests]);
 
   const metrics = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -31,29 +24,58 @@ const AdminDashboard = () => {
       return d && typeof d === 'string' && d.startsWith(today);
     });
     
-    // Derived info for charts based on state
-    const successCount = (transactions || []).filter(t => t && t.status === 'Completed').length;
-    const failCount = (transactions || []).length - successCount;
-    const statusData = [
-      { name: 'Success', value: successCount || 1 },
-      { name: 'Failed', value: failCount || 0 },
-    ];
-
+    const successCount = (transactions || []).filter(t => t && (t.status === 'Completed' || t.status === 'success')).length;
+    const successRate = (transactions || []).length ? ((successCount / transactions.length) * 100).toFixed(1) : '0.0';
+    
     const pendingPayoutsTotal = (settlements || [])
-      .filter(s => s.status === 'pending')
+      .filter(s => (s.status || '').toLowerCase() === 'pending')
       .reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+    const pendingFundRequestsCount = (fundRequests || [])
+      .filter(f => (f.status || '').toLowerCase() === 'pending').length;
     
     return {
       todaysCount: todaysTxns.length,
       todaysVolume: todaysTxns.reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0),
       totalMerchants: (merchants || []).length,
-      successRate: (transactions || []).length ? ((successCount / transactions.length) * 100).toFixed(1) : '0.0',
+      successRate,
       activeQrs: (qrCodes || []).filter(q => q && q.status === 'Active').length,
-      statusData,
-      successPercent: (transactions || []).length ? Math.round((successCount / transactions.length) * 100) : 0,
-      pendingPayoutsTotal
+      pendingPayoutsTotal,
+      pendingFundRequestsCount
     };
-  }, [transactions, merchants, qrCodes, settlements]);
+  }, [transactions, merchants, qrCodes, settlements, fundRequests]);
+
+  const trendData = useMemo(() => {
+    const days = [];
+    for (let i = timeRange - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayLabel = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      
+      const dayVolume = (transactions || [])
+        .filter(t => (t.date || t.createdAt || '').startsWith(dateStr))
+        .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+        
+      days.push({ name: dayLabel, value: dayVolume });
+    }
+    return days;
+  }, [transactions, timeRange]);
+
+  const recentAlerts = useMemo(() => {
+    const alerts = (fundRequests || [])
+      .filter(f => (f.status || '').toLowerCase() === 'pending')
+      .slice(0, 5)
+      .map(f => ({
+        id: f.id,
+        type: 'Fund Request',
+        message: `New fund request of ₹${f.amount.toLocaleString()} received from ${f.user?.fullName || 'Merchant'}.`,
+        time: new Date(f.createdAt).toLocaleString(),
+        status: 'pending'
+      }));
+    return alerts;
+  }, [fundRequests]);
+
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -119,7 +141,7 @@ const AdminDashboard = () => {
               value={`₹ ${metrics.pendingPayoutsTotal.toLocaleString()}`} 
               icon="💳" 
               iconBg="danger"
-              period="requires approval"
+              period={metrics.pendingPayoutsTotal > 0 ? "requires approval" : "all clear"}
               to="/admin/settlements"
             />
           </div>
@@ -127,23 +149,49 @@ const AdminDashboard = () => {
           <div className="activity-section">
             <div className="activity-card card">
               <div className="activity-header">
-                <h3 className="activity-title">Live Transaction Trend</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <h3 className="activity-title">Transaction Volume Trend</h3>
+                  <div className="range-selector" style={{ display: 'flex', gap: '8px' }}>
+                    {[1, 2, 7, 15, 30].map(r => (
+                      <button 
+                        key={r}
+                        className={`range-btn ${timeRange === r ? 'active' : ''}`}
+                        onClick={() => setTimeRange(r)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          background: timeRange === r ? '#6366f1' : 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {r === 1 ? '1D' : r === 2 ? '2D' : `${r}D`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <button type="button" className="view-all-link" onClick={() => navigate('/admin/transactions')}>Detailed Analytics</button>
               </div>
-              <div className="chart-canvas">
+              <div className="chart-canvas" style={{ padding: '20px' }}>
                 <ResponsiveContainer width="100%" height={260}>
-                  <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <AreaChart data={trendData}>
                     <defs>
                       <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#7C6CF8" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#7C6CF8" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                    <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} hide />
-                    <YAxis hide />
-                    <Tooltip contentStyle={{ backgroundColor: '#12131F', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px' }} />
-                    <Area type="monotone" dataKey="value" stroke="#7C6CF8" strokeWidth={3} fillOpacity={1} fill="url(#colorTrend)" />
+                    <XAxis dataKey="name" fontSize={10} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis fontSize={10} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v}`} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                      itemStyle={{ color: '#fff' }}
+                      formatter={(v) => [`₹${v.toLocaleString()}`, 'Volume']}
+                    />
+                    <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorTrend)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -151,22 +199,29 @@ const AdminDashboard = () => {
           </div>
           
           <section className="recent-txns-section card">
-            <h3 className="section-title">SYSTEM ALERTS & ACTIVITY</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 className="section-title" style={{ margin: 0 }}>SYSTEM ALERTS & FUND REQUESTS</h3>
+              {metrics.pendingFundRequestsCount > 0 && (
+                <span style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
+                  {metrics.pendingFundRequestsCount} PENDING
+                </span>
+              )}
+            </div>
             <div className="activity-list">
-                <div className="activity-item">
-                    <span className="activity-icon warning">Alert</span>
-                    <div className="activity-details">
-                        <p>Merchant <strong>Sub-Agent 04</strong> reached 90% of their daily limit.</p>
-                        <span className="activity-time">2 mins ago</span>
-                    </div>
+              {recentAlerts.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>✅</div>
+                  <p>No new fund requests to process.</p>
                 </div>
-                <div className="activity-item">
-                    <span className="activity-icon info">Update</span>
-                    <div className="activity-details">
-                        <p>New Merchant <strong>Global Tech</strong> registered and awaiting verification.</p>
-                        <span className="activity-time">1 hour ago</span>
-                    </div>
+              ) : recentAlerts.map(alert => (
+                <div key={alert.id} className="activity-item" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/fund-requests')}>
+                  <span className="activity-icon info">REQ</span>
+                  <div className="activity-details">
+                    <p>{alert.message}</p>
+                    <span className="activity-time">{alert.time}</span>
+                  </div>
                 </div>
+              ))}
             </div>
           </section>
         </main>
