@@ -145,47 +145,47 @@ router.post("/aeps/:action", requireAuth, async (req: AuthRequest, res) => {
 
 // ─── DMT ────────────────────────────────────────────────────────────────────
 
-router.post("/dmt/remitter-profile", requireAuth, async (req, res) => {
+router.post(["/dmt/remitter-profile", "/remittance/remitter-profile"], requireAuth, async (req, res) => {
   try { res.json(await ipPost("/v1/remittance/remitter-profile", req.body)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/dmt/remitter-registration", requireAuth, async (req, res) => {
+router.post(["/dmt/remitter-registration", "/remittance/remitter-registration"], requireAuth, async (req, res) => {
   try { res.json(await ipPost("/v1/remittance/remitter-registration", req.body)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/dmt/remitter-registration-verify", requireAuth, async (req, res) => {
+router.post(["/dmt/remitter-registration-verify", "/remittance/remitter-registration-verify"], requireAuth, async (req, res) => {
   try { res.json(await ipPost("/v1/remittance/remitter-registration-verify", req.body)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/dmt/bank-details", requireAuth, async (req, res) => {
+router.post(["/dmt/bank-details", "/remittance/bank-details"], requireAuth, async (req, res) => {
   try { res.json(await ipPost("/v1/remittance/bank-details", req.body)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/dmt/beneficiary-registration", requireAuth, async (req, res) => {
+router.post(["/dmt/beneficiary-registration", "/remittance/beneficiary-registration"], requireAuth, async (req, res) => {
   try { res.json(await ipPost("/v1/remittance/beneficiary-registration", req.body)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/dmt/beneficiary-registration-verify", requireAuth, async (req, res) => {
+router.post(["/dmt/beneficiary-registration-verify", "/remittance/beneficiary-registration-verify"], requireAuth, async (req, res) => {
   try { res.json(await ipPost("/v1/remittance/beneficiary-registration-verify", req.body)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/dmt/beneficiary-delete", requireAuth, async (req, res) => {
+router.post(["/dmt/beneficiary-delete", "/remittance/beneficiary-delete"], requireAuth, async (req, res) => {
   try { res.json(await ipPost("/v1/remittance/beneficiary-delete", req.body)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/dmt/generate-otp", requireAuth, async (req, res) => {
+router.post(["/dmt/generate-otp", "/remittance/generate-transaction-otp", "/remittance/generate-otp"], requireAuth, async (req, res) => {
   try { res.json(await ipPost("/v1/remittance/generate-transaction-otp", req.body)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/dmt/transaction", requireAuth, async (req: AuthRequest, res) => {
+router.post(["/dmt/transaction", "/remittance/transaction"], requireAuth, async (req: AuthRequest, res) => {
   try {
     const amount = Number(req.body.amount);
     const wallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });

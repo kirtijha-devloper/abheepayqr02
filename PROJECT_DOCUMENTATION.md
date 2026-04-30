@@ -106,21 +106,6 @@ The database consists of over 20 tables managed via Prisma. Key entities include
 - **TPIN (Transaction PIN)**: Secondary authentication layer for financial operations.
 - **Input Validation**: Strict schema verification for all API requests.
 
-----
-Rest can be checked in the project readme
-site is live on qr.3bazar.com 
-frontend is hosted on c panel (hostitbro)
-backend is live on vercel.
-there are further updates needed in the project according to the project manager.
-right now the project is basically on qr in which an admin will assign some qr to some of the merchants and that will mix up randomly for the payments in the merchant pannel,much more features are there including admin support,settinngs,payouts for merchants and alot for the admin.
 
-------
-NEEDED
-now the project manager wants it in a hierarchial manner that means the merchants will act as an admin for the userd they had distributed the qr ,right now we are just providing an admin pannel as well as a merchant pannel.
---------------
-IMPLEMENTATION
-further one more dashboard will be added for users in which merchant will act as admin according to me.
-have to discuss with guruji for further clssification.
- let us se just connected with the reporting manager(rahiman jii)
- did not got any response.
+
  

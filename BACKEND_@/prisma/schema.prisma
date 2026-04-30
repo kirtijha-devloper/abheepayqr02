@@ -15,8 +15,10 @@ datasource db {
 
 enum AppRole {
   admin
-  merchant
-  branch
+  super_distributor
+  master_distributor
+  distributor
+  retailer
 
   @@map("app_role")
 }

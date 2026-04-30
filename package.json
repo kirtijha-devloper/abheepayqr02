@@ -2,7 +2,7 @@
   "name": "abheepay-monorepo",
   "private": true,
   "scripts": {
-    "dev": "concurrently -k -n backend,client -c green,cyan \"npm --prefix backend run dev\" \"npm --prefix client run dev -- --host 127.0.0.1 --port 5173 --strictPort\""
+    "dev": "concurrently -k -n backend,client -c green,cyan \"npm --prefix backend run dev\" \"npm --prefix client run dev -- --host 127.0.0.1\""
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
