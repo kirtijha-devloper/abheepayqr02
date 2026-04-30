@@ -105,7 +105,7 @@ export const loginAsUser = async (req: any, res: Response) => {
   const myRoleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
   const myRole = myRoleRow?.role;
   
-  if (myRole !== "admin" && myRole !== "merchant") {
+  if (myRole !== "admin" && myRole !== "merchant" && myRole !== "master") {
     return res.status(403).json({ error: "Unauthorized" });
   }
 
@@ -117,10 +117,10 @@ export const loginAsUser = async (req: any, res: Response) => {
 
   if (!targetProfile || !targetProfile.user) return res.status(404).json({ error: "User not found" });
 
-  // Security Check: If merchant, can only impersonate their own branches
-  if (myRole === "merchant") {
+  // Security Check: merchant & master can only impersonate their own direct downline
+  if (myRole === "merchant" || myRole === "master") {
     if (targetProfile.parentId !== callerProfile?.id) {
-        return res.status(403).json({ error: "You can only impersonate your own branches" });
+        return res.status(403).json({ error: "You can only impersonate your own direct downline" });
     }
   }
 

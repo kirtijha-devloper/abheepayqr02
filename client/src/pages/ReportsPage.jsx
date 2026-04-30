@@ -6,6 +6,36 @@ import './ReportsPage.css';
 
 const statusFilters = ['All', 'Completed', 'Pending', 'Failed'];
 
+const downloadFile = (content, filename, mimeType) => {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const toCSV = (rows, headers) => {
+  const escape = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  return [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n');
+};
+
+const toExcel = (rows, headers) => {
+  return [headers.join('\t'), ...rows.map(r => headers.map(h => String(r[h] ?? '')).join('\t'))].join('\n');
+};
+
+const exportCols = [
+  { key: 'createdAt', label: 'Date', format: v => v ? new Date(v).toLocaleString() : '' },
+  { key: 'refId', label: 'RRN' },
+  { key: 'clientRefId', label: 'Txn ID' },
+  { key: 'description', label: 'Description' },
+  { key: 'amount', label: 'Amount' },
+  { key: 'consumer', label: 'Mobile' },
+  { key: 'status', label: 'Status' },
+  { key: 'sender', label: 'Done By' },
+];
+
 const ReportsPage = () => {
   const { reports, fetchReports } = useAppContext();
   const [loading, setLoading] = useState(true);
@@ -71,6 +101,16 @@ const ReportsPage = () => {
     return `${numberValue < 0 ? '-' : ''}\u20B9 ${formatted}`;
   };
 
+  const handleExport = (type) => {
+    const headers = exportCols.map(c => c.key);
+    const flat = filteredReports.map(r => Object.fromEntries(exportCols.map(c => [c.key, c.format ? c.format(r[c.key], r) : r[c.key]])));
+    if (type === 'csv') {
+      downloadFile(toCSV(flat, headers), `reports_${Date.now()}.csv`, 'text/csv');
+    } else {
+      downloadFile(toExcel(flat, headers), `reports_${Date.now()}.xls`, 'application/vnd.ms-excel');
+    }
+  };
+
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -125,7 +165,18 @@ const ReportsPage = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="reports-filters">
+              <div className="reports-filters" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button 
+                  onClick={() => handleExport('csv')} 
+                  style={{ background: '#1e293b', color: '#38bdf8', border: '1px solid #38bdf833', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }}>
+                  ⬇ CSV
+                </button>
+                <button 
+                  onClick={() => handleExport('xls')} 
+                  style={{ background: '#1e293b', color: '#a78bfa', border: '1px solid #a78bfa33', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }}>
+                  ⬇ Excel
+                </button>
+                <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 8px' }}></div>
                 {statusFilters.map((filter) => (
                   <button
                     key={filter}

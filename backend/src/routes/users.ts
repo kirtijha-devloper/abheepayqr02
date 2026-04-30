@@ -7,6 +7,36 @@ import { getDownlineUsers } from "../controllers/userController";
 
 const router = Router();
 
+// GET /api/users/all — admin only: fetch all users across all levels
+router.get("/all", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const myRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
+    if (myRole?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+
+    const users = await prisma.user.findMany({
+      include: { profile: true, roles: true, wallet: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const result = users.map(u => ({
+      id: u.id,
+      email: u.email,
+      role: u.roles[0]?.role,
+      fullName: u.profile?.fullName,
+      businessName: u.profile?.businessName,
+      phone: u.profile?.phone,
+      status: u.profile?.status,
+      kycStatus: u.profile?.kycStatus,
+      walletBalance: Number(u.wallet?.balance ?? 0),
+      createdAt: u.createdAt,
+    }));
+
+    res.json(result);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/users — get my downline users
 // DECOUPLED: Logic moved to backend/src/controllers/userController.ts
 router.get("/", requireAuth, asyncAuthHandler(getDownlineUsers));
@@ -72,10 +102,13 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       const callerProfileId = caller.profile?.id;
 
       // Determine new user's role and parent
-      let targetRole: AppRole = "retailer";
+      let targetRole: AppRole = "branch";
       let targetParentId: string | null = null;
 
       if (callerRole === "admin") {
+        targetRole = "master";
+        targetParentId = callerProfileId || null;
+      } else if (callerRole === "master") {
         targetRole = "merchant";
         targetParentId = callerProfileId || null;
       } else if (callerRole === "merchant") {
@@ -155,7 +188,14 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerId = req.userId!;
     const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
-    if (myRole?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    if (myRole?.role !== "admin" && myRole?.role !== "master") return res.status(403).json({ error: "Forbidden" });
+
+    // master can only edit their own downline merchants
+    if (myRole?.role === "master") {
+      const targetProfile = await prisma.profile.findUnique({ where: { id } });
+      const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
+      if (targetProfile?.parentId !== myProfile?.id) return res.status(403).json({ error: "Forbidden: not your downline" });
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Update Profile

@@ -9,6 +9,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const isMaster = location.pathname.startsWith('/master');
   const isAdmin = location.pathname.startsWith('/admin');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -78,16 +79,34 @@ const Sidebar = () => {
     { name: 'Reconciliation', icon: '⚖', path: '/admin/reconciliation' },
     { name: 'QR Codes', icon: '🔳', path: '/admin/qr-codes' },
     { name: 'Settlements', icon: '💸', path: '/admin/settlements' },
+    { name: 'Fund Requests', icon: '📥', path: '/admin/fund-requests' },
+    { name: 'Reports', icon: '📊', path: '/admin/reports' },
     { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks' },
     { name: 'Support', icon: '🎧', path: '/admin/support' },
     { name: 'Settings', icon: '⚙', path: '/admin/settings' },
   ];
 
+  const masterItems = [
+    { name: 'Dashboard', icon: '▦', path: '/master/dashboard' },
+    { name: 'Transactions', icon: '⇄', path: '/master/transactions' },
+    { name: 'Merchants', icon: '👥', path: '/master/merchants' },
+    { name: 'Wallet', icon: '💳', path: '/master/wallet' },
+    { name: 'QR Codes', icon: '🔳', path: '/master/qr-codes' },
+    { name: 'Fund Requests', icon: '📥', path: '/master/fund-requests' },
+    { name: 'Settlements', icon: '💸', path: '/master/settlements' },
+    { name: 'Reconciliation', icon: '⚖', path: '/master/reconciliation' },
+    { name: 'Reports', icon: '📊', path: '/master/reports' },
+    { name: 'Callbacks', icon: '⚡', path: '/master/callbacks' },
+    { name: 'Support', icon: '🎧', path: '/master/support' },
+    { name: 'Settings', icon: '⚙', path: '/master/settings' },
+  ];
+
   const getMenuItems = () => {
     if (isAdmin) return adminItems;
+    if (isMaster) return masterItems;
     if (user?.role === 'merchant') return merchantItems;
     if (user?.role === 'branch') return branchItems;
-    return merchantItems; // Fallback
+    return merchantItems;
   };
 
   const menuItems = getMenuItems();

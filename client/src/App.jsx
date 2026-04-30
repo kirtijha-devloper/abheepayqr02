@@ -14,6 +14,7 @@ const QrCodesPage = lazy(() => import('./pages/QrCodesPage'));
 const WalletPage = lazy(() => import('./pages/WalletPage'));
 const ApiServicesPage = lazy(() => import('./pages/ApiServicesPage'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const MasterDashboard = lazy(() => import('./pages/MasterDashboard'));
 const MerchantsPage = lazy(() => import('./pages/MerchantsPage'));
 const ReconciliationPage = lazy(() => import('./pages/ReconciliationPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
@@ -26,6 +27,7 @@ const CallbacksPage = lazy(() => import('./pages/CallbacksPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SupportAdminPage = lazy(() => import('./pages/SupportAdminPage'));
 const DocsPage = lazy(() => import('./pages/DocsPage'));
+const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
 
 const RouteLoader = () => (
   <div className="route-loader-shell">
@@ -73,6 +75,21 @@ function App() {
                   <Route path="/admin/callbacks" element={<ProtectedRoute requiredRole="admin"><CallbacksPage /></ProtectedRoute>} />
                   <Route path="/admin/support" element={<ProtectedRoute requiredRole="admin"><SupportAdminPage /></ProtectedRoute>} />
                   <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettingsPage /></ProtectedRoute>} />
+                  <Route path="/admin/reports" element={<ProtectedRoute requiredRole="admin"><AdminReportsPage /></ProtectedRoute>} />
+
+                  {/* Master routes */}
+                  <Route path="/master/dashboard" element={<ProtectedRoute requiredRole="master"><MasterDashboard /></ProtectedRoute>} />
+                  <Route path="/master/transactions" element={<ProtectedRoute requiredRole="master"><TransactionsPage /></ProtectedRoute>} />
+                  <Route path="/master/merchants" element={<ProtectedRoute requiredRole="master"><MerchantsPage /></ProtectedRoute>} />
+                  <Route path="/master/wallet" element={<ProtectedRoute requiredRole="master"><WalletPage /></ProtectedRoute>} />
+                  <Route path="/master/reconciliation" element={<ProtectedRoute requiredRole="master"><ReconciliationPage /></ProtectedRoute>} />
+                  <Route path="/master/settlements" element={<ProtectedRoute requiredRole="master"><SettlementsAdminPage /></ProtectedRoute>} />
+                  <Route path="/master/fund-requests" element={<ProtectedRoute requiredRole="master"><FundRequestsAdminPage /></ProtectedRoute>} />
+                  <Route path="/master/qr-codes" element={<ProtectedRoute requiredRole="master"><QrCodesAdminPage /></ProtectedRoute>} />
+                  <Route path="/master/callbacks" element={<ProtectedRoute requiredRole="master"><CallbacksPage /></ProtectedRoute>} />
+                  <Route path="/master/support" element={<ProtectedRoute requiredRole="master"><SupportAdminPage /></ProtectedRoute>} />
+                  <Route path="/master/settings" element={<ProtectedRoute requiredRole="master"><AdminSettingsPage /></ProtectedRoute>} />
+                  <Route path="/master/reports" element={<ProtectedRoute requiredRole="master"><ReportsPage /></ProtectedRoute>} />
 
                   <Route path="/docs" element={<DocsPage />} />
 

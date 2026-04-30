@@ -13,22 +13,25 @@ export const getDownlineUsers = async (req: any, res: Response) => {
   const isAdmin = myRole?.role === "admin";
   const parentIdQuery = req.query.parentId as string;
 
+  const isMaster = myRole?.role === "master";
+
   let whereClause: any = {};
 
   if (isAdmin) {
     if (parentIdQuery) {
       whereClause = { parentId: parentIdQuery };
     } else {
-      whereClause = {
-        user: {
-          roles: {
-            some: { role: "merchant" }
-          }
-        }
-      };
+      // Admin default: show direct downline (masters), fallback to all masters/merchants
+      whereClause = { parentId: myProfile.id };
+      const directCount = await prisma.profile.count({ where: { parentId: myProfile.id } });
+      if (directCount === 0) {
+        whereClause = {
+          user: { roles: { some: { role: { in: ["master", "merchant"] } } } }
+        };
+      }
     }
   } else {
-    // Merchants see their children
+    // master, merchant, branch: see their direct children by parentId
     whereClause = { parentId: myProfile.id };
   }
 

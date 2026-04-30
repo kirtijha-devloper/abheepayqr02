@@ -17,13 +17,15 @@ const LoginPage = () => {
 
   const isAdminLogin = location.pathname.includes('/admin');
 
+  const getRoleHome = (role) => {
+    if (role === 'admin') return '/admin/dashboard';
+    if (role === 'master') return '/master/dashboard';
+    return '/dashboard';
+  };
+
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.role === 'admin') {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      navigate(getRoleHome(user.role), { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 
@@ -34,11 +36,7 @@ const LoginPage = () => {
     const result = await login(email, password);
 
     if (result.success) {
-      if (result.role === 'admin') {
-         navigate('/admin/dashboard');
-      } else {
-         navigate('/dashboard');
-      }
+      navigate(getRoleHome(result.role));
     } else {
       setError(result.message);
     }

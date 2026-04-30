@@ -21,9 +21,14 @@ const ProtectedRoute = ({ children, requiredRole }) => {
         ? requiredRole.map(normalizeRole).includes(userRole)
         : userRole === normalizeRole(requiredRole);
 
+    const roleToHome = (r) => {
+      if (r === 'admin') return '/admin/dashboard';
+      if (r === 'master') return '/master/dashboard';
+      return '/dashboard';
+    };
+
     if (requiredRole && !isAuthorized) {
-        // User logged in but wrong role (e.g., merchant trying to access admin)
-        return <Navigate to={userRole === 'admin' ? "/admin/dashboard" : "/dashboard"} replace />;
+        return <Navigate to={roleToHome(userRole)} replace />;
     }
 
     return children;

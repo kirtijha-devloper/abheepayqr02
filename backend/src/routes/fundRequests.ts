@@ -4,24 +4,39 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
-// GET /api/fund-requests — get fund requests (my own + downline for admins/merchants)
+// GET /api/fund-requests — get fund requests (my own + downline for admins/merchants/masters)
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const myRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
+    const myProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
     let where: any = {};
 
     if (myRole?.role === "admin") {
-      where = {};
-    } else if (myRole?.role === "merchant") {
-      const downlineProfiles = await prisma.profile.findMany({
-        where: { parentId: req.userId! },
+      // Admin sees master-level requests only (their direct downline)
+      const masterProfiles = await prisma.profile.findMany({
+        where: { parentId: myProfile?.id },
         select: { userId: true }
       });
-      const downlineIds = downlineProfiles.map(p => p.userId);
-      where = {
-        requesterId: { in: [...downlineIds, req.userId!] }
-      };
+      const masterIds = masterProfiles.map(p => p.userId);
+      where = { requesterId: { in: masterIds } };
+    } else if (myRole?.role === "master") {
+      // Master sees merchant requests (their direct downline)
+      const merchantProfiles = await prisma.profile.findMany({
+        where: { parentId: myProfile?.id },
+        select: { userId: true }
+      });
+      const merchantIds = merchantProfiles.map(p => p.userId);
+      where = { requesterId: { in: merchantIds } };
+    } else if (myRole?.role === "merchant") {
+      // Merchant sees branch requests (their direct downline)
+      const branchProfiles = await prisma.profile.findMany({
+        where: { parentId: myProfile?.id },
+        select: { userId: true }
+      });
+      const branchIds = branchProfiles.map(p => p.userId);
+      where = { requesterId: { in: branchIds } };
     } else {
+      // Branch sees only their own requests
       where = { requesterId: req.userId! };
     }
 
@@ -94,17 +109,34 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       },
     });
 
-    // Notify all admins
-    const adminRoles = await prisma.userRole.findMany({ where: { role: "admin" } });
-    for (const ar of adminRoles) {
-      await prisma.notification.create({
-        data: {
-          userId: ar.userId,
-          title: "💰 New Fund Request",
-          message: `A merchant has requested ₹${amount}. Reference: ${request.id.slice(0, 8)}`,
-          type: "warning",
-        },
-      });
+    // Notify the DIRECT UPLINE (parent) of the requester
+    const requesterProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
+    if (requesterProfile?.parentId) {
+      // Find the user whose profile.id === requesterProfile.parentId
+      const parentProfile = await prisma.profile.findUnique({ where: { id: requesterProfile.parentId } });
+      if (parentProfile) {
+        await prisma.notification.create({
+          data: {
+            userId: parentProfile.userId,
+            title: "💰 New Fund Request",
+            message: `Your downline has requested ₹${amount} in funds. Ref: ${request.id.slice(0, 8)}`,
+            type: "warning",
+          },
+        });
+      }
+    } else {
+      // No parent = requester is top-level, notify all admins
+      const adminRoles = await prisma.userRole.findMany({ where: { role: "admin" } });
+      for (const ar of adminRoles) {
+        await prisma.notification.create({
+          data: {
+            userId: ar.userId,
+            title: "💰 New Fund Request",
+            message: `A user has requested ₹${amount}. Reference: ${request.id.slice(0, 8)}`,
+            type: "warning",
+          },
+        });
+      }
     }
 
     res.json(request);
@@ -120,38 +152,39 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     if (!fundReq) return res.status(404).json({ error: "Not found" });
 
     const approverRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (approverRole?.role === "merchant" && fundReq.requesterId !== req.userId!) {
-      // Must ensure the requester is a direct branch of this merchant
-      const requesterProfile = await prisma.profile.findUnique({ where: { userId: fundReq.requesterId } });
-      if (requesterProfile?.parentId !== req.userId!) {
-        return res.status(403).json({ error: "You can only approve requests for your own branches." });
-      }
+    const approverProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
 
-      // Check merchant's own wallet balance!
-      const merchantWallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });
-      if (!merchantWallet || Number(merchantWallet.balance) < Number(fundReq.amount)) {
-        return res.status(400).json({ error: "Insufficient wallet balance to approve downline fund request." });
+    // Non-admin/master must verify the requester is their direct downline
+    if (approverRole?.role !== "admin") {
+      const requesterProfile = await prisma.profile.findUnique({ where: { userId: fundReq.requesterId } });
+      if (requesterProfile?.parentId !== approverProfile?.id) {
+        return res.status(403).json({ error: "You can only approve requests from your direct downline." });
+      }
+    }
+
+    // Check approver's wallet (non-admin must have funds)
+    if (approverRole?.role !== "admin") {
+      const approverWallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });
+      if (!approverWallet || Number(approverWallet.balance) < Number(fundReq.amount)) {
+        return res.status(400).json({ error: "Insufficient wallet balance to approve this request." });
       }
     }
 
     await prisma.$transaction(async (tx) => {
-      // If merchant is approving branch, deduct from merchant.
-      if (approverRole?.role === "merchant" && fundReq.requesterId !== req.userId!) {
-        const mWallet = await tx.wallet.findUnique({ where: { userId: req.userId! } });
-        const mNewBal = Number(mWallet!.balance) - Number(fundReq.amount);
-        await tx.wallet.update({
-          where: { userId: req.userId! },
-          data: { balance: mNewBal }
-        });
+      // Deduct from approver's wallet (except admin who tops up from system)
+      if (approverRole?.role !== "admin") {
+        const aWallet = await tx.wallet.findUnique({ where: { userId: req.userId! } });
+        const aNewBal = Number(aWallet!.balance) - Number(fundReq.amount);
+        await tx.wallet.update({ where: { userId: req.userId! }, data: { balance: aNewBal } });
         await tx.walletTransaction.create({
           data: {
             fromUserId: req.userId!,
             toUserId: fundReq.requesterId,
             amount: -Number(fundReq.amount),
-            type: "transfer",
-            description: "Approved Branch Fund Request",
-            fromBalanceAfter: mNewBal,
-            toBalanceAfter: mNewBal,
+            type: "fund_settlement",
+            description: `Approved Fund Request from downline`,
+            fromBalanceAfter: aNewBal,
+            toBalanceAfter: 0, // will be updated below
             createdBy: req.userId!
           }
         });
@@ -207,10 +240,12 @@ router.patch("/:id/reject", requireAuth, async (req: AuthRequest, res) => {
     if (!fundReqCurrent) return res.status(404).json({ error: "Not found" });
 
     const rejecterRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (rejecterRole?.role === "merchant" && fundReqCurrent.requesterId !== req.userId!) {
+    const rejecterProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
+
+    if (rejecterRole?.role !== "admin") {
       const requesterProfile = await prisma.profile.findUnique({ where: { userId: fundReqCurrent.requesterId } });
-      if (requesterProfile?.parentId !== req.userId!) {
-        return res.status(403).json({ error: "You can only reject requests for your own branches." });
+      if (requesterProfile?.parentId !== rejecterProfile?.id) {
+        return res.status(403).json({ error: "You can only reject requests from your direct downline." });
       }
     }
 

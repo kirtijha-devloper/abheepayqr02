@@ -64,11 +64,20 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     const isMerchant = roleRow?.role === "merchant";
 
     const where: any = { provider: "Bank Report" };
-    if (!isAdmin && !isMerchant) {
-        where.userId = req.userId!;
+    if (isAdmin) {
+        // Admin sees all
+    } else if (roleRow?.role === "master") {
+        const myProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
+        const merchantProfiles = await prisma.profile.findMany({
+            where: { parentId: myProfile?.id },
+            select: { userId: true }
+        });
+        const merchantIds = merchantProfiles.map(p => p.userId);
+        where.userId = { in: [...merchantIds, req.userId!] };
     } else if (isMerchant) {
+        const myProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
         const downlineProfiles = await prisma.profile.findMany({
-            where: { parentId: req.userId! },
+            where: { parentId: myProfile?.id },
             select: { userId: true }
         });
         const downlineIds = downlineProfiles.map(p => p.userId);
@@ -309,6 +318,53 @@ router.post("/upload", requireAuth, upload.single("report"), async (req: AuthReq
         fs.appendFileSync("upload_debug.log", `[${new Date().toISOString()}] UPLOAD ERROR: ${e.message}\n`);
     }
     console.error("Report upload error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/reports/admin/fund-requests — Admin: all fund requests across all levels
+router.get("/admin/fund-requests", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const requests = await prisma.fundRequest.findMany({
+      include: { bankAccount: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const userIds = new Set<string>();
+    requests.forEach(r => {
+      userIds.add(r.requesterId);
+      if (r.approvedBy) userIds.add(r.approvedBy);
+    });
+
+    const profiles = await prisma.profile.findMany({ where: { userId: { in: Array.from(userIds) } } });
+    const roles = await prisma.userRole.findMany({ where: { userId: { in: Array.from(userIds) } } });
+    const profileMap = new Map(profiles.map(p => [p.userId, p]));
+    const roleMap = new Map(roles.map(r => [r.userId, r.role]));
+
+    const enriched = requests.map(r => ({
+      ...r,
+      amount: Number(r.amount),
+      requesterName: profileMap.get(r.requesterId)?.fullName || "Unknown",
+      requesterRole: roleMap.get(r.requesterId) || "—",
+      approverName: r.approvedBy ? profileMap.get(r.approvedBy)?.fullName || "—" : null,
+      bankName: r.bankAccount?.bankName || "—",
+    }));
+
+    res.json(enriched);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/reports/admin/settlements — Admin: all wallet transactions across all levels
+router.get("/admin/settlements", requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  try {
+    const settlements = await prisma.walletTransaction.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+    res.json(settlements.map(s => ({ ...s, amount: Number(s.amount) })));
+  } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
