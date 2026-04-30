@@ -35,8 +35,7 @@ const HierarchyUsersPage = () => {
     const filteredUsers = allUsers.filter(u => u.role === selectedRole);
 
     const roles = [
-        { key: 'master', label: 'Masters', icon: '👑', desc: 'Top-level partners managing distributors.' },
-        { key: 'distributor', label: 'Distributors', icon: '🏢', desc: 'Intermediate level managing retailers.' },
+        { key: 'master', label: 'Masters', icon: '👑', desc: 'Top-level partners managing downlines.' },
         { key: 'merchant', label: 'Merchants', icon: '🏪', desc: 'Direct retailers and business owners.' },
         { key: 'branch', label: 'Branches', icon: '📍', desc: 'Sub-outlets under merchants.' }
     ];
@@ -87,10 +86,10 @@ const HierarchyUsersPage = () => {
                                     <table className="charges-table">
                                         <thead>
                                             <tr>
-                                                <th>Member Details</th>
-                                                <th>Contact & Status</th>
-                                                <th>Upline Member</th>
-                                                <th style={{ textAlign: 'right' }}>Joined On</th>
+                                                <th style={{ width: '35%' }}>Member Details</th>
+                                                <th style={{ width: '25%' }}>Contact & Status</th>
+                                                <th style={{ width: '25%' }}>Upline Member</th>
+                                                <th style={{ textAlign: 'right', width: '15%' }}>Joined On</th>
                                             </tr>
                                         </thead>
                                         <tbody>

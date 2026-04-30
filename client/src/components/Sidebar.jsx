@@ -90,6 +90,7 @@ const Sidebar = () => {
     { name: 'Dashboard', icon: '▦', path: '/admin/dashboard' },
     { name: 'Transactions', icon: '⇄', path: '/admin/transactions' },
     { name: 'Masters', icon: '👥', path: '/admin/merchants' },
+    { name: 'User List', icon: '👥', path: '/admin/users' },
     { name: 'Wallet', icon: '💳', path: '/admin/wallet' },
     { name: 'Reconciliation', icon: '⚖', path: '/admin/reconciliation' },
     { name: 'QR Codes', icon: '🔳', path: '/admin/qr-codes' },
@@ -99,7 +100,6 @@ const Sidebar = () => {
     { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks' },
     { name: 'Support', icon: '🎧', path: '/admin/support' },
     { name: 'Charges', icon: '％', path: '/admin/charges' },
-    { name: 'User List', icon: '👥', path: '/admin/users' },
     { name: 'Settings', icon: '⚙', path: '/admin/settings' },
   ];
 
@@ -107,6 +107,7 @@ const Sidebar = () => {
     { name: 'Dashboard', icon: '▦', path: '/master/dashboard' },
     { name: 'Transactions', icon: '⇄', path: '/master/transactions' },
     { name: 'Merchants', icon: '👥', path: '/master/merchants' },
+    { name: 'User List', icon: '👥', path: '/admin/users' },
     { name: 'Wallet', icon: '💳', path: '/master/wallet' },
     { name: 'QR Codes', icon: '🔳', path: '/master/qr-codes' },
     { name: 'Fund Requests', icon: '📥', path: '/master/fund-requests' },
@@ -116,7 +117,6 @@ const Sidebar = () => {
     { name: 'Callbacks', icon: '⚡', path: '/master/callbacks' },
     { name: 'Support', icon: '🎧', path: '/master/support' },
     { name: 'Charges', icon: '％', path: '/master/charges' },
-    { name: 'User List', icon: '👥', path: '/admin/users' },
     { name: 'Settings', icon: '⚙', path: '/master/settings' },
   ];
 
