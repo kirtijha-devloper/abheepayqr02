@@ -1,6 +1,7 @@
 # Root .gitignore
 node_modules/
 dist/
+!client/dist/
 .env
 .env.*
 !.env.example
