@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import './HierarchyUsersPage.css';
+import './MerchantsPage.css'; // Reuse MerchantsPage styles
 
 const emptyForm = {
     firstName: '',
@@ -30,6 +31,8 @@ const HierarchyUsersPage = () => {
     const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedRole, setSelectedRole] = useState('master'); 
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeStatusTab, setActiveStatusTab] = useState('All');
     const { success, error } = useToast();
     const { getImpersonateToken } = useAuth();
     const { updateMerchantStatus, deleteMerchant, updateMerchant } = useAppContext();
@@ -61,7 +64,19 @@ const HierarchyUsersPage = () => {
         fetchAllUsers();
     }, []);
 
-    const filteredUsers = allUsers.filter(u => u.role === selectedRole);
+    const filteredUsers = allUsers.filter(u => {
+        if (u.role !== selectedRole) return false;
+        
+        const normalizedStatus = (u.status || 'active').toLowerCase();
+        if (activeStatusTab !== 'All' && normalizedStatus !== activeStatusTab.toLowerCase()) return false;
+
+        const term = searchTerm.toLowerCase();
+        const nameMatch = u.fullName?.toLowerCase().includes(term);
+        const emailMatch = u.email?.toLowerCase().includes(term);
+        const midMatch = u.mid?.toLowerCase().includes(term);
+        
+        return !searchTerm || nameMatch || emailMatch || midMatch;
+    });
 
     const roles = [
         { key: 'master', label: 'Masters', icon: '👑', desc: 'Top-level partners managing downlines.' },
@@ -94,7 +109,7 @@ const HierarchyUsersPage = () => {
     };
 
     const handleDeleteUser = async (userId) => {
-        if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+        if (!window.confirm("Are you sure you want to delete this user?")) return;
         const res = await deleteMerchant(userId);
         if (res?.success) {
             success("User deleted successfully");
@@ -156,6 +171,7 @@ const HierarchyUsersPage = () => {
                 <main className="dashboard-body animated">
                     <div className="hierarchy-container">
                         
+                        {/* Compact Role Selector (Step 1) */}
                         <div className="role-cards-grid">
                             {roles.map(role => (
                                 <div 
@@ -173,128 +189,149 @@ const HierarchyUsersPage = () => {
                             ))}
                         </div>
 
-                        <div className="users-list-card animated-fade-in">
-                            <div className="list-header">
-                                <h2>{roles.find(r => r.key === selectedRole)?.label} Management</h2>
-                                <div className="joining-date">Found {filteredUsers.length} members in network</div>
+                        {/* Professional Table Card (Step 2 - Matching Merchants Page) */}
+                        <div className="merchants-table-card">
+                            <div className="merchants-toolbar">
+                                <div className="merchant-search-wrap">
+                                    <span className="merchant-search-icon">SEARCH</span>
+                                    <input 
+                                        type="text" 
+                                        placeholder={`Filter ${selectedRole}s by MID, name or email...`} 
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                                <div className="merchant-filter-group">
+                                    {['All', 'Active', 'Inactive'].map(tab => (
+                                        <button 
+                                            key={tab}
+                                            className={`merchant-filter-btn ${activeStatusTab === tab ? 'active' : ''}`}
+                                            onClick={() => setActiveStatusTab(tab)}
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
-                            {loading ? (
-                                <div style={{ padding: '80px', textAlign: 'center' }}>
-                                    <div className="route-loader-spinner" style={{ margin: '0 auto 20px' }}></div>
-                                    <p style={{ color: '#64748b', fontSize: '1.1rem' }}>Synchronizing hierarchy data...</p>
-                                </div>
-                            ) : filteredUsers.length === 0 ? (
-                                <div style={{ padding: '80px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '64px', marginBottom: '20px', opacity: 0.1 }}>👥</div>
-                                    <p style={{ color: '#64748b', fontSize: '1.2rem' }}>No active {selectedRole}s found in your network.</p>
-                                </div>
-                            ) : (
-                                <div className="table-responsive">
-                                    <table className="hierarchy-table">
-                                        <thead>
+                            <div className="table-responsive">
+                                <table className="merchants-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Member Identity</th>
+                                            <th>MID / Code</th>
+                                            <th>Wallet Balance</th>
+                                            <th>Status</th>
+                                            <th>Commission</th>
+                                            <th>Quick Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {loading ? (
                                             <tr>
-                                                <th style={{ width: '25%' }}>Member Details</th>
-                                                <th style={{ width: '15%' }}>MID / Code</th>
-                                                <th style={{ width: '15%' }}>Contact & Status</th>
-                                                <th style={{ width: '15%' }}>Wallet Balance</th>
-                                                <th style={{ width: '15%' }}>Upline Member</th>
-                                                <th style={{ textAlign: 'right', width: '15%' }}>Quick Actions</th>
+                                                <td colSpan="6" style={{ padding: '80px', textAlign: 'center' }}>
+                                                    <div className="route-loader-spinner" style={{ margin: '0 auto 20px' }}></div>
+                                                    <p style={{ color: '#64748b' }}>Synchronizing network...</p>
+                                                </td>
                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredUsers.map(user => (
-                                                <tr key={user.userId}>
-                                                    <td>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                            <div className="user-avatar-premium">
-                                                                {(user.fullName || 'U').charAt(0).toUpperCase()}
-                                                            </div>
-                                                            <div>
-                                                                <span className="user-name-premium">{user.fullName || 'Unnamed'}</span>
-                                                                <span className="user-email-premium">{user.email}</span>
-                                                            </div>
+                                        ) : filteredUsers.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="6" style={{ padding: '80px', textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '48px', marginBottom: '15px', opacity: 0.1 }}>👥</div>
+                                                    <p style={{ color: '#64748b' }}>No matching {selectedRole}s found.</p>
+                                                </td>
+                                            </tr>
+                                        ) : filteredUsers.map(user => (
+                                            <tr key={user.userId}>
+                                                <td>
+                                                    <div className="merchant-name-cell">
+                                                        <div className="merchant-avatar">
+                                                            {(user.fullName || 'U').charAt(0).toUpperCase()}
                                                         </div>
-                                                    </td>
-                                                    <td>
-                                                        <span className="mid-badge" style={{ fontSize: '12px' }}>{user.mid || `ID-${user.userId?.substring(0,8)}`}</span>
-                                                    </td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                            <span style={{ fontSize: '13px', color: '#fff', fontWeight: '500' }}>{user.phone || 'N/A'}</span>
-                                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                                <span className={`status-pill ${(user.status || 'active').toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 8px' }}>
-                                                                    {user.status || 'Active'}
-                                                                </span>
-                                                            </div>
+                                                        <div className="merchant-name-info">
+                                                            <div className="m-name">{user.fullName || 'Unnamed'}</div>
+                                                            <div className="m-email">{user.email}</div>
                                                         </div>
-                                                    </td>
-                                                    <td>
-                                                        <span style={{ color: '#fff', fontWeight: '600', fontSize: '14px' }}>
-                                                            Rs {Number(user.walletBalance || 0).toFixed(2)}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span className="mid-badge">{user.mid || `ID-${user.userId?.substring(0,8)}`}</span>
+                                                </td>
+                                                <td className="volume-cell">
+                                                    Rs {Number(user.walletBalance || 0).toFixed(2)}
+                                                </td>
+                                                <td>
+                                                    <span className={`status-pill ${(user.status || 'active').toLowerCase()}`}>
+                                                        {user.status || 'Active'}
+                                                    </span>
+                                                </td>
+                                                <td className="commission-cell">
+                                                    {user.payoutOverride ? (
+                                                        <span className="commission-value">
+                                                            {user.payoutOverride.chargeType === 'flat' ? `Rs ${user.payoutOverride.chargeValue}` : `${user.payoutOverride.chargeValue}%`}
                                                         </span>
-                                                    </td>
-                                                    <td>
-                                                        <span className="upline-badge">
-                                                            {user.parentName || 'System Admin'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ textAlign: 'right' }}>
-                                                        <div className="merchant-actions" style={{ justifyContent: 'flex-end' }}>
-                                                            <button className="action-btn login-btn" onClick={() => handleLoginAs(user.userId)}>Login</button>
-                                                            <button className="action-btn" onClick={() => handleEdit(user)}>Edit</button>
-                                                            <button className="action-btn" onClick={() => handleToggleStatus(user)}>Toggle</button>
-                                                            <button className="action-btn danger-btn" onClick={() => handleDeleteUser(user.userId)}>Delete</button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                    ) : <span style={{opacity: 0.5}}>Global</span>}
+                                                </td>
+                                                <td>
+                                                    <div className="merchant-actions">
+                                                        <button className="action-btn login-btn" onClick={() => handleLoginAs(user.userId)}>Login</button>
+                                                        <button className="action-btn" onClick={() => handleEdit(user)}>Edit</button>
+                                                        <button className="action-btn" onClick={() => handleToggleStatus(user)}>Toggle</button>
+                                                        <button className="action-btn danger-btn" onClick={() => handleDeleteUser(user.userId)}>Delete</button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="txn-table-footer">
+                                <span className="txn-count-text">Showing {filteredUsers.length} {selectedRole}s</span>
+                                <div className="pagination-v2">
+                                    <button className="nav-btn-v2" disabled>Prev</button>
+                                    <button className="nav-num-v2 active">1</button>
+                                    <button className="nav-btn-v2" disabled>Next</button>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                 </main>
             </div>
 
+            {/* Reuse Edit Modal from Merchants Page logic */}
             {showModal && (
-                <div className="modal-overlay" style={{ zIndex: 9999 }}>
-                    <div className="modal-container" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div className="modal-overlay">
+                    <div className="modal-container">
                         <div className="modal-header-gradient">
                             <h3>Edit Member: {selectedUser?.fullName}</h3>
                             <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
                         </div>
                         <form onSubmit={handleUpdate}>
-                            <div className="modal-body hide-scrollbar">
+                            <div className="modal-body">
                                 <div className="modal-grid">
                                     <div className="form-group">
-                                        <label className="callback-label">First Name</label>
-                                        <input type="text" name="firstName" value={formData.firstName} className="form-input-box" required onChange={handleChange} />
+                                        <input type="text" name="firstName" value={formData.firstName} placeholder="First Name *" className="form-input-box" required onChange={handleChange} />
                                     </div>
                                     <div className="form-group">
-                                        <label className="callback-label">Last Name</label>
-                                        <input type="text" name="lastName" value={formData.lastName} className="form-input-box" onChange={handleChange} />
+                                        <input type="text" name="lastName" value={formData.lastName} placeholder="Last Name" className="form-input-box" onChange={handleChange} />
                                     </div>
                                     <div className="form-group full-width">
-                                        <label className="callback-label">Email Address</label>
-                                        <input type="email" name="email" value={formData.email} className="form-input-box" required onChange={handleChange} />
+                                        <input type="email" name="email" value={formData.email} placeholder="Email *" className="form-input-box" required onChange={handleChange} />
                                     </div>
                                     <div className="form-group full-width">
-                                        <label className="callback-label">Phone Number</label>
-                                        <input type="text" name="phone" value={formData.phone} className="form-input-box" onChange={handleChange} />
+                                        <input type="text" name="phone" value={formData.phone} placeholder="Phone" className="form-input-box" onChange={handleChange} />
                                     </div>
                                     <div className="form-group full-width">
-                                        <label className="callback-label">Business Name</label>
-                                        <input type="text" name="businessName" value={formData.businessName} className="form-input-box" onChange={handleChange} />
+                                        <input type="text" name="businessName" value={formData.businessName} placeholder="Business Name" className="form-input-box" onChange={handleChange} />
                                     </div>
                                     <div className="form-group full-width">
                                         <label className="callback-label">Callback URL</label>
-                                        <input type="text" name="callbackUrl" value={formData.callbackUrl} className="form-input-box" onChange={handleChange} />
+                                        <input type="text" name="callbackUrl" value={formData.callbackUrl} placeholder="Webhook URL" className="form-input-box" onChange={handleChange} />
                                     </div>
 
                                     <div className="form-group full-width payout-charge-block">
-                                        <label className="payout-charge-label">PAYOUT CHARGES (CUSTOM OVERRIDE)</label>
+                                        <label className="payout-charge-label">PAYOUT CHARGES (CUSTOM)</label>
                                         <div className="payout-charge-row">
                                             <select name="payoutChargeType" className="form-input-box" value={formData.payoutChargeType} onChange={handleChange}>
                                                 <option value="flat">Flat (Rs)</option>
@@ -305,7 +342,7 @@ const HierarchyUsersPage = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="modal-footer" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                            <div className="modal-footer">
                                 <button type="button" className="btn-cancel" onClick={() => setShowModal(false)}>Cancel</button>
                                 <button type="submit" className="btn-create">Save Changes</button>
                             </div>
