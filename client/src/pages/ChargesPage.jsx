@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { API_BASE } from '../config';
-import './ReportsPage.css'; // Reuse existing table styling
+import './ChargesPage.css'; 
 
 const ChargesPage = () => {
     const { user } = useAuth();
@@ -97,25 +97,33 @@ const ChargesPage = () => {
             <div className="main-content">
                 <Header title="Hierarchy Charges" />
                 <main className="dashboard-body animated">
-                    <div className="text-section" style={{ marginBottom: '24px' }}>
-                        <h2>Transfer Charges</h2>
-                        <p>Set the Main to Payout Wallet transfer charge for your direct downline members.</p>
+                    <div className="charges-header">
+                        <div className="charges-title">
+                            <h2>Transfer Charges</h2>
+                            <p>Manage internal transfer fees (Main → Payout) for your direct downline.</p>
+                        </div>
                     </div>
 
-                    <div className="card" style={{ padding: '24px' }}>
+                    <div className="charges-card animated-fade-in">
                         {loading ? (
-                            <p>Loading downline members...</p>
+                            <div style={{ padding: '60px', textAlign: 'center' }}>
+                                <div className="shimmer" style={{ width: '40px', height: '40px', borderRadius: '50%', margin: '0 auto 16px' }}></div>
+                                <p style={{ color: '#94a3b8' }}>Loading downline members...</p>
+                            </div>
                         ) : merchants.length === 0 ? (
-                            <p className="empty-state">No downline members found.</p>
+                            <div style={{ padding: '60px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.2 }}>👥</div>
+                                <p style={{ color: '#94a3b8' }}>No downline members found.</p>
+                            </div>
                         ) : (
                             <div className="table-responsive">
-                                <table className="admin-table">
+                                <table className="charges-table">
                                     <thead>
                                         <tr>
-                                            <th>Name</th>
-                                            <th>Role</th>
+                                            <th>Member Identity</th>
+                                            <th>Account Role</th>
                                             <th>Current Charge</th>
-                                            <th>Action</th>
+                                            <th style={{ textAlign: 'right' }}>Management</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -123,20 +131,37 @@ const ChargesPage = () => {
                                             const existing = overrides.find(o => o.target_user_id === merchant.id && o.service_key === 'payout');
                                             const chargeText = existing 
                                                 ? `${existing.charge_value}${existing.charge_type === 'percent' ? '%' : ' Rs'}` 
-                                                : "Not Set (0)";
+                                                : "No Charge (0)";
                                                 
                                             return (
                                                 <tr key={merchant.id}>
-                                                    <td>{merchant.name || merchant.email}</td>
-                                                    <td style={{ textTransform: 'capitalize' }}>{merchant.role.replace('_', ' ')}</td>
-                                                    <td><span className={`status-pill ${existing ? 'success' : 'pending'}`}>{chargeText}</span></td>
                                                     <td>
+                                                        <div className="user-cell">
+                                                            <div className="user-avatar-small">
+                                                                {(merchant.name || merchant.email || 'U').charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="user-info-text">
+                                                                <span className="user-name">{merchant.name || 'Unnamed Member'}</span>
+                                                                <span className="user-email">{merchant.email}</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className="role-badge">
+                                                            {merchant.role.replace('_', ' ')}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`charge-badge ${existing ? 'active' : 'unset'}`}>
+                                                            {existing ? '✓' : '•'} {chargeText}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ textAlign: 'right' }}>
                                                         <button 
                                                             onClick={() => handleEdit(merchant)}
-                                                            className="action-btn edit-btn"
-                                                            style={{ padding: '6px 12px', fontSize: '13px' }}
+                                                            className="set-charge-btn"
                                                         >
-                                                            Set Charge
+                                                            Configure
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -151,40 +176,49 @@ const ChargesPage = () => {
             </div>
 
             {showModal && targetUser && (
-                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div className="card animated-scale-up" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <h3 style={{ margin: 0 }}>Set Charge for {targetUser.name}</h3>
-                            <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '20px' }}>&times;</button>
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(4, 6, 15, 0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className="charge-modal-container animated-scale-up">
+                        <button className="modal-close-btn" onClick={() => setShowModal(false)}>&times;</button>
+                        
+                        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                            <div className="user-avatar-small" style={{ width: '60px', height: '60px', fontSize: '1.5rem', margin: '0 auto 1rem' }}>
+                                {(targetUser.name || 'U').charAt(0)}
+                            </div>
+                            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem' }}>Update Transfer Charge</h3>
+                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Setting charge for <strong>{targetUser.name || targetUser.email}</strong></p>
                         </div>
 
-                        <div className="form-group" style={{ marginBottom: '16px' }}>
-                            <label>Charge Type</label>
+                        <div className="charge-form-group">
+                            <label>Charge Calculation Type</label>
                             <select 
+                                className="charge-input charge-select"
                                 value={chargeType} 
                                 onChange={(e) => setChargeType(e.target.value)}
-                                style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', marginTop: '8px' }}
                             >
                                 <option value="percent">Percentage (%)</option>
-                                <option value="flat">Flat Amount (Rs)</option>
+                                <option value="flat">Flat Amount (INR)</option>
                             </select>
                         </div>
 
-                        <div className="form-group" style={{ marginBottom: '24px' }}>
-                            <label>Charge Value</label>
-                            <input 
-                                type="number" 
-                                placeholder="e.g. 2.5" 
-                                value={chargeValue}
-                                onChange={(e) => setChargeValue(e.target.value)}
-                                style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', marginTop: '8px' }}
-                            />
+                        <div className="charge-form-group">
+                            <label>Fee Value</label>
+                            <div className="charge-input-wrapper">
+                                <input 
+                                    className="charge-input"
+                                    type="number" 
+                                    placeholder={chargeType === 'percent' ? "e.g. 2.0" : "e.g. 50"} 
+                                    value={chargeValue}
+                                    onChange={(e) => setChargeValue(e.target.value)}
+                                />
+                                <span style={{ position: 'absolute', right: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '0.9rem', fontWeight: 600 }}>
+                                    {chargeType === 'percent' ? '%' : '₹'}
+                                </span>
+                            </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', cursor: 'pointer' }}>Cancel</button>
-                            <button onClick={handleSave} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>Save Charge</button>
-                        </div>
+                        <button onClick={handleSave} className="charge-save-btn">
+                            Save Configuration
+                        </button>
                     </div>
                 </div>
             )}
