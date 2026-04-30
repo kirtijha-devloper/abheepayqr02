@@ -74,7 +74,7 @@ const Sidebar = () => {
   const adminItems = [
     { name: 'Dashboard', icon: '▦', path: '/admin/dashboard' },
     { name: 'Transactions', icon: '⇄', path: '/admin/transactions' },
-    { name: 'Merchants', icon: '👥', path: '/admin/merchants' },
+    { name: 'Masters', icon: '👥', path: '/admin/merchants' },
     { name: 'Wallet', icon: '💳', path: '/admin/wallet' },
     { name: 'Reconciliation', icon: '⚖', path: '/admin/reconciliation' },
     { name: 'QR Codes', icon: '🔳', path: '/admin/qr-codes' },

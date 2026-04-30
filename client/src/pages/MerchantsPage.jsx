@@ -192,9 +192,11 @@ const MerchantsPage = () => {
     }
   }, [currentPage, totalPages]);
 
+  const isAdmin = user?.role === 'admin';
+  const isMaster = user?.role === 'master';
   const isMerchant = user?.role === 'merchant';
-  const entitySingular = isMerchant ? 'Branch' : 'Merchant';
-  const entityPlural = isMerchant ? 'Branches' : 'Merchants';
+  const entitySingular = isAdmin ? 'Master' : (isMaster ? 'Merchant' : 'Branch');
+  const entityPlural = isAdmin ? 'Masters' : (isMaster ? 'Merchants' : 'Branches');
 
   return (
     <div className="dashboard-layout">

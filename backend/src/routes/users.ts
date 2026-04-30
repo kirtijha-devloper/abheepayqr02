@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import bcrypt from "bcryptjs";
 import { asyncAuthHandler } from "../utils/asyncHandler";
 import { getDownlineUsers } from "../controllers/userController";
+import { AppRole } from "@prisma/client";
 
 const router = Router();
 
