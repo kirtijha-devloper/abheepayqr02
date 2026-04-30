@@ -163,6 +163,8 @@ router.get("/overrides", requireAuth, async (req: AuthRequest, res) => {
       target_name: profileMap.get(o.targetUserId) || "Unknown",
       service_key: o.serviceKey,
       service_label: o.serviceLabel,
+      min_amount: o.minAmount,
+      max_amount: o.maxAmount,
       commission_type: o.commissionType,
       commission_value: o.commissionValue,
       charge_type: o.chargeType,
@@ -176,17 +178,25 @@ router.get("/overrides", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// POST /api/commission/overrides — upsert an override
+// POST /api/commission/overrides — upsert an override slab
 router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
-  const { target_user_id, service_key, service_label, commission_type, commission_value, charge_type, charge_value } = req.body;
+  const { target_user_id, service_key, service_label, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
   try {
     const override = await prisma.userCommissionOverride.upsert({
-      where: { targetUserId_serviceKey: { targetUserId: target_user_id, serviceKey: service_key } },
+      where: { 
+        targetUserId_serviceKey_minAmount: { 
+            targetUserId: target_user_id, 
+            serviceKey: service_key,
+            minAmount: Number(min_amount || 0)
+        } 
+      },
       create: {
         setBy: req.userId!,
         targetUserId: target_user_id,
         serviceKey: service_key,
         serviceLabel: service_label || service_key,
+        minAmount: Number(min_amount || 0),
+        maxAmount: Number(max_amount || 99999999),
         commissionType: commission_type || "flat",
         commissionValue: Number(commission_value || 0),
         chargeType: charge_type || "flat",
@@ -194,6 +204,7 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
         isActive: true,
       },
       update: {
+        maxAmount: Number(max_amount || 99999999),
         commissionType: commission_type,
         commissionValue: Number(commission_value),
         chargeType: charge_type,

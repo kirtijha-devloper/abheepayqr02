@@ -270,6 +270,8 @@ model UserCommissionOverride {
   targetUserId    String   @map("target_user_id") @db.Uuid
   serviceKey      String   @map("service_key")
   serviceLabel    String   @map("service_label")
+  minAmount       Decimal  @default(0) @map("min_amount") @db.Decimal(15, 2)
+  maxAmount       Decimal  @default(99999999) @map("max_amount") @db.Decimal(15, 2)
   commissionType  String   @default("flat") @map("commission_type")
   commissionValue Decimal  @default(0) @map("commission_value") @db.Decimal(15, 2)
   chargeType      String   @default("flat") @map("charge_type")
@@ -281,7 +283,7 @@ model UserCommissionOverride {
   setByUser    User @relation("SettledByOverrides", fields: [setBy], references: [id])
   targetUser   User @relation("UserOverrides", fields: [targetUserId], references: [id], onDelete: Cascade)
 
-  @@unique([targetUserId, serviceKey])
+  @@unique([targetUserId, serviceKey, minAmount])
   @@map("user_commission_overrides")
 }
 

@@ -153,9 +153,14 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     let currentUserId = fundReq.requesterId;
     const chargeDistributions: { userId: string, amount: number }[] = [];
 
-    // Find the max charge applicable to the requester
-    const requesterOverride = await prisma.userCommissionOverride.findUnique({
-        where: { targetUserId_serviceKey: { targetUserId: fundReq.requesterId, serviceKey: 'payout' } }
+    // Find the slab applicable to the requester for this amount
+    const requesterOverride = await prisma.userCommissionOverride.findFirst({
+        where: { 
+            targetUserId: fundReq.requesterId, 
+            serviceKey: 'payout',
+            minAmount: { lte: Number(fundReq.amount) },
+            maxAmount: { gte: Number(fundReq.amount) }
+        }
     });
 
     const baseChargeValue = requesterOverride?.chargeValue ? Number(requesterOverride.chargeValue) : 0;
@@ -177,9 +182,14 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
         
         const parentUserId = parentProfile.userId;
         
-        // Find parent's charge rate that they pay to THEIR parent
-        const parentOverride = await prisma.userCommissionOverride.findUnique({
-             where: { targetUserId_serviceKey: { targetUserId: parentUserId, serviceKey: 'payout' } }
+        // Find parent's charge rate for this specific amount range
+        const parentOverride = await prisma.userCommissionOverride.findFirst({
+             where: { 
+                targetUserId: parentUserId, 
+                serviceKey: 'payout',
+                minAmount: { lte: Number(fundReq.amount) },
+                maxAmount: { gte: Number(fundReq.amount) }
+             }
         });
         
         const parentChargeRate = parentOverride?.chargeValue ? Number(parentOverride.chargeValue) : 0;
