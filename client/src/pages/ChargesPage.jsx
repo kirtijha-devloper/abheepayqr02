@@ -364,52 +364,62 @@ const ChargesPage = () => {
                 </main>
             </div>
 
-            {/* Shared Modal for Adding Slabs */}
             {showModal && (
-                <div className="modal-overlay" style={{ zIndex: 10000 }}>
-                    <div className="modal-container" style={{ width: '400px' }}>
+                <div className="modal-overlay">
+                    <div className="modal-container" style={{ maxWidth: '500px' }}>
                         <div className="modal-header-gradient">
-                            <h3>{isGlobalModal ? 'Add Global Default Slab' : `Override for ${targetUser?.fullName}`}</h3>
+                            <h3>{isGlobalModal ? 'Add Global Default' : 'Override Amount Slab'}</h3>
                             <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
                         </div>
-                        <div className="modal-body" style={{ padding: '20px' }}>
-                            {isGlobalModal && (
-                                <div className="form-group" style={{ marginBottom: '15px' }}>
-                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Target Role</label>
-                                    <select className="charge-input" style={{ width: '100%' }} value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
-                                        <option value="master">Master</option>
-                                        <option value="merchant">Merchant</option>
-                                        <option value="branch">Branch</option>
-                                        <option value="distributor">Distributor</option>
-                                        <option value="retailer">Retailer</option>
-                                    </select>
+                        <div className="modal-body hide-scrollbar">
+                            {!isGlobalModal && (
+                                <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
+                                    <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '4px' }}>Target User</div>
+                                    <div style={{ color: '#fff', fontWeight: 600 }}>{targetUser?.fullName}</div>
+                                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>{targetUser?.email}</div>
                                 </div>
                             )}
-                            <div className="modal-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+
+                            <div className="modal-grid">
+                                {isGlobalModal && (
+                                    <div className="form-group full-width">
+                                        <label className="callback-label">Target Role</label>
+                                        <select className="form-input-box" value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
+                                            <option value="master">Master</option>
+                                            <option value="merchant">Merchant</option>
+                                            <option value="branch">Branch</option>
+                                            <option value="distributor">Distributor</option>
+                                            <option value="retailer">Retailer</option>
+                                        </select>
+                                    </div>
+                                )}
+                                
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Min Amount</label>
-                                    <input type="number" className="charge-input" style={{ width: '100%' }} value={minAmount} onChange={(e) => setMinAmount(e.target.value)} />
+                                    <label className="callback-label">Min Amount (₹)</label>
+                                    <input type="number" className="form-input-box" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} placeholder="0" />
                                 </div>
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Max Amount</label>
-                                    <input type="number" className="charge-input" style={{ width: '100%' }} value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} />
+                                    <label className="callback-label">Max Amount (₹)</label>
+                                    <input type="number" className="form-input-box" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} placeholder="999999" />
                                 </div>
-                                <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Type</label>
-                                    <select className="charge-input" style={{ width: '100%' }} value={chargeType} onChange={(e) => setChargeType(e.target.value)}>
-                                        <option value="percent">Percent (%)</option>
+                                <div className="form-group full-width">
+                                    <label className="callback-label">Charge Type</label>
+                                    <select className="form-input-box" value={chargeType} onChange={(e) => setChargeType(e.target.value)}>
+                                        <option value="percent">Percentage (%)</option>
                                         <option value="flat">Flat (Rs)</option>
                                     </select>
                                 </div>
-                                <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '6px', color: '#94a3b8', fontSize: '12px' }}>Charge Value</label>
-                                    <input type="number" className="charge-input" style={{ width: '100%' }} value={chargeValue} onChange={(e) => setChargeValue(e.target.value)} />
+                                <div className="form-group full-width">
+                                    <label className="callback-label">Charge Value</label>
+                                    <input type="number" className="form-input-box" value={chargeValue} onChange={(e) => setChargeValue(e.target.value)} placeholder="0.00" />
                                 </div>
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn-cancel" onClick={() => setShowModal(false)}>Cancel</button>
-                            <button className="btn-create" onClick={handleSaveSlab}>Save Slab</button>
+                            <button className="btn-cancel" onClick={() => setShowModal(false)}>Close</button>
+                            <button className="btn-create" onClick={handleSaveSlab}>
+                                {isGlobalModal ? 'Create Slab' : 'Apply Override'}
+                            </button>
                         </div>
                     </div>
                 </div>
