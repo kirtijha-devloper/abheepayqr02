@@ -19,8 +19,14 @@ router.get("/all", requireAuth, async (req: AuthRequest, res) => {
       orderBy: { createdAt: "desc" },
     });
 
+    const allProfiles = await prisma.profile.findMany({
+        select: { id: true, fullName: true, businessName: true }
+    });
+    const profileNameMap = new Map(allProfiles.map(p => [p.id, p.fullName || p.businessName || 'Unnamed']));
+
     const result = users.map(u => ({
       id: u.id,
+      userId: u.id,
       profileId: u.profile?.id,
       email: u.email,
       role: u.roles[0]?.role,
@@ -31,6 +37,8 @@ router.get("/all", requireAuth, async (req: AuthRequest, res) => {
       kycStatus: u.profile?.kycStatus,
       walletBalance: Number(u.wallet?.balance ?? 0),
       createdAt: u.createdAt,
+      parentId: u.profile?.parentId,
+      parentName: u.profile?.parentId ? profileNameMap.get(u.profile.parentId) : "Direct Admin",
     }));
 
     res.json(result);

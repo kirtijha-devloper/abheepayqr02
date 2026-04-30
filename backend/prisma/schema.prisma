@@ -118,6 +118,8 @@ model CommissionSlab {
   role            AppRole
   commissionType  String   @default("flat") @map("commission_type")
   commissionValue Decimal  @default(0) @map("commission_value")
+  chargeType      String   @default("flat") @map("charge_type")
+  chargeValue     Decimal  @default(0) @map("charge_value")
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")

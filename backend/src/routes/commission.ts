@@ -113,14 +113,17 @@ router.get("/slabs", requireAuth, async (_req, res) => {
 
 // PATCH /api/commission/slabs/:id — update a global slab
 router.patch("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
-  const { commission_value, commission_type } = req.body;
+  const { commission_value, commission_type, charge_value, charge_type } = req.body;
   try {
+    const data: any = {};
+    if (commission_value !== undefined) data.commissionValue = Number(commission_value);
+    if (commission_type !== undefined) data.commissionType = commission_type;
+    if (charge_value !== undefined) data.chargeValue = Number(charge_value);
+    if (charge_type !== undefined) data.chargeType = charge_type;
+
     const updated = await prisma.commissionSlab.update({
       where: { id: req.params.id },
-      data: {
-        commissionValue: Number(commission_value),
-        commissionType: commission_type,
-      },
+      data
     });
     res.json(updated);
   } catch (e: any) {

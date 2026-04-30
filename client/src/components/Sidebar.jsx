@@ -99,6 +99,7 @@ const Sidebar = () => {
     { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks' },
     { name: 'Support', icon: '🎧', path: '/admin/support' },
     { name: 'Charges', icon: '％', path: '/admin/charges' },
+    { name: 'User List', icon: '👥', path: '/admin/users' },
     { name: 'Settings', icon: '⚙', path: '/admin/settings' },
   ];
 
@@ -115,6 +116,7 @@ const Sidebar = () => {
     { name: 'Callbacks', icon: '⚡', path: '/master/callbacks' },
     { name: 'Support', icon: '🎧', path: '/master/support' },
     { name: 'Charges', icon: '％', path: '/master/charges' },
+    { name: 'User List', icon: '👥', path: '/admin/users' },
     { name: 'Settings', icon: '⚙', path: '/master/settings' },
   ];
 
