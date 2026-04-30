@@ -181,7 +181,17 @@ router.get("/overrides", requireAuth, async (req: AuthRequest, res) => {
 // POST /api/commission/overrides — upsert an override slab
 router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
   const { target_user_id, service_key, service_label, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
+  
+  if (!target_user_id) return res.status(400).json({ error: "target_user_id is required" });
+
   try {
+    // Debug check: verify user exists
+    const userExists = await prisma.user.findUnique({ where: { id: target_user_id } });
+    if (!userExists) {
+        console.error(`[Overrides] Target user ${target_user_id} not found.`);
+        return res.status(400).json({ error: `Selected user (ID: ${target_user_id.substring(0,8)}...) does not exist in the database.` });
+    }
+
     const override = await prisma.userCommissionOverride.upsert({
       where: { 
         targetUserId_serviceKey_minAmount: { 
