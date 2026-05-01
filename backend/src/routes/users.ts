@@ -130,9 +130,20 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
           
           targetParentId = requestedParentId;
       } else {
-          if (callerRole === "admin") {
+          const canManageUsers = callerRole === "staff" && req.permissions?.canManageUsers;
+
+          if (callerRole === "admin" || canManageUsers) {
             targetRole = "master";
             targetParentId = callerProfileId || null;
+            
+            // If staff is creating, we must ensure parentId is the Admin's profile ID
+            // because staff doesn't usually have a downline.
+            if (canManageUsers) {
+                const adminProfile = await tx.profile.findFirst({ 
+                    where: { user: { roles: { some: { role: 'admin' } } } } 
+                });
+                targetParentId = adminProfile?.id || null;
+            }
           } else if (callerRole === "master") {
             targetRole = "merchant";
             targetParentId = callerProfileId || null;

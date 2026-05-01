@@ -11,20 +11,27 @@ export const getDownlineUsers = async (req: any, res: Response) => {
 
   const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
   const isAdmin = myRole?.role === "admin";
-  const parentIdQuery = req.query.parentId as string;
-
-  const isMaster = myRole?.role === "master";
+  const isStaff = myRole?.role === "staff";
+  const canManageUsers = isStaff && req.permissions?.canManageUsers;
 
   let whereClause: any = {};
 
-  if (isAdmin) {
+  if (isAdmin || canManageUsers) {
     if (parentIdQuery) {
       whereClause = { parentId: parentIdQuery };
     } else {
-      // Admin default: show direct downline (masters), fallback to all masters/merchants
-      whereClause = { parentId: myProfile.id };
-      const directCount = await prisma.profile.count({ where: { parentId: myProfile.id } });
-      if (directCount === 0) {
+      // Admin/Staff default: show direct downline (masters), fallback to all masters/merchants
+      // Staff members don't have a "downline" themselves, so they should see what the admin sees.
+      // We use the admin's profile or a generic filter if caller is staff.
+      
+      const adminProfile = isAdmin ? myProfile : await prisma.profile.findFirst({ 
+        where: { user: { roles: { some: { role: 'admin' } } } } 
+      });
+
+      whereClause = { parentId: adminProfile?.id };
+      const directCount = adminProfile ? await prisma.profile.count({ where: { parentId: adminProfile.id } }) : 0;
+      
+      if (directCount === 0 || !adminProfile) {
         whereClause = {
           user: { roles: { some: { role: { in: ["master", "merchant"] } } } }
         };
