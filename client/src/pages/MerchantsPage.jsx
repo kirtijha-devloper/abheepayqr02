@@ -30,7 +30,7 @@ const titleCase = (value = '') => value ? value.charAt(0).toUpperCase() + value.
 
 const MerchantsPage = () => {
   const [showModal, setShowModal] = useState(false);
-  const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant } = useAppContext();
+  const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant, fetchData } = useAppContext();
   const { user, getImpersonateToken } = useAuth();
   const { success, error } = useToast();
   const isAdmin = user?.role === 'admin' || user?.role === 'staff';
@@ -38,6 +38,11 @@ const MerchantsPage = () => {
   const isMerchant = user?.role === 'merchant';
   const entitySingular = isAdmin ? 'Master' : (isMaster ? 'Merchant' : 'Branch');
   const entityPlural = isAdmin ? 'Masters' : (isMaster ? 'Merchants' : 'Branches');
+
+  useEffect(() => {
+    // Refresh global context data on mount to ensure fleet list is current
+    fetchData();
+  }, [fetchData]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');

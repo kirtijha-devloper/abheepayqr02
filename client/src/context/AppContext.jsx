@@ -49,7 +49,12 @@ export const AppProvider = ({ children }) => {
             if (results[1].status === 'fulfilled' && results[1].value.ok) {
                 const data = await results[1].value.json();
                 if (Array.isArray(data)) {
-                    setMerchants(data.filter((user) => user.role !== 'admin' && user.role !== 'staff'));
+                    // Filter out admins and staff from the main merchant list
+                    const filtered = data.filter((user) => {
+                        const r = (user.role || '').toLowerCase();
+                        return r !== 'admin' && r !== 'staff';
+                    });
+                    setMerchants(filtered);
                 }
             }
 
