@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { prisma } from "../index";
+import { prisma } from "../prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
@@ -307,19 +307,11 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
 // GET /api/wallet/settlements — Admin/Merchant lists payout requests
 router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
     try {
-        const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
-            return res.status(403).json({ error: "Forbidden" });
-        }
-        if (req.userRole === "staff" && !req.permissions?.canManageFinances) {
-            return res.status(403).json({ error: "Permission denied" });
-        }
-
         const { status } = req.query;
         let where: any = { serviceType: "payout" };
         if (status) where.status = status as string;
 
-        if (roleRow.role === "merchant") {
+        if (req.userRole === "merchant") {
             const downlineProfiles = await prisma.profile.findMany({
                 where: { parentId: req.userId! },
                 select: { userId: true }
@@ -344,18 +336,10 @@ router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
 router.post("/settlements/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     const { id } = req.params;
     try {
-        const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
-            return res.status(403).json({ error: "Forbidden" });
-        }
-        if (req.userRole === "staff" && !req.permissions?.canManageFinances) {
-            return res.status(403).json({ error: "Permission denied" });
-        }
-
         const txn = await prisma.transaction.findUnique({ where: { id } });
         if (!txn || txn.status !== "pending") return res.status(400).json({ error: "Invalid transaction" });
 
-        if (roleRow.role === "merchant" && txn.userId !== req.userId!) {
+        if (req.userRole === "merchant" && txn.userId !== req.userId!) {
             const requesterProfile = await prisma.profile.findUnique({ where: { userId: txn.userId } });
             if (requesterProfile?.parentId !== req.userId!) {
                 return res.status(403).json({ error: "You can only approve settlements for your own branches." });
@@ -364,10 +348,10 @@ router.post("/settlements/:id/approve", requireAuth, async (req: AuthRequest, re
 
         // Target to credit the fee: The Admin, OR the Merchant (if Merchant is approving downline)
         let feeTargetUserId = null;
-        if (roleRow.role === "admin") {
+        if (req.userRole === "admin" || req.userRole === "staff") {
             const adminRole = await prisma.userRole.findFirst({ where: { role: "admin" } });
             if (adminRole) feeTargetUserId = adminRole.userId;
-        } else if (roleRow.role === "merchant" && txn.userId !== req.userId!) {
+        } else if (req.userRole === "merchant" && txn.userId !== req.userId!) {
             feeTargetUserId = req.userId; // the merchant themselves!
         }
 
@@ -421,18 +405,10 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
     const { id } = req.params;
     const { reason } = req.body;
     try {
-        const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
-            return res.status(403).json({ error: "Forbidden" });
-        }
-        if (req.userRole === "staff" && !req.permissions?.canManageFinances) {
-            return res.status(403).json({ error: "Permission denied" });
-        }
-
         const txn = await prisma.transaction.findUnique({ where: { id } });
         if (!txn || txn.status !== "pending") return res.status(400).json({ error: "Invalid transaction" });
 
-        if (roleRow.role === "merchant" && txn.userId !== req.userId!) {
+        if (req.userRole === "merchant" && txn.userId !== req.userId!) {
             const requesterProfile = await prisma.profile.findUnique({ where: { userId: txn.userId } });
             if (requesterProfile?.parentId !== req.userId!) {
                 return res.status(403).json({ error: "You can only reject settlements for your own branches." });

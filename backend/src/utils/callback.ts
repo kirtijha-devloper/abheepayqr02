@@ -1,4 +1,4 @@
-import { prisma } from "../index";
+import { prisma } from "../prisma";
 
 export async function triggerTransactionCallback(transactionId: string) {
   try {

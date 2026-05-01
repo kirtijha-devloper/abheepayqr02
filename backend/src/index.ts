@@ -28,7 +28,7 @@ import staffRoutes from "./routes/staff";
 import { errorHandler } from "./middleware/errorHandler";
 import { getJwtSecret, validateEnv } from "./utils/env";
 
-export const prisma = new PrismaClient();
+import { prisma } from "./prisma";
 validateEnv();
 getJwtSecret();
 

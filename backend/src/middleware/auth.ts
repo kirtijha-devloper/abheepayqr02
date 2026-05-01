@@ -16,6 +16,8 @@ export interface AuthRequest extends Request {
   };
 }
 
+import { prisma } from "../prisma";
+
 /**
  * Middleware: Verifies local JWT token from the frontend.
  */
@@ -31,7 +33,6 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     req.userId = decoded.sub;
 
     // Fetch role and permissions
-    const { prisma } = await import("../index");
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
       include: {
@@ -43,8 +44,8 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     if (!user) return res.status(401).json({ error: "User not found" });
 
     req.userRole = user.roles[0]?.role;
-    if (req.userRole === "staff" && user.staffPermission) {
-      req.permissions = {
+    if (req.userRole === "staff") {
+      req.permissions = user.staffPermission ? {
         canManageUsers: user.staffPermission.canManageUsers,
         canManageFinances: user.staffPermission.canManageFinances,
         canManageCommissions: user.staffPermission.canManageCommissions,
@@ -52,6 +53,14 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
         canManageSettings: user.staffPermission.canManageSettings,
         canManageSecurity: user.staffPermission.canManageSecurity,
         canViewReports: user.staffPermission.canViewReports,
+      } : {
+        canManageUsers: false,
+        canManageFinances: false,
+        canManageCommissions: false,
+        canManageServices: false,
+        canManageSettings: false,
+        canManageSecurity: false,
+        canViewReports: true, // Allow viewing reports by default if staff
       };
     }
 

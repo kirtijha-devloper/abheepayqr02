@@ -3,7 +3,7 @@ import multer from "multer";
 import * as XLSX from "xlsx";
 import fs from "fs";
 import path from "path";
-import { prisma } from "../index";
+import { prisma } from "../prisma";
 import { requireAuth, requireAdmin, AuthRequest } from "../middleware/auth";
 import { triggerTransactionCallback } from "../utils/callback";
 

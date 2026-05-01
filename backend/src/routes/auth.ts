@@ -1,6 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { prisma } from "../index";
+import { prisma } from "../prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { asyncHandler, asyncAuthHandler } from "../utils/asyncHandler";
 import { registerUser, loginUser, getMe, loginAsUser } from "../controllers/authController";
