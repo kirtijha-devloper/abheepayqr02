@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { requireAuth, requireAdmin } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -25,7 +25,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 
 // POST /api/settings
 // Update settings (Admin only)
-router.post("/", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+router.post("/", requireAuth, requirePermission("canManageSettings"), async (req: Request, res: Response) => {
     const updates: Record<string, string> = req.body; // e.g., { "payout_charge_type": "flat", "payout_charge_value": "10" }
 
     try {

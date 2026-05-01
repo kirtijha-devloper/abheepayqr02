@@ -68,20 +68,20 @@ function App() {
                   <Route path="/fund-requests" element={<ProtectedRoute requiredRole="merchant"><FundRequestsAdminPage /></ProtectedRoute>} />
                   <Route path="/charges" element={<ProtectedRoute requiredRole="merchant"><ChargesPage /></ProtectedRoute>} />
 
-                  <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
-                  <Route path="/admin/transactions" element={<ProtectedRoute requiredRole="admin"><TransactionsPage /></ProtectedRoute>} />
-                  <Route path="/admin/merchants" element={<ProtectedRoute requiredRole="admin"><MerchantsPage /></ProtectedRoute>} />
-                  <Route path="/admin/wallet" element={<ProtectedRoute requiredRole="admin"><WalletPage /></ProtectedRoute>} />
-                  <Route path="/admin/reconciliation" element={<ProtectedRoute requiredRole="admin"><ReconciliationPage /></ProtectedRoute>} />
-                  <Route path="/admin/settlements" element={<ProtectedRoute requiredRole="admin"><SettlementsAdminPage /></ProtectedRoute>} />
-                  <Route path="/admin/fund-requests" element={<ProtectedRoute requiredRole="admin"><FundRequestsAdminPage /></ProtectedRoute>} />
-                  <Route path="/admin/qr-codes" element={<ProtectedRoute requiredRole="admin"><QrCodesAdminPage /></ProtectedRoute>} />
-                  <Route path="/admin/callbacks" element={<ProtectedRoute requiredRole="admin"><CallbacksPage /></ProtectedRoute>} />
-                  <Route path="/admin/support" element={<ProtectedRoute requiredRole="admin"><SupportAdminPage /></ProtectedRoute>} />
-                  <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettingsPage /></ProtectedRoute>} />
-                  <Route path="/admin/reports" element={<ProtectedRoute requiredRole="admin"><AdminReportsPage /></ProtectedRoute>} />
-                  <Route path="/admin/charges" element={<ProtectedRoute requiredRole={["admin", "master"]}><ChargesPage /></ProtectedRoute>} />
-                  <Route path="/admin/users" element={<ProtectedRoute requiredRole={["admin", "master"]}><HierarchyUsersPage /></ProtectedRoute>} />
+                  <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole={["admin", "staff"]}><AdminDashboard /></ProtectedRoute>} />
+                  <Route path="/admin/transactions" element={<ProtectedRoute requiredRole={["admin", "staff"]}><TransactionsPage /></ProtectedRoute>} />
+                  <Route path="/admin/merchants" element={<ProtectedRoute requiredRole={["admin", "staff"]}><MerchantsPage /></ProtectedRoute>} />
+                  <Route path="/admin/wallet" element={<ProtectedRoute requiredRole={["admin", "staff"]}><WalletPage /></ProtectedRoute>} />
+                  <Route path="/admin/reconciliation" element={<ProtectedRoute requiredRole={["admin", "staff"]}><ReconciliationPage /></ProtectedRoute>} />
+                  <Route path="/admin/settlements" element={<ProtectedRoute requiredRole={["admin", "staff"]}><SettlementsAdminPage /></ProtectedRoute>} />
+                  <Route path="/admin/fund-requests" element={<ProtectedRoute requiredRole={["admin", "staff"]}><FundRequestsAdminPage /></ProtectedRoute>} />
+                  <Route path="/admin/qr-codes" element={<ProtectedRoute requiredRole={["admin", "staff"]}><QrCodesAdminPage /></ProtectedRoute>} />
+                  <Route path="/admin/callbacks" element={<ProtectedRoute requiredRole={["admin", "staff"]}><CallbacksPage /></ProtectedRoute>} />
+                  <Route path="/admin/support" element={<ProtectedRoute requiredRole={["admin", "staff"]}><SupportAdminPage /></ProtectedRoute>} />
+                  <Route path="/admin/settings" element={<ProtectedRoute requiredRole={["admin", "staff"]}><AdminSettingsPage /></ProtectedRoute>} />
+                  <Route path="/admin/reports" element={<ProtectedRoute requiredRole={["admin", "staff"]}><AdminReportsPage /></ProtectedRoute>} />
+                  <Route path="/admin/charges" element={<ProtectedRoute requiredRole={["admin", "master", "staff"]}><ChargesPage /></ProtectedRoute>} />
+                  <Route path="/admin/users" element={<ProtectedRoute requiredRole={["admin", "master", "staff"]}><HierarchyUsersPage /></ProtectedRoute>} />
                   <Route path="/admin/staff" element={<ProtectedRoute requiredRole="admin"><StaffManagementPage /></ProtectedRoute>} />
                   
                   {/* Master Specific */}

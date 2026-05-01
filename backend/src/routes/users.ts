@@ -188,8 +188,8 @@ router.patch("/:id/status", requireAuth, async (req: AuthRequest, res) => {
   const { status } = req.body;
   try {
     const callerId = req.userId!;
-    const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
-    if (myRole?.role !== "admin") {
+    const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
+    if (!isAdmin) {
       // Non-admins can only toggle their downline
       const profile = await prisma.profile.findUnique({ where: { id } });
       const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
@@ -213,11 +213,12 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
   
   try {
     const callerId = req.userId!;
-    const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
-    if (myRole?.role !== "admin" && myRole?.role !== "master") return res.status(403).json({ error: "Forbidden" });
+    const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
+    const isMaster = req.userRole === "master";
+    if (!isAdmin && !isMaster) return res.status(403).json({ error: "Forbidden" });
 
     // master can only edit their own downline merchants
-    if (myRole?.role === "master") {
+    if (isMaster) {
       const targetProfile = await prisma.profile.findUnique({ where: { id } });
       const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
       if (targetProfile?.parentId !== myProfile?.id) return res.status(403).json({ error: "Forbidden: not your downline" });
@@ -278,16 +279,13 @@ router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
   const { id } = req.params; // This is the profile ID based on frontend calls
   try {
     const callerId = req.userId!;
-    const myRole = await prisma.userRole.findFirst({ where: { userId: callerId } });
+    const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
     
-    // 1. Get the target profile and user
     const targetProfile = await prisma.profile.findUnique({ where: { id } });
     if (!targetProfile) return res.status(404).json({ error: "User profile not found" });
-    
     const targetUserId = targetProfile.userId;
 
-    // 2. Permission check
-    if (myRole?.role !== "admin") {
+    if (!isAdmin) {
       const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
       if (targetProfile.parentId !== myProfile?.id) {
         return res.status(403).json({ error: "Forbidden: You can only delete your direct downline." });

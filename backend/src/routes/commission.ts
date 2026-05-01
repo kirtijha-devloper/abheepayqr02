@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../index";
-import { requireAuth, AuthRequest } from "../middleware/auth";
+import { requireAuth, requirePermission, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -112,7 +112,7 @@ router.get("/slabs", requireAuth, async (_req, res) => {
 });
 
 // POST /api/commission/slabs — create a new global slab
-router.post("/slabs", requireAuth, async (req: AuthRequest, res) => {
+router.post("/slabs", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
     const { role, service_key, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
     if (!role || !service_key) return res.status(400).json({ error: "Role and service_key are required" });
 
@@ -137,7 +137,7 @@ router.post("/slabs", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // PATCH /api/commission/slabs/:id — update a global slab
-router.patch("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
+router.patch("/slabs/:id", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
   const { commission_value, commission_type, charge_value, charge_type } = req.body;
   try {
     const data: any = {};
@@ -157,7 +157,7 @@ router.patch("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // DELETE /api/commission/slabs/:id — remove a global slab
-router.delete("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
+router.delete("/slabs/:id", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
     try {
         await prisma.commissionSlab.delete({ where: { id: req.params.id } });
         res.json({ success: true });
@@ -217,7 +217,7 @@ router.get("/overrides", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // POST /api/commission/overrides — upsert an override slab
-router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
+router.post("/overrides", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
   const { target_user_id, service_key, service_label, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
   
   if (!target_user_id) return res.status(400).json({ error: "target_user_id is required" });
@@ -266,7 +266,7 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // DELETE /api/commission/overrides/:id — remove an override
-router.delete("/overrides/:id", requireAuth, async (req: AuthRequest, res) => {
+router.delete("/overrides/:id", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
   try {
     await prisma.userCommissionOverride.delete({ where: { id: req.params.id } });
     res.json({ success: true });

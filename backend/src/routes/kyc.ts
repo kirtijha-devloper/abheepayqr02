@@ -7,9 +7,7 @@ const router = Router();
 // GET /api/kyc — get KYC documents (admin sees all, others see their own)
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const isAdmin = roleRow?.role === "admin";
-
+    const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
     const where = isAdmin ? {} : { userId: req.userId! };
     const docs = await prisma.kycDocument.findMany({
       where,
@@ -81,8 +79,8 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 router.patch("/:id/review", requireAuth, async (req: AuthRequest, res) => {
   const { action, note } = req.body; // action: "approved" | "rejected"
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    const canReview = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
+    if (!canReview) return res.status(403).json({ error: "Forbidden" });
 
     const doc = await prisma.kycDocument.findUnique({ where: { id: req.params.id } });
     if (!doc) return res.status(404).json({ error: "Document not found" });
