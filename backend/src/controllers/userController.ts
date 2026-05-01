@@ -14,28 +14,21 @@ export const getDownlineUsers = async (req: any, res: Response) => {
   const isStaff = myRole?.role === "staff";
   const canManageUsers = isStaff && req.permissions?.canManageUsers;
 
+  console.log(`[getDownlineUsers] Caller: ${callerId}, Role: ${myRole?.role}, canManageUsers: ${canManageUsers}`);
+  
+  const parentIdQuery = req.query.parentId as string;
+
   let whereClause: any = {};
 
   if (isAdmin || canManageUsers) {
     if (parentIdQuery) {
+      // If a specific parent is requested (e.g. seeing branches of a merchant)
       whereClause = { parentId: parentIdQuery };
     } else {
-      // Admin/Staff default: show direct downline (masters), fallback to all masters/merchants
-      // Staff members don't have a "downline" themselves, so they should see what the admin sees.
-      // We use the admin's profile or a generic filter if caller is staff.
-      
-      const adminProfile = isAdmin ? myProfile : await prisma.profile.findFirst({ 
-        where: { user: { roles: { some: { role: 'admin' } } } } 
-      });
-
-      whereClause = { parentId: adminProfile?.id };
-      const directCount = adminProfile ? await prisma.profile.count({ where: { parentId: adminProfile.id } }) : 0;
-      
-      if (directCount === 0 || !adminProfile) {
-        whereClause = {
-          user: { roles: { some: { role: { in: ["master", "merchant"] } } } }
-        };
-      }
+      // Default view for Admin/Staff: Show all Masters
+      whereClause = {
+        user: { roles: { some: { role: "master" } } }
+      };
     }
   } else {
     // master, merchant, branch: see their direct children by parentId
