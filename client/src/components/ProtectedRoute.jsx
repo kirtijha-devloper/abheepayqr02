@@ -22,7 +22,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
         : userRole === normalizeRole(requiredRole);
 
     const roleToHome = (r) => {
-      if (r === 'admin') return '/admin/dashboard';
+      if (r === 'admin' || r === 'staff') return '/admin/dashboard';
       if (r === 'master') return '/master/dashboard';
       return '/dashboard';
     };

@@ -18,7 +18,7 @@ const LoginPage = () => {
   const isAdminLogin = location.pathname.includes('/admin');
 
   const getRoleHome = (role) => {
-    if (role === 'admin') return '/admin/dashboard';
+    if (role === 'admin' || role === 'staff') return '/admin/dashboard';
     if (role === 'master') return '/master/dashboard';
     return '/dashboard';
   };
