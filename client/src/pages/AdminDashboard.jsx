@@ -4,11 +4,13 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import MetricCard from '../components/MetricCard';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { transactions, merchants, qrCodes, settlements, fundRequests, fetchFundRequests } = useAppContext();
   const [timeRange, setTimeRange] = useState(7); // Default 7 days
 
@@ -84,8 +86,8 @@ const AdminDashboard = () => {
         <main className="dashboard-body animated">
           <div className="dashboard-header-row">
             <div className="title-section">
-              <h2>Admin Dashboard</h2>
-              <p className="subtitle">Overview of partner performance and transactions</p>
+              <h2>{user?.role === 'staff' ? 'Staff Panel' : 'Admin Dashboard'}</h2>
+              <p className="subtitle">{user?.role === 'staff' ? 'Manage delegated tasks and view reports' : 'Overview of partner performance and transactions'}</p>
             </div>
           </div>
 

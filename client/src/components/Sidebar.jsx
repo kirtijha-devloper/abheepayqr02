@@ -122,7 +122,12 @@ const Sidebar = () => {
   ];
 
   const getMenuItems = () => {
-    if (isAdmin) return adminItems;
+    if (isAdmin) {
+      if (user?.role === 'staff') {
+        return adminItems.filter(item => item.name !== 'Staff Panel');
+      }
+      return adminItems;
+    }
     if (isMaster) return masterItems;
     if (user?.role === 'merchant') return merchantItems;
     if (user?.role === 'branch') return branchItems;
