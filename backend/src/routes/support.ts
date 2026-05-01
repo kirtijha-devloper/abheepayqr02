@@ -7,9 +7,7 @@ const router = Router();
 // GET /api/support/tickets — get tickets (admin sees all, others see their own)
 router.get("/tickets", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const isAdmin = roleRow?.role === "admin";
-
+    const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canViewReports);
     const where = isAdmin ? {} : { userId: req.userId! };
     const tickets = await prisma.supportTicket.findMany({
       where,
@@ -75,8 +73,8 @@ router.post("/tickets", requireAuth, async (req: AuthRequest, res) => {
 router.patch("/tickets/:id/reply", requireAuth, async (req: AuthRequest, res) => {
   const { reply_text, status } = req.body;
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    const canReply = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canViewReports);
+    if (!canReply) return res.status(403).json({ error: "Forbidden" });
 
     const ticket = await prisma.supportTicket.findUnique({ where: { id: req.params.id } });
     if (!ticket) return res.status(404).json({ error: "Ticket not found" });

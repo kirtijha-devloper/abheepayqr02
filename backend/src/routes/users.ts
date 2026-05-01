@@ -11,8 +11,8 @@ const router = Router();
 // GET /api/users/all — admin only: fetch all users across all levels
 router.get("/all", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const myRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (myRole?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+    const canManage = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
+    if (!canManage) return res.status(403).json({ error: "Access denied" });
 
     const users = await prisma.user.findMany({
       include: { profile: true, roles: true, wallet: true },

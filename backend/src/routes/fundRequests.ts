@@ -11,7 +11,8 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     const myProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
     let where: any = {};
 
-    if (myRole?.role === "admin") {
+    const isAdmin = myRole?.role === "admin" || (myRole?.role === "staff" && req.permissions?.canManageFinances);
+    if (isAdmin) {
       // Admin sees ALL pending and historical requests to approve/review
       where = {};
     } else {
@@ -146,8 +147,9 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     const approverRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
     const approverProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
 
-    if (approverRole?.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can approve transfer requests." });
+    const canApprove = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageFinances);
+    if (!canApprove) {
+      return res.status(403).json({ error: "Only admins or authorized staff can approve transfer requests." });
     }
 
     let currentUserId = fundReq.requesterId;
@@ -297,8 +299,9 @@ router.patch("/:id/reject", requireAuth, async (req: AuthRequest, res) => {
     const rejecterRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
     const rejecterProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
 
-    if (rejecterRole?.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can reject transfer requests." });
+    const canReject = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageFinances);
+    if (!canReject) {
+      return res.status(403).json({ error: "Only admins or authorized staff can reject transfer requests." });
     }
 
     let fundReq;
@@ -356,9 +359,11 @@ router.get("/bank-accounts", requireAuth, async (_req, res) => {
 // GET /api/fund-requests/bank-accounts/all — get all company bank accounts (admin/merchant only)
 router.get("/bank-accounts/all", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+    if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
        return res.status(403).json({ error: "Forbidden" });
+    }
+    if (req.userRole === "staff" && !req.permissions?.canManageFinances) {
+        return res.status(403).json({ error: "Permission denied" });
     }
 
     const accounts = await prisma.companyBankAccount.findMany({ orderBy: { createdAt: "asc" } });
@@ -373,7 +378,7 @@ router.post("/bank-accounts", requireAuth, async (req: AuthRequest, res) => {
   const { bank_name, account_name, account_number, ifsc_code, upi_id } = req.body;
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    if (req.userRole !== "admin" && !req.permissions?.canManageFinances) return res.status(403).json({ error: "Forbidden" });
 
     const account = await prisma.companyBankAccount.create({
       data: {
@@ -395,7 +400,7 @@ router.post("/bank-accounts", requireAuth, async (req: AuthRequest, res) => {
 router.patch("/bank-accounts/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    if (req.userRole !== "admin" && !req.permissions?.canManageFinances) return res.status(403).json({ error: "Forbidden" });
 
     const updated = await prisma.companyBankAccount.update({
       where: { id: req.params.id },
@@ -418,7 +423,7 @@ router.patch("/bank-accounts/:id", requireAuth, async (req: AuthRequest, res) =>
 router.patch("/bank-accounts/:id/toggle", requireAuth, async (req: AuthRequest, res) => {
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    if (req.userRole !== "admin" && !req.permissions?.canManageFinances) return res.status(403).json({ error: "Forbidden" });
 
     const bank = await prisma.companyBankAccount.findUnique({ where: { id: req.params.id } });
     if (!bank) return res.status(404).json({ error: "Not found" });

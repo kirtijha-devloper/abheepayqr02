@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../index";
-import { requireAuth, requireAdmin, AuthRequest } from "../middleware/auth";
+import { requireAuth, requirePermission, AuthRequest } from "../middleware/auth";
 import { decodeWithAI } from "../utils/aiDecoder";
 import multer from "multer";
 import path from "path";
@@ -27,7 +27,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerId = req.userId!;
     const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
-    const isAdmin = roleRow?.role === "admin";
+    const isAdmin = roleRow?.role === "admin" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
     const isMerchant = roleRow?.role === "merchant";
 
     let where: any = {};
@@ -64,7 +64,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // POST /api/qrcodes — create a new QR code (admin only)
-router.post("/", requireAuth, requireAdmin, upload.single("qrImage"), async (req: AuthRequest, res) => {
+router.post("/", requireAuth, requirePermission("canManageServices"), upload.single("qrImage"), async (req: AuthRequest, res) => {
   const { label, upiId, mid, tid, merchantName, merchantId, type } = req.body;
   const imagePath = req.file ? `/uploads/qrcodes/${req.file.filename}` : null;
   
@@ -89,7 +89,7 @@ router.post("/", requireAuth, requireAdmin, upload.single("qrImage"), async (req
 });
 
 // PATCH /api/qrcodes/:id — update QR code (admin only)
-router.patch("/:id", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+router.patch("/:id", requireAuth, requirePermission("canManageServices"), async (req: AuthRequest, res) => {
   const { id } = req.params;
   const { label, upiId, mid, tid, merchantName, merchantId, status } = req.body;
   try {
@@ -104,7 +104,7 @@ router.patch("/:id", requireAuth, requireAdmin, async (req: AuthRequest, res) =>
 });
 
 // DELETE /api/qrcodes/:id — delete QR code (admin only)
-router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
+router.delete("/:id", requireAuth, requirePermission("canManageServices"), async (req, res) => {
   const { id } = req.params;
   try {
     await prisma.qrCode.delete({ where: { id } });
@@ -137,7 +137,7 @@ router.get("/rotate/:merchantId", async (req, res) => {
 });
 
 // POST /api/qrcodes/bulk — Bulk create QR codes (admin only)
-router.post("/bulk", requireAuth, requireAdmin, upload.array("qrImages"), async (req: AuthRequest, res) => {
+router.post("/bulk", requireAuth, requirePermission("canManageServices"), upload.array("qrImages"), async (req: AuthRequest, res) => {
   const { qrcodes: qrcodesJson } = req.body; // Array of QR code objects as JSON string
   const files = req.files as Express.Multer.File[];
   
@@ -174,7 +174,7 @@ router.post("/bulk", requireAuth, requireAdmin, upload.array("qrImages"), async 
 });
 
 // POST /api/qrcodes/assign-by-tid — Assign QR code by TID or UPI ID (admin only)
-router.post("/assign-by-tid", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+router.post("/assign-by-tid", requireAuth, requirePermission("canManageServices"), async (req: AuthRequest, res) => {
   const { tid, merchantId } = req.body;
   if (!tid || !merchantId) return res.status(400).json({ error: "Missing tid or merchantId" });
 

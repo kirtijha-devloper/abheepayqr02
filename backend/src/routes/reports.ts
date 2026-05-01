@@ -59,9 +59,8 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   const numericLimit = Math.min(Math.max(parseInt(limit as string, 10) || 50, 10), 200);
 
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const isAdmin = roleRow?.role === "admin";
-    const isMerchant = roleRow?.role === "merchant";
+    const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canViewReports);
+    const isMerchant = req.userRole === "merchant";
 
     const where: any = { provider: "Bank Report" };
     if (isAdmin) {
@@ -121,9 +120,11 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 
 router.post("/upload", requireAuth, upload.single("report"), async (req: AuthRequest, res) => {
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+    if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
         return res.status(403).json({ error: "Forbidden" });
+    }
+    if (req.userRole === "staff" && !req.permissions?.canViewReports) {
+        return res.status(403).json({ error: "Permission denied" });
     }
   } catch (e) {
     return res.status(500).json({ error: "Role check failed" });
@@ -323,7 +324,10 @@ router.post("/upload", requireAuth, upload.single("report"), async (req: AuthReq
 });
 
 // GET /api/reports/admin/fund-requests — Admin: all fund requests across all levels
-router.get("/admin/fund-requests", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+router.get("/admin/fund-requests", requireAuth, async (req: AuthRequest, res) => {
+  if (req.userRole !== "admin" && !req.permissions?.canViewReports) {
+      return res.status(403).json({ error: "Forbidden" });
+  }
   try {
     const requests = await prisma.fundRequest.findMany({
       include: { bankAccount: true },
@@ -357,7 +361,10 @@ router.get("/admin/fund-requests", requireAuth, requireAdmin, async (req: AuthRe
 });
 
 // GET /api/reports/admin/settlements — Admin: all wallet transactions across all levels
-router.get("/admin/settlements", requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+router.get("/admin/settlements", requireAuth, async (req: AuthRequest, res) => {
+  if (req.userRole !== "admin" && !req.permissions?.canViewReports) {
+      return res.status(403).json({ error: "Forbidden" });
+  }
   try {
     const settlements = await prisma.walletTransaction.findMany({
       orderBy: { createdAt: "desc" },

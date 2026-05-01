@@ -37,8 +37,7 @@ router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
 router.post("/top-up", requireAuth, async (req: AuthRequest, res) => {
   const { to_user_id, amount, description } = req.body;
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    if (req.userRole !== "admin" && !req.permissions?.canManageFinances) return res.status(403).json({ error: "Forbidden" });
 
     const toWallet = await prisma.wallet.findUnique({ where: { userId: to_user_id } });
     if (!toWallet) return res.status(404).json({ error: "User wallet not found" });
@@ -166,8 +165,7 @@ router.post("/pg-add", requireAuth, async (req: AuthRequest, res) => {
 router.post("/bank-topup", requireAuth, async (req: AuthRequest, res) => {
   const { amount, bank_reference, bank_name, description } = req.body;
   try {
-    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    if (roleRow?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    if (req.userRole !== "admin" && !req.permissions?.canManageFinances) return res.status(403).json({ error: "Forbidden" });
 
     const wallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });
     const newBalance = Number(wallet?.balance ?? 0) + Number(amount);
@@ -310,8 +308,11 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
 router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
     try {
         const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+        if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
             return res.status(403).json({ error: "Forbidden" });
+        }
+        if (req.userRole === "staff" && !req.permissions?.canManageFinances) {
+            return res.status(403).json({ error: "Permission denied" });
         }
 
         const { status } = req.query;
@@ -344,8 +345,11 @@ router.post("/settlements/:id/approve", requireAuth, async (req: AuthRequest, re
     const { id } = req.params;
     try {
         const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+        if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
             return res.status(403).json({ error: "Forbidden" });
+        }
+        if (req.userRole === "staff" && !req.permissions?.canManageFinances) {
+            return res.status(403).json({ error: "Permission denied" });
         }
 
         const txn = await prisma.transaction.findUnique({ where: { id } });
@@ -418,8 +422,11 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
     const { reason } = req.body;
     try {
         const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-        if (roleRow?.role !== "admin" && roleRow?.role !== "merchant") {
+        if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
             return res.status(403).json({ error: "Forbidden" });
+        }
+        if (req.userRole === "staff" && !req.permissions?.canManageFinances) {
+            return res.status(403).json({ error: "Permission denied" });
         }
 
         const txn = await prisma.transaction.findUnique({ where: { id } });
