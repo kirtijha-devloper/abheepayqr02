@@ -30,6 +30,7 @@ const DocsPage = lazy(() => import('./pages/DocsPage'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
 const ChargesPage = lazy(() => import('./pages/ChargesPage'));
 const HierarchyUsersPage = lazy(() => import('./pages/HierarchyUsersPage'));
+const StaffManagementPage = lazy(() => import('./pages/StaffManagementPage'));
 
 const RouteLoader = () => (
   <div className="route-loader-shell">
@@ -81,6 +82,7 @@ function App() {
                   <Route path="/admin/reports" element={<ProtectedRoute requiredRole="admin"><AdminReportsPage /></ProtectedRoute>} />
                   <Route path="/admin/charges" element={<ProtectedRoute requiredRole={["admin", "master"]}><ChargesPage /></ProtectedRoute>} />
                   <Route path="/admin/users" element={<ProtectedRoute requiredRole={["admin", "master"]}><HierarchyUsersPage /></ProtectedRoute>} />
+                  <Route path="/admin/staff" element={<ProtectedRoute requiredRole="admin"><StaffManagementPage /></ProtectedRoute>} />
                   
                   {/* Master Specific */}
                   <Route path="/master/dashboard" element={<ProtectedRoute requiredRole="master"><MasterDashboard /></ProtectedRoute>} />

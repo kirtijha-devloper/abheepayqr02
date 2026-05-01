@@ -28,6 +28,7 @@ model User {
   sentWalletTransactions  WalletTransaction[]      @relation("FromUser")
   walletTransactions      WalletTransaction[]      @relation("ToUser")
   wallet                  Wallet?
+  staffPermission         StaffPermission?
 
   @@map("users")
 }
@@ -292,6 +293,7 @@ model StaffPermission {
   grantedBy            String   @map("granted_by") @db.Uuid
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("staff_permissions")
 }
@@ -376,6 +378,7 @@ enum AppRole {
   merchant
   branch
   master
+  staff
 
   @@map("app_role")
 }

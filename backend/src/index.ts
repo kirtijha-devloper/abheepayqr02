@@ -24,6 +24,7 @@ import reportRoutes from "./routes/reports";
 import settingsRoutes from "./routes/settings";
 import bankAccountsRoutes from "./routes/bankAccounts";
 import callbackLogsRoutes from "./routes/callbackLogs";
+import staffRoutes from "./routes/staff";
 import { errorHandler } from "./middleware/errorHandler";
 import { getJwtSecret, validateEnv } from "./utils/env";
 
@@ -102,6 +103,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/bank-accounts", bankAccountsRoutes);
 app.use("/api/callback-logs", callbackLogsRoutes);
+app.use("/api/staff", staffRoutes);
 
 app.use(errorHandler);
 

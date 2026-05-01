@@ -11,7 +11,7 @@ Run both apps from the repo root:
 ```bash
 npm install
 npm run dev
-```
+```1
 
 Frontend:
 - `http://127.0.0.1:5173`
@@ -35,7 +35,7 @@ This project can be deployed on a completely new domain. Nothing in the template
 
 Example production setup:
 - frontend: `https://app.yournewdomain.com`
-- backend API: `https://api.yournewdomain.com`
+- backend API: `https://ap90yournewdomain.com`
 
 ### 1. Frontend env
 

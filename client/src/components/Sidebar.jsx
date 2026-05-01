@@ -100,6 +100,7 @@ const Sidebar = () => {
     { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks' },
     { name: 'Support', icon: '🎧', path: '/admin/support' },
     { name: 'Charges', icon: '％', path: '/admin/charges' },
+    { name: 'Staff Panel', icon: '🛡️', path: '/admin/staff' },
     { name: 'Settings', icon: '⚙', path: '/admin/settings' },
   ];
 

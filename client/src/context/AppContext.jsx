@@ -15,6 +15,7 @@ export const AppProvider = ({ children }) => {
     const [walletHistory, setWalletHistory] = useState([]); // Wallet Movement History
     const [reports, setReports] = useState([]);
     const [mappingTrace, setMappingTrace] = useState([]);
+    const [staffMembers, setStaffMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const { isAuthenticated, user } = useAuth();
 
@@ -48,7 +49,15 @@ export const AppProvider = ({ children }) => {
             if (results[1].status === 'fulfilled' && results[1].value.ok) {
                 const data = await results[1].value.json();
                 if (Array.isArray(data)) {
-                    setMerchants(data.filter((user) => user.role !== 'admin'));
+                    setMerchants(data.filter((user) => user.role !== 'admin' && user.role !== 'staff'));
+                }
+            }
+
+            if (user?.role === 'admin') {
+                const staffRes = await fetch(`${API_BASE}/staff`, { headers: getHeaders() });
+                if (staffRes.ok) {
+                    const staffData = await staffRes.ok ? await staffRes.json() : [];
+                    setStaffMembers(staffData);
                 }
             }
 
@@ -298,6 +307,75 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             console.error("Delete merchant failed", err);
             return { success: false, error: 'Network error' };
+        }
+    };
+
+    // --- Staff Management ---
+    const fetchStaffMembers = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/staff`, { headers: getHeaders() });
+            if (res.ok) {
+                const data = await res.json();
+                setStaffMembers(data);
+                return data;
+            }
+        } catch (err) {
+            console.error("Fetch staff members failed", err);
+        }
+        return [];
+    }, [getHeaders]);
+
+    const addStaffMember = async (staffData) => {
+        try {
+            const res = await fetch(`${API_BASE}/staff`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(staffData)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                await fetchStaffMembers();
+                return { success: true, data };
+            }
+            return { success: false, error: data.error };
+        } catch (err) {
+            return { success: false, error: "Network error" };
+        }
+    };
+
+    const updateStaffMember = async (id, staffData) => {
+        try {
+            const res = await fetch(`${API_BASE}/staff/${id}`, {
+                method: 'PATCH',
+                headers: getHeaders(),
+                body: JSON.stringify(staffData)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                await fetchStaffMembers();
+                return { success: true, data };
+            }
+            return { success: false, error: data.error };
+        } catch (err) {
+            return { success: false, error: "Network error" };
+        }
+    };
+
+    const deleteStaffMember = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this staff member?")) return { success: false };
+        try {
+            const res = await fetch(`${API_BASE}/staff/${id}`, {
+                method: 'DELETE',
+                headers: getHeaders()
+            });
+            if (res.ok) {
+                await fetchStaffMembers();
+                return { success: true };
+            }
+            const data = await res.json();
+            return { success: false, error: data.error };
+        } catch (err) {
+            return { success: false, error: "Network error" };
         }
     };
 
@@ -585,6 +663,11 @@ export const AppProvider = ({ children }) => {
             fetchReports,
             mappingTrace,
             fetchMappingTrace,
+            staffMembers,
+            fetchStaffMembers,
+            addStaffMember,
+            updateStaffMember,
+            deleteStaffMember,
             generateApiKey,
             getSystemSetting,
             fetchData

@@ -1,0 +1,226 @@
+.staff-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.staff-title h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  background: linear-gradient(to right, #fff, rgba(255,255,255,0.6));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.staff-title p {
+  color: var(--text-mute);
+  font-size: 0.95rem;
+}
+
+.add-staff-btn {
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.add-staff-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  background: #2563eb;
+}
+
+.staff-table-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.staff-toolbar {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.staff-search-wrap input {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  color: white;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.staff-search-wrap input:focus {
+  border-color: var(--brand-primary);
+}
+
+.staff-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.staff-table th {
+  text-align: left;
+  padding: 1rem 1.5rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.staff-table td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.staff-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.staff-avatar {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #3b82f633, #1d4ed833);
+  color: #60a5fa;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.s-name {
+  font-weight: 600;
+  color: white;
+}
+
+.s-id {
+  font-size: 0.75rem;
+  color: var(--text-mute);
+}
+
+.s-email {
+  font-size: 0.9rem;
+  color: white;
+}
+
+.s-phone {
+  font-size: 0.8rem;
+  color: var(--text-mute);
+}
+
+.permissions-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-width: 300px;
+}
+
+.permission-tag {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: #a5f3fc;
+  border: 1px solid rgba(165, 243, 252, 0.1);
+}
+
+.no-permissions {
+  color: #ef4444;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.staff-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.staff-modal {
+  max-width: 700px !important;
+}
+
+.modal-section {
+  margin-bottom: 2rem;
+}
+
+.modal-section h4 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.permission-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.permission-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.permission-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--brand-primary);
+}
+
+.p-title {
+  display: block;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.2rem;
+  font-size: 0.9rem;
+}
+
+.p-desc {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-mute);
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .permissions-grid {
+    grid-template-columns: 1fr;
+  }
+}
