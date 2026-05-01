@@ -82,7 +82,9 @@ const Header = ({ title }) => {
   const displayName = user?.name || (isAdmin ? 'Admin' : 'User');
   const avatarLetter = displayName.charAt(0).toUpperCase();
   const roleLabel =
-    user?.role === 'admin' ? 'Super Admin' : user?.role === 'merchant' ? 'Merchant' : 'User';
+    user?.role === 'admin' ? 'Super Admin' : 
+    user?.role === 'staff' ? 'Staff' : 
+    user?.role === 'merchant' ? 'Merchant' : 'User';
 
   return (
     <header className="main-header" aria-label={title || 'Header'}>

@@ -8,7 +8,7 @@ import './MerchantsPage.css'; // Reusing filter-tabs styles
 const FundRequestsAdminPage = () => {
   const { fundRequests, fetchFundRequests, approveFundRequest, rejectFundRequest } = useAppContext();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'staff';
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);

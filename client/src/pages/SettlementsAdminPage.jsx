@@ -9,7 +9,7 @@ import './MerchantsPage.css'; // Reuse table styles
 const SettlementsAdminPage = () => {
   const { fetchSettlements, settlements, approveSettlement, rejectSettlement } = useAppContext();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'staff';
   const { success, error } = useToast();
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);

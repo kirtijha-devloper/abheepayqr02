@@ -7,7 +7,7 @@ import './CallbacksPage.css';
 
 const CallbacksPage = () => {
     const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = user?.role === 'admin' || user?.role === 'staff';
     const [callbackUrl, setCallbackUrl] = useState('');
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(false);

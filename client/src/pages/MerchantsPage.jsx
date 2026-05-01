@@ -33,7 +33,7 @@ const MerchantsPage = () => {
   const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant } = useAppContext();
   const { user, getImpersonateToken } = useAuth();
   const { success, error } = useToast();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'staff';
   const isMaster = user?.role === 'master';
   const isMerchant = user?.role === 'merchant';
   const entitySingular = isAdmin ? 'Master' : (isMaster ? 'Merchant' : 'Branch');
@@ -271,7 +271,7 @@ const MerchantsPage = () => {
                               <td className="volume-cell">Rs {Number(branch.walletBalance || 0).toFixed(2)}</td>
                               <td><span className={`status-pill ${(branch.status || 'active').toLowerCase()}`}>{titleCase(branch.status || 'active')}</span></td>
                               <td className="merchant-actions">
-                                {user?.role === 'admin' && (
+                                {(user?.role === 'admin' || user?.role === 'staff') && (
                                   <button title="Login as Branch" className="action-btn login-btn" onClick={() => handleLoginAsMerchant(branch.id)}>
                                     Login As
                                   </button>

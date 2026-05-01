@@ -239,7 +239,7 @@ const ChargesPage = () => {
                     </div>
 
                     {/* Default Charges Section */}
-                    {currentUser?.role === 'admin' && (
+                    {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && (
                         <>
                             <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3><span>⚙️</span> Default Global Charges (By Role)</h3>
