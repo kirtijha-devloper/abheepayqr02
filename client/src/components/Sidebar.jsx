@@ -88,6 +88,7 @@ const Sidebar = () => {
 
   const adminItems = [
     { name: 'Dashboard', icon: '▦', path: '/admin/dashboard' },
+    { name: 'Staff Panel', icon: '🛡️', path: '/admin/staff' },
     { name: 'Transactions', icon: '⇄', path: '/admin/transactions' },
     { name: 'Masters', icon: '👥', path: '/admin/merchants' },
     { name: 'User List', icon: '👥', path: '/admin/users' },
@@ -100,7 +101,6 @@ const Sidebar = () => {
     { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks' },
     { name: 'Support', icon: '🎧', path: '/admin/support' },
     { name: 'Charges', icon: '％', path: '/admin/charges' },
-    { name: 'Staff Panel', icon: '🛡️', path: '/admin/staff' },
     { name: 'Settings', icon: '⚙', path: '/admin/settings' },
   ];
 

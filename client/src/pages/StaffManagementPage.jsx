@@ -126,9 +126,10 @@ const StaffManagementPage = () => {
           <div className="staff-table-card">
             <div className="staff-toolbar">
               <div className="staff-search-wrap">
+                <span className="staff-search-icon">Search</span>
                 <input
                   type="text"
-                  placeholder="Search staff by name or email..."
+                  placeholder="by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -142,7 +143,6 @@ const StaffManagementPage = () => {
                     <th>Staff Member</th>
                     <th>Contact Info</th>
                     <th>Permissions</th>
-                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -151,7 +151,7 @@ const StaffManagementPage = () => {
                     <tr key={staff.id}>
                       <td>
                         <div className="staff-name-cell">
-                          <div className="staff-avatar">{staff.fullName?.charAt(0) || 'S'}</div>
+                          <div className="staff-avatar">{staff.fullName?.charAt(0).toUpperCase() || 'S'}</div>
                           <div className="staff-name-info">
                             <div className="s-name">{staff.fullName}</div>
                             <div className="s-id">ID: {staff.id.substring(0, 8)}</div>
@@ -173,14 +173,9 @@ const StaffManagementPage = () => {
                             ))
                           }
                           {(!staff.permissions || Object.values(staff.permissions).every(v => !v)) && 
-                            <span className="no-permissions">No Access</span>
+                            <span className="no-permissions">Restricted Access</span>
                           }
                         </div>
-                      </td>
-                      <td>
-                        <span className={`status-pill ${staff.status || 'active'}`}>
-                          {staff.status ? staff.status.toUpperCase() : 'ACTIVE'}
-                        </span>
                       </td>
                       <td>
                         <div className="staff-actions">
@@ -192,8 +187,8 @@ const StaffManagementPage = () => {
                   ))}
                   {filteredStaff.length === 0 && (
                     <tr>
-                      <td colSpan="5" className="staff-empty-state">
-                        No staff members found.
+                      <td colSpan="4" className="staff-empty-state">
+                        No staff members found matching your criteria.
                       </td>
                     </tr>
                   )}
@@ -206,88 +201,67 @@ const StaffManagementPage = () => {
 
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-container staff-modal">
+          <div className="modal-container animated">
             <div className="modal-header-gradient">
-              <h3>{isEditing ? 'Edit Staff Member' : 'Add New Staff Member'}</h3>
-              <button className="close-modal" onClick={closeModal}>&times;</button>
+              <h3>{isEditing ? 'Update Staff Member' : 'Add New Staff Member'}</h3>
+              <button className="close-modal" onClick={closeModal} aria-label="Close">&times;</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
                 <div className="modal-section">
-                  <h4>Personal Details</h4>
+                  <h4>Personal Information</h4>
                   <div className="modal-grid">
                     <div className="form-group full-width">
-                      <label>Full Name</label>
-                      <input type="text" name="fullName" value={formData.fullName} placeholder="John Doe" className="form-input-box" required onChange={handleChange} />
+                      <label htmlFor="fullName">Full Name</label>
+                      <input type="text" id="fullName" name="fullName" value={formData.fullName} placeholder="e.g. John Doe" className="form-input-box" required onChange={handleChange} />
                     </div>
                     <div className="form-group">
-                      <label>Email Address</label>
-                      <input type="email" name="email" value={formData.email} placeholder="john@example.com" className="form-input-box" required onChange={handleChange} disabled={isEditing} />
+                      <label htmlFor="email">Email Address</label>
+                      <input type="email" id="email" name="email" value={formData.email} placeholder="name@example.com" className="form-input-box" required onChange={handleChange} disabled={isEditing} />
                     </div>
                     <div className="form-group">
-                      <label>Phone Number</label>
-                      <input type="text" name="phone" value={formData.phone} placeholder="+91 0000000000" className="form-input-box" onChange={handleChange} />
+                      <label htmlFor="phone">Phone Number</label>
+                      <input type="text" id="phone" name="phone" value={formData.phone} placeholder="+91 0000000000" className="form-input-box" onChange={handleChange} />
                     </div>
                     {!isEditing && (
                       <div className="form-group full-width">
-                        <label>Login Password</label>
-                        <input type="password" name="password" value={formData.password} placeholder="••••••••" className="form-input-box" required onChange={handleChange} />
+                        <label htmlFor="password">Login Password</label>
+                        <input type="password" id="password" name="password" value={formData.password} placeholder="Minimum 6 characters" className="form-input-box" required onChange={handleChange} />
                       </div>
                     )}
                   </div>
                 </div>
 
                 <div className="modal-section">
-                  <h4>Access Permissions</h4>
+                  <h4>Platform Access & Permissions</h4>
                   <div className="permissions-grid">
-                    <label className="permission-item">
-                      <input type="checkbox" name="perm_canManageUsers" checked={formData.permissions.canManageUsers} onChange={handleChange} />
-                      <div className="permission-info">
-                        <span className="p-title">Manage Users</span>
-                        <span className="p-desc">Create, edit, and manage merchants and users.</span>
-                      </div>
-                    </label>
-                    <label className="permission-item">
-                      <input type="checkbox" name="perm_canManageFinances" checked={formData.permissions.canManageFinances} onChange={handleChange} />
-                      <div className="permission-info">
-                        <span className="p-title">Manage Finances</span>
-                        <span className="p-desc">Approve fund requests and settlements.</span>
-                      </div>
-                    </label>
-                    <label className="permission-item">
-                      <input type="checkbox" name="perm_canManageCommissions" checked={formData.permissions.canManageCommissions} onChange={handleChange} />
-                      <div className="permission-info">
-                        <span className="p-title">Manage Commissions</span>
-                        <span className="p-desc">Set and override commission slabs.</span>
-                      </div>
-                    </label>
-                    <label className="permission-item">
-                      <input type="checkbox" name="perm_canManageServices" checked={formData.permissions.canManageServices} onChange={handleChange} />
-                      <div className="permission-info">
-                        <span className="p-title">Manage Services</span>
-                        <span className="p-desc">Enable/disable services and QR codes.</span>
-                      </div>
-                    </label>
-                    <label className="permission-item">
-                      <input type="checkbox" name="perm_canViewReports" checked={formData.permissions.canViewReports} onChange={handleChange} />
-                      <div className="permission-info">
-                        <span className="p-title">View Reports</span>
-                        <span className="p-desc">Access transaction and financial reports.</span>
-                      </div>
-                    </label>
-                    <label className="permission-item">
-                      <input type="checkbox" name="perm_canManageSettings" checked={formData.permissions.canManageSettings} onChange={handleChange} />
-                      <div className="permission-info">
-                        <span className="p-title">System Settings</span>
-                        <span className="p-desc">Modify core platform settings.</span>
-                      </div>
-                    </label>
+                    {[
+                      { key: 'canManageUsers', title: 'Manage Users', desc: 'Create and edit merchant accounts.' },
+                      { key: 'canManageFinances', title: 'Manage Finances', desc: 'Approve fund requests & settlements.' },
+                      { key: 'canManageCommissions', title: 'Commissions', desc: 'Set and override service slabs.' },
+                      { key: 'canManageServices', title: 'Manage Services', desc: 'Control service availability & QRs.' },
+                      { key: 'canViewReports', title: 'View Reports', desc: 'Access analytics and transaction logs.' },
+                      { key: 'canManageSettings', title: 'System Settings', desc: 'Modify core platform configurations.' },
+                    ].map(perm => (
+                      <label key={perm.key} className="permission-item">
+                        <input 
+                          type="checkbox" 
+                          name={`perm_${perm.key}`} 
+                          checked={formData.permissions[perm.key]} 
+                          onChange={handleChange} 
+                        />
+                        <div className="permission-info">
+                          <span className="p-title">{perm.title}</span>
+                          <span className="p-desc">{perm.desc}</span>
+                        </div>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-cancel" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="btn-create">{isEditing ? 'Save Changes' : 'Create Staff Member'}</button>
+                <button type="submit" className="btn-create">{isEditing ? 'Update Staff' : 'Create Staff Member'}</button>
               </div>
             </form>
           </div>
