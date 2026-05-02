@@ -103,7 +103,7 @@ const ChargesPage = () => {
                         role: targetRole,
                         service_key: 'payout',
                         min_amount: Number(minAmount),
-                        max_amount: Number(max_amount),
+                        max_amount: Number(maxAmount),
                         charge_type: chargeType,
                         charge_value: Number(chargeValue),
                     })
@@ -113,7 +113,8 @@ const ChargesPage = () => {
                     setShowModal(false);
                     fetchData();
                 } else {
-                    error("Failed to add global slab.");
+                    const errData = await res.json();
+                    error(errData.error || "Failed to add global slab.");
                 }
             } else {
                 // Save User Override Slab
@@ -125,7 +126,7 @@ const ChargesPage = () => {
                         service_key: 'payout',
                         service_label: 'Transfer Charge',
                         min_amount: Number(minAmount),
-                        max_amount: Number(max_amount),
+                        max_amount: Number(maxAmount),
                         charge_type: chargeType,
                         charge_value: Number(chargeValue),
                         commission_type: 'percent', 
@@ -137,11 +138,13 @@ const ChargesPage = () => {
                     setShowModal(false);
                     fetchData();
                 } else {
-                    error("Failed to save override.");
+                    const errData = await res.json();
+                    error(errData.error || "Failed to save override.");
                 }
             }
         } catch (err) {
-            error("Server error");
+            console.error(err);
+            error("Connection error. Please try again.");
         }
     };
 
