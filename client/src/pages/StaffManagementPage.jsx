@@ -23,7 +23,7 @@ const emptyForm = {
 
 const StaffManagementPage = () => {
   const [showModal, setShowModal] = useState(false);
-  const { staffMembers, addStaffMember, updateStaffMember, deleteStaffMember, fetchStaffMembers } = useAppContext();
+  const { staffMembers, addStaffMember, updateStaffMember, deleteStaffMember, fetchStaffMembers, loginAs } = useAppContext();
   const { success, error } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -180,6 +180,18 @@ const StaffManagementPage = () => {
                       <td>
                         <div className="staff-actions">
                           <button className="action-btn" onClick={() => handleEdit(staff)}>Edit</button>
+                          <button 
+                            className={`action-btn ${staff.status === 'blocked' ? 'success-btn' : 'warning-btn'}`}
+                            onClick={async () => {
+                              const newStatus = staff.status === 'blocked' ? 'active' : 'blocked';
+                              const res = await updateStaffMember(staff.id, { status: newStatus });
+                              if (res.success) success(`Staff member ${newStatus === 'active' ? 'activated' : 'blocked'}.`);
+                              else error(res.error || 'Update failed');
+                            }}
+                          >
+                            {staff.status === 'blocked' ? 'Unblock' : 'Block'}
+                          </button>
+                          <button className="action-btn login-btn" onClick={() => loginAs(staff.id)}>Login</button>
                           <button className="action-btn danger-btn" onClick={() => deleteStaffMember(staff.id)}>Delete</button>
                         </div>
                       </td>

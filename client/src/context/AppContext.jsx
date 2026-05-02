@@ -366,6 +366,25 @@ export const AppProvider = ({ children }) => {
         }
     };
 
+    const loginAs = async (id) => {
+        try {
+            const res = await fetch(`${API_BASE}/auth/login-as/${id}`, {
+                method: 'POST',
+                headers: getHeaders()
+            });
+            const data = await res.json();
+            if (res.ok && data.token) {
+                sessionStorage.setItem('authToken', data.token);
+                window.location.href = '/dashboard';
+                return { success: true };
+            }
+            return { success: false, error: data.error || 'Login-as failed' };
+        } catch (err) {
+            console.error("Login-as failed", err);
+            return { success: false, error: "Server error" };
+        }
+    };
+
     const deleteStaffMember = async (id) => {
         if (!window.confirm("Are you sure you want to delete this staff member?")) return { success: false };
         try {
@@ -673,6 +692,7 @@ export const AppProvider = ({ children }) => {
             addStaffMember,
             updateStaffMember,
             deleteStaffMember,
+            loginAs,
             generateApiKey,
             getSystemSetting,
             fetchData

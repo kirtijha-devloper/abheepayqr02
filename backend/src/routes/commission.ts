@@ -117,9 +117,11 @@ router.post("/slabs", requireAuth, requirePermission("canManageCommissions"), as
     if (!role || !service_key) return res.status(400).json({ error: "Role and service_key are required" });
 
     try {
+        console.log(`[Slabs] Creating slab for role: ${role}, service: ${service_key}, range: ${min_amount}-${max_amount}`);
+        
         const slab = await prisma.commissionSlab.create({
             data: {
-                role,
+                role: role as any,
                 serviceKey: service_key,
                 serviceLabel: service_key.charAt(0).toUpperCase() + service_key.slice(1),
                 minAmount: Number(min_amount || 0),
@@ -131,9 +133,14 @@ router.post("/slabs", requireAuth, requirePermission("canManageCommissions"), as
                 isActive: true
             }
         });
+        console.log(`[Slabs] Successfully created slab ID: ${slab.id}`);
         res.json(slab);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        console.error(`[Slabs] Error creating slab:`, e);
+        if (e.code === 'P2002') {
+            return res.status(400).json({ error: "A slab with this Role and Min Amount already exists for this service." });
+        }
+        res.status(500).json({ error: e.message || "Failed to create commission slab" });
     }
 });
 

@@ -187,7 +187,26 @@
 .staff-actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
+
+.staff-actions .action-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-p);
+  padding: 5px 12px;
+  border-radius: var(--r-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.staff-actions .action-btn:hover { color: var(--text-h); border-color: rgba(255,255,255,0.2); }
+.staff-actions .action-btn.login-btn { color: var(--primary); border-color: rgba(124,108,248,0.3); }
+.staff-actions .action-btn.danger-btn { color: var(--danger); border-color: rgba(239,68,68,0.3); }
+.staff-actions .action-btn.warning-btn { color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+.staff-actions .action-btn.success-btn { color: #10b981; border-color: rgba(16,185,129,0.3); }
 
 /* Modals */
 .modal-overlay {
