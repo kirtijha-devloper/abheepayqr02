@@ -455,7 +455,8 @@ export const AppProvider = ({ children }) => {
 
     const fetchSettlements = async (status = '') => {
         try {
-            const res = await fetch(`${API_BASE}/wallet/settlements${status ? `?status=${status}` : ''}`, {
+            const normalizedStatus = status === 'all' ? '' : status;
+            const res = await fetch(`${API_BASE}/wallet/settlements${normalizedStatus ? `?status=${normalizedStatus}` : ''}`, {
                 headers: getHeaders()
             });
             if (res.ok) {
@@ -475,7 +476,7 @@ export const AppProvider = ({ children }) => {
                 headers: getHeaders()
             });
             if (res.ok) {
-                await fetchSettlements('pending');
+                await fetchData();
                 return { success: true };
             }
         } catch (err) {
@@ -491,7 +492,7 @@ export const AppProvider = ({ children }) => {
                 body: JSON.stringify({ reason })
             });
             if (res.ok) {
-                await fetchSettlements('pending');
+                await fetchData();
                 return { success: true };
             }
         } catch (err) {

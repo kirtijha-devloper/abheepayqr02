@@ -11,7 +11,7 @@ const SettlementsAdminPage = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'staff';
   const { success, error } = useToast();
-  const [filter, setFilter] = useState('pending');
+  const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -72,14 +72,14 @@ const SettlementsAdminPage = () => {
               </p>
             </div>
             <div className="merchant-filter-group">
-              {['pending', 'success', 'failed'].map(tab => (
+              {['all', 'pending', 'success', 'failed'].map(tab => (
                 <button 
                   key={tab}
                   className={`merchant-filter-btn ${filter === tab ? 'active' : ''}`}
                   onClick={() => setFilter(tab)}
                   style={{ textTransform: 'capitalize' }}
                 >
-                  {tab === 'success' ? 'Approved' : tab === 'failed' ? 'Rejected' : 'Pending'}
+                  {tab === 'all' ? 'All' : tab === 'success' ? 'Approved' : tab === 'failed' ? 'Rejected' : 'Pending'}
                 </button>
               ))}
             </div>
@@ -95,7 +95,7 @@ const SettlementsAdminPage = () => {
                     <th>Destination Bank</th>
                     <th>Request Date</th>
                     <th>Current Status</th>
-                    {isAdmin && filter === 'pending' && <th style={{ textAlign: 'right' }}>Management</th>}
+                    {isAdmin && <th style={{ textAlign: 'right' }}>Management</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -152,16 +152,20 @@ const SettlementsAdminPage = () => {
                             </div>
                           )}
                         </td>
-                        {isAdmin && filter === 'pending' && (
+                        {isAdmin && (
                           <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                              <button className="action-btn login-btn" onClick={() => handleApprove(s.id)} style={{ padding: '8px 16px', fontSize: '12px', background: '#22c55e22', color: '#4ade80', border: '1px solid #22c55e44' }}>
-                                Approve
-                              </button>
-                              <button className="action-btn danger-btn" onClick={() => handleReject(s.id)} style={{ padding: '8px 16px', fontSize: '12px' }}>
-                                Reject
-                              </button>
-                            </div>
+                            {s.status === 'pending' ? (
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <button className="action-btn login-btn" onClick={() => handleApprove(s.id)} style={{ padding: '8px 16px', fontSize: '12px', background: '#22c55e22', color: '#4ade80', border: '1px solid #22c55e44' }}>
+                                  Approve
+                                </button>
+                                <button className="action-btn danger-btn" onClick={() => handleReject(s.id)} style={{ padding: '8px 16px', fontSize: '12px' }}>
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: '#94a3b8' }}>Processed</span>
+                            )}
                           </td>
                         )}
                       </tr>
