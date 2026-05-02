@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { getAccessibleUserIds, getChargeDistribution, getEffectiveChargeConfig, roundCurrency } from "../utils/commission";
 
 const router = Router();
 
@@ -221,16 +222,21 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
     const wallet = await prisma.wallet.findUnique({ where: { userId: req.userId! } });
     if (!wallet) return res.status(404).json({ error: "Wallet not found" });
 
-    // Withdrawals from Payout Wallet have NO fees as per new requirements
-    const fee = 0;
-    const totalDeduction = withdrawalAmount;
+    const payoutChargeConfig = await getEffectiveChargeConfig(prisma, {
+      userId: req.userId!,
+      serviceKey: "payout",
+      amount: withdrawalAmount,
+    });
+
+    const fee = roundCurrency(payoutChargeConfig.chargeAmount);
+    const totalDeduction = roundCurrency(withdrawalAmount + fee);
 
     // Check Payout Wallet (eWalletBalance)
     if (Number(wallet.eWalletBalance) < totalDeduction) {
       return res.status(400).json({ error: `Insufficient payout wallet balance. Available: ₹${Number(wallet.eWalletBalance).toFixed(2)}` });
     }
 
-    const newEWalletBalance = Number(wallet.eWalletBalance) - totalDeduction;
+    const newEWalletBalance = roundCurrency(Number(wallet.eWalletBalance) - totalDeduction);
 
     // Fetch bank account details for snapshot
     const bankAccount = await (prisma as any).merchantBankAccount.findUnique({
@@ -298,7 +304,15 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
         });
     }
 
-    res.json({ success: true, transaction: pTxn, feeCalculated: fee, totalDeducted: totalDeduction });
+    res.json({
+      success: true,
+      transaction: pTxn,
+      feeCalculated: fee,
+      totalDeducted: totalDeduction,
+      chargeSource: payoutChargeConfig.source,
+      chargeType: payoutChargeConfig.chargeType,
+      chargeValue: payoutChargeConfig.chargeValue,
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -311,13 +325,11 @@ router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
         let where: any = { serviceType: "payout" };
         if (status) where.status = status as string;
 
-        if (req.userRole === "merchant") {
-            const downlineProfiles = await prisma.profile.findMany({
-                where: { parentId: req.userId! },
-                select: { userId: true }
-            });
-            const downlineIds = downlineProfiles.map(p => p.userId);
-            where.userId = { in: [...downlineIds, req.userId!] };
+        if (req.userRole === "master" || req.userRole === "merchant") {
+            const accessibleUserIds = await getAccessibleUserIds(prisma, req.userId!);
+            where.userId = { in: [req.userId!, ...accessibleUserIds] };
+        } else if (req.userRole !== "admin" && req.userRole !== "staff") {
+            where.userId = req.userId!;
         }
 
         const settlements = await prisma.transaction.findMany({
@@ -325,8 +337,75 @@ router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
             orderBy: { createdAt: "desc" },
             include: { user: { include: { profile: true } } }
         });
+        const viewerVisibleUserIds = req.userRole === "admin" || req.userRole === "staff"
+            ? null
+            : new Set(
+                req.userRole === "master" || req.userRole === "merchant"
+                    ? [req.userId!, ...(await getAccessibleUserIds(prisma, req.userId!))]
+                    : [req.userId!]
+            );
 
-        res.json(settlements);
+        const distributionUserIds = new Set<string>();
+        const enriched = await Promise.all(settlements.map(async (txn) => {
+            const amount = Number(txn.amount || 0);
+            const preview = await getChargeDistribution(prisma, {
+                userId: txn.userId,
+                serviceKey: "payout",
+                amount,
+            });
+
+            const actualDistTxns = txn.status === "success"
+                ? await prisma.walletTransaction.findMany({
+                    where: { reference: `settlement_charge_${txn.id}` },
+                    orderBy: { createdAt: "asc" },
+                })
+                : [];
+
+            const distributionSource = actualDistTxns.length > 0
+                ? actualDistTxns.map((walletTxn) => ({
+                    userId: walletTxn.toUserId,
+                    amount: Number(walletTxn.amount || 0),
+                }))
+                : preview.distributions;
+
+            distributionSource.forEach((dist) => distributionUserIds.add(dist.userId));
+
+            return {
+                ...txn,
+                chargeAmount: actualDistTxns.length > 0
+                    ? roundCurrency(actualDistTxns.reduce((sum, walletTxn) => sum + Number(walletTxn.amount || 0), 0))
+                    : roundCurrency(Number(txn.fee || preview.totalCharge || 0)),
+                totalDebit: roundCurrency(Number(txn.amount || 0) + Number(txn.fee || preview.totalCharge || 0)),
+                chargeSource: preview.config.source,
+                chargeType: preview.config.chargeType,
+                chargeValue: preview.config.chargeValue,
+                _distributionSource: distributionSource,
+            };
+        }));
+
+        const profiles = await prisma.profile.findMany({
+            where: { userId: { in: Array.from(distributionUserIds) } },
+            select: { userId: true, fullName: true },
+        });
+        const roles = await prisma.userRole.findMany({
+            where: { userId: { in: Array.from(distributionUserIds) } },
+            select: { userId: true, role: true },
+        });
+        const profileMap = new Map(profiles.map((profile) => [profile.userId, profile.fullName]));
+        const roleMap = new Map(roles.map((role) => [role.userId, role.role]));
+
+        res.json(enriched.map((txn) => ({
+            ...txn,
+            chargeDistributions: txn._distributionSource
+                .filter((dist: any) => !viewerVisibleUserIds || viewerVisibleUserIds.has(dist.userId))
+                .map((dist: any) => ({
+                    userId: dist.userId,
+                    name: profileMap.get(dist.userId) || "Unknown",
+                    role: roleMap.get(dist.userId) || "—",
+                    amount: roundCurrency(Number(dist.amount || 0)),
+                })),
+            _distributionSource: undefined,
+        })));
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -339,24 +418,21 @@ router.post("/settlements/:id/approve", requireAuth, async (req: AuthRequest, re
         const txn = await prisma.transaction.findUnique({ where: { id } });
         if (!txn || txn.status !== "pending") return res.status(400).json({ error: "Invalid transaction" });
 
-        if (req.userRole === "merchant" && txn.userId !== req.userId!) {
+        if ((req.userRole === "merchant" || req.userRole === "master") && txn.userId !== req.userId!) {
             const requesterProfile = await prisma.profile.findUnique({ where: { userId: txn.userId } });
-            if (requesterProfile?.parentId !== req.userId!) {
-                return res.status(403).json({ error: "You can only approve settlements for your own branches." });
+            const approverProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
+            if (!requesterProfile?.parentId || requesterProfile.parentId !== approverProfile?.id) {
+                return res.status(403).json({ error: "You can only approve settlements for your own direct downline." });
             }
         }
 
-        // Target to credit the fee: The Admin, OR the Merchant (if Merchant is approving downline)
-        let feeTargetUserId = null;
-        if (req.userRole === "admin" || req.userRole === "staff") {
-            const adminRole = await prisma.userRole.findFirst({ where: { role: "admin" } });
-            if (adminRole) feeTargetUserId = adminRole.userId;
-        } else if (req.userRole === "merchant" && txn.userId !== req.userId!) {
-            feeTargetUserId = req.userId; // the merchant themselves!
-        }
-
-        const targetWallet = feeTargetUserId ? await prisma.wallet.findUnique({ where: { userId: feeTargetUserId } }) : null;
         const charge = Number(txn.fee || 0);
+        const { distributions: chargeDistributions } = await getChargeDistribution(prisma, {
+            userId: txn.userId,
+            serviceKey: "payout",
+            amount: Number(txn.amount || 0),
+        });
+        const chargeReference = `settlement_charge_${txn.id}`;
 
         await prisma.$transaction(async (tx) => {
             await tx.transaction.update({
@@ -364,24 +440,31 @@ router.post("/settlements/:id/approve", requireAuth, async (req: AuthRequest, re
                 data: { status: "success" }
             });
 
-            if (charge > 0 && targetWallet && feeTargetUserId) {
-                const newBalance = Number(targetWallet.balance) + charge;
-                await tx.wallet.update({
-                    where: { userId: feeTargetUserId },
-                    data: { balance: newBalance }
-                });
+            if (charge > 0) {
+                for (const dist of chargeDistributions) {
+                    if (dist.amount <= 0) continue;
+                    const targetWallet = await tx.wallet.findUnique({ where: { userId: dist.userId } });
+                    if (!targetWallet) continue;
 
-                await tx.walletTransaction.create({
-                    data: {
-                        toUserId: feeTargetUserId,
-                        fromUserId: txn.userId,
-                        amount: charge,
-                        type: "commission",
-                        description: `Payout Fee for Txn ${txn.id.substring(0, 8)}`,
-                        toBalanceAfter: newBalance,
-                        createdBy: req.userId!
-                    }
-                });
+                    const newBalance = Number(targetWallet.balance) + dist.amount;
+                    await tx.wallet.update({
+                        where: { userId: dist.userId },
+                        data: { balance: newBalance }
+                    });
+
+                    await tx.walletTransaction.create({
+                        data: {
+                            toUserId: dist.userId,
+                            fromUserId: txn.userId,
+                            amount: dist.amount,
+                            type: "commission",
+                            description: `Payout Fee for Txn ${txn.id.substring(0, 8)}`,
+                            toBalanceAfter: newBalance,
+                            createdBy: req.userId!,
+                            reference: chargeReference
+                        }
+                    });
+                }
             }
 
             await tx.notification.create({

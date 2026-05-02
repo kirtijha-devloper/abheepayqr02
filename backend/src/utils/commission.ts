@@ -17,6 +17,18 @@ export type EffectiveChargeConfig = {
   slabId?: string;
 };
 
+export type ChargeDistribution = {
+  userId: string;
+  amount: number;
+};
+
+export type ChargeDistributionResult = {
+  totalCharge: number;
+  netAmount: number;
+  config: EffectiveChargeConfig;
+  distributions: ChargeDistribution[];
+};
+
 export function roundCurrency(value: number) {
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 }
@@ -239,5 +251,67 @@ export async function getEffectiveChargeConfig(
     chargeType: "flat",
     chargeValue: 0,
     chargeAmount: 0,
+  };
+}
+
+export async function getChargeDistribution(
+  tx: TxClient,
+  {
+    userId,
+    serviceKey,
+    amount,
+  }: {
+    userId: string;
+    serviceKey: string;
+    amount: number;
+  }
+): Promise<ChargeDistributionResult> {
+  const config = await getEffectiveChargeConfig(tx, { userId, serviceKey, amount });
+  const totalCharge = roundCurrency(config.chargeAmount);
+  const netAmount = roundCurrency(Number(amount) - totalCharge);
+  const chargeByUser = new Map<string, number>();
+  const requesterProfile = await getProfileByUserId(tx, userId);
+
+  let currentProfile = requesterProfile;
+  let currentChargeAmount = totalCharge;
+  let lastAncestorUserId: string | null = null;
+  const visited = new Set<string>();
+
+  while (currentProfile?.parentId && !visited.has(currentProfile.parentId)) {
+    visited.add(currentProfile.parentId);
+    const parentProfile = await tx.profile.findUnique({ where: { id: currentProfile.parentId } });
+    if (!parentProfile) break;
+
+    lastAncestorUserId = parentProfile.userId;
+
+    const parentChargeConfig = await getEffectiveChargeConfig(tx, {
+      userId: parentProfile.userId,
+      serviceKey,
+      amount,
+    });
+
+    const parentChargeAmount = roundCurrency(parentChargeConfig.chargeAmount);
+    const markupAmount = roundCurrency(currentChargeAmount - parentChargeAmount);
+
+    if (markupAmount > 0) {
+      chargeByUser.set(parentProfile.userId, roundCurrency((chargeByUser.get(parentProfile.userId) || 0) + markupAmount));
+    }
+
+    currentChargeAmount = Math.max(0, parentChargeAmount);
+    currentProfile = parentProfile;
+  }
+
+  if (lastAncestorUserId && currentChargeAmount > 0) {
+    chargeByUser.set(lastAncestorUserId, roundCurrency((chargeByUser.get(lastAncestorUserId) || 0) + currentChargeAmount));
+  }
+
+  return {
+    totalCharge,
+    netAmount,
+    config,
+    distributions: Array.from(chargeByUser.entries()).map(([distributionUserId, distributionAmount]) => ({
+      userId: distributionUserId,
+      amount: roundCurrency(distributionAmount),
+    })),
   };
 }

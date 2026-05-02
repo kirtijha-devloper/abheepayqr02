@@ -67,7 +67,7 @@ const SettlementsAdminPage = () => {
               </h2>
               <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>
                 {isAdmin 
-                  ? 'Review and process bank withdrawal requests from the Payout Wallet (0 Fee).' 
+                  ? 'Review and process bank withdrawal requests from the Payout Wallet, including configured charges.' 
                   : 'Track your bank withdrawal history and status.'}
               </p>
             </div>
@@ -126,6 +126,16 @@ const SettlementsAdminPage = () => {
                         <td>
                           <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>₹{Number(s.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                           {s.fee > 0 && <div style={{ fontSize: '11px', color: '#ef4444' }}>Fee: ₹{Number(s.fee).toFixed(2)}</div>}
+                          {s.fee > 0 && <div style={{ fontSize: '11px', color: '#94a3b8' }}>Total debit: ₹{(Number(s.amount || 0) + Number(s.fee || 0)).toFixed(2)}</div>}
+                          {Array.isArray(s.chargeDistributions) && s.chargeDistributions.length > 0 && (
+                            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              {s.chargeDistributions.map((dist) => (
+                                <div key={`${s.id}-${dist.userId}`} style={{ fontSize: '10px', color: '#60a5fa' }}>
+                                  {dist.name} ({dist.role}): ₹{Number(dist.amount || 0).toFixed(2)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td>{getBankDisplay(s.payoutBankDetails)}</td>
                         <td>

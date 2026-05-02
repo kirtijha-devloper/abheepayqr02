@@ -122,6 +122,21 @@ const FundRequestsAdminPage = () => {
                       </td>
                       <td>
                         <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>₹ {Number(r.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                        {Number(r.chargeAmount || 0) > 0 && (
+                          <div style={{ fontSize: '11px', color: '#ef4444' }}>Charge: ₹{Number(r.chargeAmount).toFixed(2)}</div>
+                        )}
+                        {Number(r.netAmount || 0) > 0 && (
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>Net to payout: ₹{Number(r.netAmount).toFixed(2)}</div>
+                        )}
+                        {Array.isArray(r.chargeDistributions) && r.chargeDistributions.length > 0 && (
+                          <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            {r.chargeDistributions.map((dist) => (
+                              <div key={`${r.id}-${dist.userId}`} style={{ fontSize: '10px', color: '#60a5fa' }}>
+                                {dist.name} ({dist.role}): ₹{Number(dist.amount || 0).toFixed(2)}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#60a5fa' }}>{r.paymentReference || r.remarks || 'N/A'}</div>

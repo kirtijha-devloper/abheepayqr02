@@ -234,6 +234,13 @@
   flex-direction: column;
 }
 
+.modal-container form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .modal-header-gradient {
   background: linear-gradient(90deg, var(--primary) 0%, #a78bfa 100%);
   padding: 1.25rem 1.5rem;
@@ -270,6 +277,7 @@
 
 .modal-body {
   flex: 1;
+  min-height: 0;
   padding: 1.5rem;
   overflow-y: auto;
 }
@@ -409,7 +417,14 @@
   .permissions-grid, .modal-grid {
     grid-template-columns: 1fr;
   }
+
+  .modal-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
   .modal-container {
     max-height: 95vh;
+    margin: auto 0;
   }
 }

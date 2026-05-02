@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
-import { getEffectiveChargeConfig, getProfileByUserId, roundCurrency } from "../utils/commission";
+import { getAccessibleUserIds, getChargeDistribution, roundCurrency } from "../utils/commission";
 
 const router = Router();
 
@@ -9,13 +9,15 @@ const router = Router();
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const myRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const myProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
     let where: any = {};
 
     const isAdmin = myRole?.role === "admin" || (myRole?.role === "staff" && req.permissions?.canManageFinances);
     if (isAdmin) {
       // Admin sees ALL pending and historical requests to approve/review
       where = {};
+    } else if (myRole?.role === "master" || myRole?.role === "merchant") {
+      const accessibleUserIds = await getAccessibleUserIds(prisma, req.userId!);
+      where = { requesterId: { in: [req.userId!, ...accessibleUserIds] } };
     } else {
       // Everyone else (Master, Merchant, Branch) sees only their own requests and status
       where = { requesterId: req.userId! };
@@ -45,6 +47,61 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 
     const profileMap = new Map(profiles.map(p => [p.userId, p]));
     const roleMap = new Map(roles.map(r => [r.userId, r.role]));
+    const visibleUserIds = isAdmin
+      ? null
+      : new Set(
+          myRole?.role === "master" || myRole?.role === "merchant"
+            ? [req.userId!, ...(await getAccessibleUserIds(prisma, req.userId!))]
+            : [req.userId!]
+        );
+
+    const enrichedDetailed = await Promise.all(requests.map(async (r) => {
+      const amount = Number(r.amount || 0);
+      const preview = await getChargeDistribution(prisma, {
+        userId: r.requesterId,
+        serviceKey: "payout",
+        amount,
+      });
+
+      const actualDistTxns = r.status === "approved"
+        ? await prisma.walletTransaction.findMany({
+            where: { reference: `fundreq_charge_${r.id}` },
+            orderBy: { createdAt: "asc" },
+          })
+        : [];
+
+      const distributionSource = actualDistTxns.length > 0
+        ? actualDistTxns.map((txn) => ({
+            userId: txn.toUserId,
+            amount: Number(txn.amount || 0),
+          }))
+        : preview.distributions;
+
+      return {
+        ...r,
+        requesterName: profileMap.get(r.requesterId)?.fullName || "Unknown",
+        requesterRole: roleMap.get(r.requesterId) || "â€”",
+        approverName: r.approvedBy ? profileMap.get(r.approvedBy)?.fullName || "â€”" : null,
+        bankName: r.bankAccount?.bankName || "â€”",
+        chargeAmount: actualDistTxns.length > 0
+          ? roundCurrency(actualDistTxns.reduce((sum, txn) => sum + Number(txn.amount || 0), 0))
+          : preview.totalCharge,
+        netAmount: actualDistTxns.length > 0
+          ? roundCurrency(amount - actualDistTxns.reduce((sum, txn) => sum + Number(txn.amount || 0), 0))
+          : preview.netAmount,
+        chargeSource: preview.config.source,
+        chargeType: preview.config.chargeType,
+        chargeValue: preview.config.chargeValue,
+        chargeDistributions: distributionSource
+          .filter((dist) => !visibleUserIds || visibleUserIds.has(dist.userId))
+          .map((dist) => ({
+            userId: dist.userId,
+            name: profileMap.get(dist.userId)?.fullName || "Unknown",
+            role: roleMap.get(dist.userId) || "—",
+            amount: roundCurrency(Number(dist.amount || 0)),
+          })),
+      };
+    }));
 
     const enriched = requests.map(r => ({
       ...r,
@@ -54,7 +111,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       bankName: r.bankAccount?.bankName || "—",
     }));
 
-    res.json(enriched);
+    res.json(enrichedDetailed);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -151,54 +208,13 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     }
 
     const amount = Number(fundReq.amount);
-    const requesterChargeConfig = await getEffectiveChargeConfig(prisma, {
+    const { totalCharge, netAmount, distributions: chargeDistributions } = await getChargeDistribution(prisma, {
       userId: fundReq.requesterId,
       serviceKey: "payout",
       amount,
     });
-
-    const totalCharge = requesterChargeConfig.chargeAmount;
-    const netAmount = roundCurrency(amount - totalCharge);
-    const chargeByUser = new Map<string, number>();
-    const requesterProfile = await getProfileByUserId(prisma, fundReq.requesterId);
-
-    let currentProfile = requesterProfile;
-    let currentChargeAmount = totalCharge;
-    let lastAncestorUserId: string | null = null;
-    const visited = new Set<string>();
-
-    while (currentProfile?.parentId && !visited.has(currentProfile.parentId)) {
-      visited.add(currentProfile.parentId);
-      const parentProfile = await prisma.profile.findUnique({ where: { id: currentProfile.parentId } });
-      if (!parentProfile) break;
-
-      lastAncestorUserId = parentProfile.userId;
-
-      const parentChargeConfig = await getEffectiveChargeConfig(prisma, {
-        userId: parentProfile.userId,
-        serviceKey: "payout",
-        amount,
-      });
-
-      const parentChargeAmount = parentChargeConfig.chargeAmount;
-      const markupAmount = roundCurrency(currentChargeAmount - parentChargeAmount);
-
-      if (markupAmount > 0) {
-        chargeByUser.set(parentProfile.userId, roundCurrency((chargeByUser.get(parentProfile.userId) || 0) + markupAmount));
-      }
-
-      currentChargeAmount = Math.max(0, parentChargeAmount);
-      currentProfile = parentProfile;
-    }
-
-    if (lastAncestorUserId && currentChargeAmount > 0) {
-      chargeByUser.set(lastAncestorUserId, roundCurrency((chargeByUser.get(lastAncestorUserId) || 0) + currentChargeAmount));
-    }
-
-    const chargeDistributions = Array.from(chargeByUser.entries()).map(([userId, distributionAmount]) => ({
-      userId,
-      amount: distributionAmount,
-    }));
+    const chargeReference = `fundreq_charge_${fundReq.id}`;
+    const creditReference = `fundreq_credit_${fundReq.id}`;
 
     await prisma.$transaction(async (tx) => {
         // 1. Credit Net Amount to Requester's eWalletBalance
@@ -238,7 +254,8 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
                         type: "commission",
                         description: `Payout Transfer Commission from ${fundReq.requesterId.substring(0,8)}`,
                         toBalanceAfter: nBal,
-                        createdBy: req.userId!
+                        createdBy: req.userId!,
+                        reference: chargeReference
                     }
                 });
             }
