@@ -121,6 +121,7 @@ router.post("/slabs", requireAuth, requirePermission("canManageCommissions"), as
             data: {
                 role,
                 serviceKey: service_key,
+                serviceLabel: service_key.charAt(0).toUpperCase() + service_key.slice(1),
                 minAmount: Number(min_amount || 0),
                 maxAmount: Number(max_amount || 99999999),
                 commissionType: commission_type || "percent",

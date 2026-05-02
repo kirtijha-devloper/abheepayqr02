@@ -122,10 +122,12 @@ model CommissionSlab {
   chargeType      String   @default("flat") @map("charge_type")
   chargeValue     Decimal  @default(0) @map("charge_value")
   isActive        Boolean  @default(true) @map("is_active")
+  minAmount       Decimal  @default(0) @map("min_amount") @db.Decimal(15, 2)
+  maxAmount       Decimal  @default(99999999) @map("max_amount") @db.Decimal(15, 2)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  @@unique([serviceKey, role])
+  @@unique([serviceKey, role, minAmount])
   @@map("commission_slabs")
 }
 
