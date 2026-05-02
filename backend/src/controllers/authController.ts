@@ -112,9 +112,14 @@ export const loginAsUser = async (req: any, res: Response) => {
     return res.status(403).json({ error: "Unauthorized" });
   }
 
-  const { id } = req.params; // Profile ID
-  const targetProfile = await prisma.profile.findUnique({ 
-    where: { id },
+  const { id } = req.params; // Can be Profile ID or User ID
+  const targetProfile = await prisma.profile.findFirst({ 
+    where: {
+      OR: [
+        { id: id },
+        { userId: id }
+      ]
+    },
     include: { user: { include: { roles: true, wallet: true } } }
   });
 

@@ -374,8 +374,8 @@ export const AppProvider = ({ children }) => {
             });
             const data = await res.json();
             if (res.ok && data.token) {
-                sessionStorage.setItem('authToken', data.token);
-                window.location.href = '/dashboard';
+                // Redirect to home with token in URL to trigger the AuthContext sync logic
+                window.location.href = `${window.location.origin}/?token=${data.token}`;
                 return { success: true };
             }
             return { success: false, error: data.error || 'Login-as failed' };
