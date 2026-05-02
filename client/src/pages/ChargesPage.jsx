@@ -32,20 +32,57 @@ const ChargesPage = () => {
     const [minAmount, setMinAmount] = useState('0');
     const [maxAmount, setMaxAmount] = useState('999999');
 
+    const parseErrorResponse = async (res, fallbackMessage) => {
+        try {
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const data = await res.json();
+                return data?.error || data?.message || fallbackMessage;
+            }
+
+            const text = (await res.text()).trim();
+            return text || fallbackMessage;
+        } catch {
+            return fallbackMessage;
+        }
+    };
+
     const fetchData = async () => {
         try {
             const token = sessionStorage.getItem('authToken');
             const headers = { 'Authorization': `Bearer ${token}` };
+            const canSearchAllUsers = currentUser?.role === 'admin' || currentUser?.role === 'staff';
 
-            const [ovRes, slabRes, usersRes] = await Promise.all([
+            const requests = [
                 fetch(`${API_BASE}/commission/overrides`, { headers }),
                 fetch(`${API_BASE}/commission/slabs`, { headers }),
-                fetch(`${API_BASE}/users/all`, { headers })
-            ]);
+            ];
 
-            if (ovRes.ok) setOverrides(await ovRes.json());
-            if (slabRes.ok) setSlabs(await slabRes.json());
-            if (usersRes.ok) setAllUsers(await usersRes.json());
+            if (canSearchAllUsers) {
+                requests.push(fetch(`${API_BASE}/users/all`, { headers }));
+            }
+
+            const [ovRes, slabRes, usersRes] = await Promise.all(requests);
+
+            if (ovRes.ok) {
+                setOverrides(await ovRes.json());
+            } else {
+                console.error('Failed to fetch overrides:', await parseErrorResponse(ovRes, 'Unknown error'));
+            }
+
+            if (slabRes.ok) {
+                setSlabs(await slabRes.json());
+            } else {
+                const slabError = await parseErrorResponse(slabRes, 'Failed to fetch slabs');
+                console.error('Failed to fetch slabs:', slabError);
+                error(`Slabs load failed: ${slabError}`);
+            }
+
+            if (usersRes?.ok) {
+                setAllUsers(await usersRes.json());
+            } else if (canSearchAllUsers && usersRes) {
+                console.error('Failed to fetch users:', await parseErrorResponse(usersRes, 'Unknown error'));
+            }
 
         } catch (err) {
             console.error(err);
@@ -57,6 +94,12 @@ const ChargesPage = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    useEffect(() => {
+        if (currentUser?.role !== 'admin' && currentUser?.role !== 'staff') {
+            setAllUsers(Array.isArray(merchants) ? merchants : []);
+        }
+    }, [currentUser?.role, merchants]);
 
     const handleOpenOverride = (userObj) => {
         setIsGlobalModal(false);
@@ -113,8 +156,7 @@ const ChargesPage = () => {
                     setShowModal(false);
                     fetchData();
                 } else {
-                    const errData = await res.json();
-                    error(errData.error || "Failed to add global slab.");
+                    error(await parseErrorResponse(res, "Failed to add global slab."));
                 }
             } else {
                 // Save User Override Slab
@@ -138,8 +180,7 @@ const ChargesPage = () => {
                     setShowModal(false);
                     fetchData();
                 } else {
-                    const errData = await res.json();
-                    error(errData.error || "Failed to save override.");
+                    error(await parseErrorResponse(res, "Failed to save override."));
                 }
             }
         } catch (err) {
@@ -162,6 +203,7 @@ const ChargesPage = () => {
                 fetchData();
             }
         } catch (err) {
+            console.error(err);
             error("Delete failed");
         }
     };
@@ -185,6 +227,7 @@ const ChargesPage = () => {
                 fetchData();
             }
         } catch (err) {
+            console.error(err);
             error("Update failed");
         }
     };

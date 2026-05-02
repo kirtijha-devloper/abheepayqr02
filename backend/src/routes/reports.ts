@@ -61,11 +61,12 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canViewReports);
     const isMerchant = req.userRole === "merchant";
+    const isMaster = req.userRole === "master";
 
     const where: any = { provider: "Bank Report" };
     if (isAdmin) {
         // Admin sees all
-    } else if (roleRow?.role === "master") {
+    } else if (isMaster) {
         const myProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
         const merchantProfiles = await prisma.profile.findMany({
             where: { parentId: myProfile?.id },

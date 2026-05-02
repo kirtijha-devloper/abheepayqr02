@@ -1,8 +1,27 @@
 import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requirePermission, AuthRequest } from "../middleware/auth";
+import {
+  calculateChargeAmount,
+  getAccessibleUserIds,
+  getEffectiveChargeConfig,
+  getProfileByUserId,
+  getUserRole,
+  isDescendantUser,
+  roundCurrency,
+} from "../utils/commission";
 
 const router = Router();
+
+const COMMISSION_MANAGER_ROLES = new Set(["admin", "staff", "master", "merchant"]);
+
+function canManageGlobalSlabs(req: AuthRequest) {
+  return req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageCommissions);
+}
+
+function canManageHierarchyOverrides(req: AuthRequest) {
+  return canManageGlobalSlabs(req) || req.userRole === "master" || req.userRole === "merchant";
+}
 
 // POST /api/commission/process — auto-distribute commissions up hierarchy
 router.post("/process", requireAuth, async (req: AuthRequest, res) => {
@@ -15,12 +34,6 @@ router.post("/process", requireAuth, async (req: AuthRequest, res) => {
 
   try {
     // Get active slabs for this service
-    const slabs = await prisma.commissionSlab.findMany({
-      where: { serviceKey: service_key, isActive: true },
-    });
-    if (slabs.length === 0) return res.json({ message: "No slabs configured", commissions: [] });
-
-    const slabMap = new Map(slabs.map(s => [s.role as string, s]));
     const results: { userId: string; role: string; commission: number }[] = [];
 
     // Walk up from the performer
@@ -33,11 +46,21 @@ router.post("/process", requireAuth, async (req: AuthRequest, res) => {
       const roleRow = await prisma.userRole.findFirst({ where: { userId: currentUserId } });
       if (!roleRow) break;
 
-      const slab = slabMap.get(roleRow.role);
-      if (slab) {
-        const commissionAmount = slab.commissionType === "percent"
-          ? Math.round((Number(transaction_amount) * Number(slab.commissionValue) / 100) * 100) / 100
-          : Number(slab.commissionValue);
+      const effectiveConfig = await getEffectiveChargeConfig(prisma, {
+        userId: currentUserId,
+        serviceKey: service_key,
+        amount: Number(transaction_amount),
+      });
+
+      const commissionSlab =
+        effectiveConfig.source === "global" && effectiveConfig.slabId
+          ? await prisma.commissionSlab.findUnique({ where: { id: effectiveConfig.slabId } })
+          : null;
+
+      if (commissionSlab) {
+        const commissionAmount = commissionSlab.commissionType === "percent"
+          ? roundCurrency((Number(transaction_amount) * Number(commissionSlab.commissionValue)) / 100)
+          : roundCurrency(Number(commissionSlab.commissionValue));
 
         if (commissionAmount > 0) {
           const wallet = await prisma.wallet.findUnique({ where: { userId: currentUserId } });
@@ -53,7 +76,7 @@ router.post("/process", requireAuth, async (req: AuthRequest, res) => {
               toUserId: currentUserId,
               amount: commissionAmount,
               type: "commission",
-              description: `Commission: ${slab.serviceLabel}`,
+              description: `Commission: ${commissionSlab.serviceLabel}`,
               toBalanceAfter: newBalance,
               createdBy: req.userId!,
               reference: `comm_${service_key}_${Date.now()}`,
@@ -63,12 +86,12 @@ router.post("/process", requireAuth, async (req: AuthRequest, res) => {
           await prisma.commissionLog.create({
             data: {
               userId: currentUserId,
-              slabId: slab.id,
+              slabId: commissionSlab.id,
               serviceKey: service_key,
               transactionAmount: Number(transaction_amount),
               commissionAmount,
-              commissionType: slab.commissionType,
-              commissionValue: Number(slab.commissionValue),
+              commissionType: commissionSlab.commissionType,
+              commissionValue: Number(commissionSlab.commissionValue),
               credited: true,
               walletTxnId: txn.id,
             },
@@ -112,8 +135,12 @@ router.get("/slabs", requireAuth, async (_req, res) => {
 });
 
 // POST /api/commission/slabs — create a new global slab
-router.post("/slabs", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
+router.post("/slabs", requireAuth, async (req: AuthRequest, res) => {
     const { role, service_key, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
+
+    if (!canManageGlobalSlabs(req)) {
+        return res.status(403).json({ error: "Only admins or authorized staff can manage global slabs." });
+    }
     
     if (!role || !service_key) {
         return res.status(400).json({ error: "Role and service_key are required" });
@@ -129,6 +156,12 @@ router.post("/slabs", requireAuth, requirePermission("canManageCommissions"), as
 
         if (isNaN(n_min) || isNaN(n_max) || isNaN(n_cval) || isNaN(n_comm)) {
             return res.status(400).json({ error: "Invalid numeric values provided for amounts or charges" });
+        }
+        if (n_min < 0 || n_max <= n_min) {
+            return res.status(400).json({ error: "Invalid slab range. Max amount must be greater than min amount." });
+        }
+        if (n_cval < 0 || n_comm < 0) {
+            return res.status(400).json({ error: "Charge and commission values cannot be negative." });
         }
 
         const slab = await prisma.commissionSlab.create({
@@ -158,7 +191,10 @@ router.post("/slabs", requireAuth, requirePermission("canManageCommissions"), as
 });
 
 // PATCH /api/commission/slabs/:id — update a global slab
-router.patch("/slabs/:id", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
+router.patch("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
+  if (!canManageGlobalSlabs(req)) {
+    return res.status(403).json({ error: "Only admins or authorized staff can update global slabs." });
+  }
   const { commission_value, commission_type, charge_value, charge_type } = req.body;
   try {
     const data: any = {};
@@ -166,6 +202,11 @@ router.patch("/slabs/:id", requireAuth, requirePermission("canManageCommissions"
     if (commission_type !== undefined) data.commissionType = commission_type;
     if (charge_value !== undefined) data.chargeValue = Number(charge_value);
     if (charge_type !== undefined) data.chargeType = charge_type;
+
+    if ((data.chargeValue !== undefined && (!Number.isFinite(data.chargeValue) || data.chargeValue < 0)) ||
+        (data.commissionValue !== undefined && (!Number.isFinite(data.commissionValue) || data.commissionValue < 0))) {
+      return res.status(400).json({ error: "Charge and commission values must be valid non-negative numbers." });
+    }
 
     const updated = await prisma.commissionSlab.update({
       where: { id: req.params.id },
@@ -178,7 +219,10 @@ router.patch("/slabs/:id", requireAuth, requirePermission("canManageCommissions"
 });
 
 // DELETE /api/commission/slabs/:id — remove a global slab
-router.delete("/slabs/:id", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
+router.delete("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
+    if (!canManageGlobalSlabs(req)) {
+        return res.status(403).json({ error: "Only admins or authorized staff can delete global slabs." });
+    }
     try {
         await prisma.commissionSlab.delete({ where: { id: req.params.id } });
         res.json({ success: true });
@@ -204,7 +248,19 @@ router.get("/logs", requireAuth, async (req: AuthRequest, res) => {
 // GET /api/commission/overrides — get user commission overrides
 router.get("/overrides", requireAuth, async (req: AuthRequest, res) => {
   try {
+    let where: any = {};
+
+    if (canManageGlobalSlabs(req)) {
+      where = {};
+    } else if (req.userRole && COMMISSION_MANAGER_ROLES.has(req.userRole)) {
+      const accessibleUserIds = await getAccessibleUserIds(prisma, req.userId!);
+      where = { targetUserId: { in: accessibleUserIds } };
+    } else {
+      where = { targetUserId: req.userId! };
+    }
+
     const overrides = await prisma.userCommissionOverride.findMany({
+      where,
       orderBy: { createdAt: "desc" },
     });
 
@@ -238,10 +294,13 @@ router.get("/overrides", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // POST /api/commission/overrides — upsert an override slab
-router.post("/overrides", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
+router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
   const { target_user_id, service_key, service_label, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
   
   if (!target_user_id) return res.status(400).json({ error: "target_user_id is required" });
+  if (!canManageHierarchyOverrides(req)) {
+    return res.status(403).json({ error: "You are not allowed to manage charge overrides." });
+  }
 
   try {
     console.log(`[Overrides] Incoming body:`, req.body);
@@ -254,12 +313,25 @@ router.post("/overrides", requireAuth, requirePermission("canManageCommissions")
     if (isNaN(n_min) || isNaN(n_max) || isNaN(n_cval) || isNaN(n_comm)) {
         return res.status(400).json({ error: "Invalid numeric values provided for amounts or charges" });
     }
+    if (n_min < 0 || n_max <= n_min) {
+      return res.status(400).json({ error: "Invalid override range. Max amount must be greater than min amount." });
+    }
+    if (n_cval < 0 || n_comm < 0) {
+      return res.status(400).json({ error: "Charge and commission values cannot be negative." });
+    }
 
     // Debug check: verify user exists
     const userExists = await prisma.user.findUnique({ where: { id: target_user_id } });
     if (!userExists) {
         console.error(`[Overrides] Target user ${target_user_id} not found.`);
         return res.status(400).json({ error: `Selected user (ID: ${target_user_id.substring(0,8)}...) does not exist in the database.` });
+    }
+
+    if (!canManageGlobalSlabs(req) && target_user_id !== req.userId!) {
+      const allowed = await isDescendantUser(prisma, req.userId!, target_user_id);
+      if (!allowed) {
+        return res.status(403).json({ error: "You can only manage overrides for users in your own downline." });
+      }
     }
 
     const override = await prisma.userCommissionOverride.upsert({
@@ -300,10 +372,47 @@ router.post("/overrides", requireAuth, requirePermission("canManageCommissions")
 });
 
 // DELETE /api/commission/overrides/:id — remove an override
-router.delete("/overrides/:id", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
+router.delete("/overrides/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
+    const override = await prisma.userCommissionOverride.findUnique({ where: { id: req.params.id } });
+    if (!override) return res.status(404).json({ error: "Override not found" });
+
+    if (!canManageHierarchyOverrides(req)) {
+      return res.status(403).json({ error: "You are not allowed to delete charge overrides." });
+    }
+
+    if (!canManageGlobalSlabs(req) && override.targetUserId !== req.userId!) {
+      const allowed = await isDescendantUser(prisma, req.userId!, override.targetUserId);
+      if (!allowed) {
+        return res.status(403).json({ error: "You can only delete overrides for users in your own downline." });
+      }
+    }
+
     await prisma.userCommissionOverride.delete({ where: { id: req.params.id } });
     res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/resolve/:userId/:serviceKey", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { userId, serviceKey } = req.params;
+    const amount = Number(req.query.amount ?? 0);
+
+    if (!Number.isFinite(amount) || amount < 0) {
+      return res.status(400).json({ error: "A valid non-negative amount is required." });
+    }
+
+    if (!canManageGlobalSlabs(req) && userId !== req.userId!) {
+      const allowed = await isDescendantUser(prisma, req.userId!, userId);
+      if (!allowed) {
+        return res.status(403).json({ error: "You can only inspect effective charges for your own hierarchy." });
+      }
+    }
+
+    const config = await getEffectiveChargeConfig(prisma, { userId, serviceKey, amount });
+    res.json(config);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

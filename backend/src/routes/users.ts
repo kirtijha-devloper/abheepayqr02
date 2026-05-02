@@ -254,15 +254,18 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
       if (payoutChargeType && payoutChargeValue !== undefined) {
           await tx.userCommissionOverride.upsert({
               where: { 
-                  targetUserId_serviceKey: { 
+                  targetUserId_serviceKey_minAmount: { 
                       targetUserId: profile.userId, 
-                      serviceKey: 'payout' 
+                      serviceKey: 'payout',
+                      minAmount: 0,
                   } 
               },
               update: { 
                   chargeType: payoutChargeType, 
                   chargeValue: payoutChargeValue,
-                  serviceLabel: 'Payout'
+                  serviceLabel: 'Payout',
+                  minAmount: 0,
+                  maxAmount: 99999999,
               },
               create: {
                   targetUserId: profile.userId,
@@ -270,6 +273,8 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
                   serviceLabel: 'Payout',
                   chargeType: payoutChargeType,
                   chargeValue: payoutChargeValue,
+                  minAmount: 0,
+                  maxAmount: 99999999,
                   setBy: callerId
               }
           });
@@ -316,7 +321,7 @@ router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
         // Delete minor dependencies
         await tx.notification.deleteMany({ where: { userId: targetUserId } });
         await tx.userCommissionOverride.deleteMany({ where: { targetUserId: targetUserId } });
-        await tx.userServiceOverride.deleteMany({ where: { targetUserId: targetUserId } });
+        await tx.userServiceOverride.deleteMany({ where: { userId: targetUserId } });
         await tx.qrCode.deleteMany({ where: { merchantId: targetUserId } });
         
         // Try to delete the user

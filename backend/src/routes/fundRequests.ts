@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { getEffectiveChargeConfig, getProfileByUserId, roundCurrency } from "../utils/commission";
 
 const router = Router();
 
@@ -144,83 +145,60 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     const fundReq = await prisma.fundRequest.findUnique({ where: { id: req.params.id } });
     if (!fundReq) return res.status(404).json({ error: "Not found" });
 
-    const approverRole = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const approverProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
-
     const canApprove = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageFinances);
     if (!canApprove) {
       return res.status(403).json({ error: "Only admins or authorized staff can approve transfer requests." });
     }
 
-    let currentUserId = fundReq.requesterId;
-    const chargeDistributions: { userId: string, amount: number }[] = [];
-
-    // Find the slab applicable to the requester for this amount
-    const requesterOverride = await prisma.userCommissionOverride.findFirst({
-        where: { 
-            targetUserId: fundReq.requesterId, 
-            serviceKey: 'payout',
-            minAmount: { lte: Number(fundReq.amount) },
-            maxAmount: { gte: Number(fundReq.amount) }
-        }
+    const amount = Number(fundReq.amount);
+    const requesterChargeConfig = await getEffectiveChargeConfig(prisma, {
+      userId: fundReq.requesterId,
+      serviceKey: "payout",
+      amount,
     });
 
-    const baseChargeValue = requesterOverride?.chargeValue ? Number(requesterOverride.chargeValue) : 0;
-    const baseChargeType = requesterOverride?.chargeType || "flat";
+    const totalCharge = requesterChargeConfig.chargeAmount;
+    const netAmount = roundCurrency(amount - totalCharge);
+    const chargeByUser = new Map<string, number>();
+    const requesterProfile = await getProfileByUserId(prisma, fundReq.requesterId);
 
-    const totalCharge = baseChargeType === "percent" 
-        ? (Number(fundReq.amount) * baseChargeValue) / 100 
-        : baseChargeValue;
+    let currentProfile = requesterProfile;
+    let currentChargeAmount = totalCharge;
+    let lastAncestorUserId: string | null = null;
+    const visited = new Set<string>();
 
-    // Distribute totalCharge up the hierarchy based on differences
-    let lastChargeRate = baseChargeValue;
-    
-    // We need a while loop walking up profile.parentId
-    let profile = await prisma.profile.findUnique({ where: { userId: currentUserId } });
-    
-    while (profile?.parentId) {
-        const parentProfile = await prisma.profile.findUnique({ where: { id: profile.parentId } });
-        if (!parentProfile) break;
-        
-        const parentUserId = parentProfile.userId;
-        
-        // Find parent's charge rate for this specific amount range
-        const parentOverride = await prisma.userCommissionOverride.findFirst({
-             where: { 
-                targetUserId: parentUserId, 
-                serviceKey: 'payout',
-                minAmount: { lte: Number(fundReq.amount) },
-                maxAmount: { gte: Number(fundReq.amount) }
-             }
-        });
-        
-        const parentChargeRate = parentOverride?.chargeValue ? Number(parentOverride.chargeValue) : 0;
-        
-        // The parent earns the difference between what they charge the child, and what they pay their parent
-        const markupRate = lastChargeRate - parentChargeRate;
-        
-        if (markupRate > 0) {
-            const markupAmount = baseChargeType === "percent"
-                ? (Number(fundReq.amount) * markupRate) / 100
-                : markupRate;
-                
-            chargeDistributions.push({ userId: parentUserId, amount: markupAmount });
-        }
-        
-        lastChargeRate = parentChargeRate;
-        profile = parentProfile;
-    }
-    
-    // The admin (at the top) gets the remaining lastChargeRate
-    if (lastChargeRate > 0) {
-        const adminAmount = baseChargeType === "percent"
-            ? (Number(fundReq.amount) * lastChargeRate) / 100
-            : lastChargeRate;
-        // adminUserId is req.userId! since only admins can approve
-        chargeDistributions.push({ userId: req.userId!, amount: adminAmount });
+    while (currentProfile?.parentId && !visited.has(currentProfile.parentId)) {
+      visited.add(currentProfile.parentId);
+      const parentProfile = await prisma.profile.findUnique({ where: { id: currentProfile.parentId } });
+      if (!parentProfile) break;
+
+      lastAncestorUserId = parentProfile.userId;
+
+      const parentChargeConfig = await getEffectiveChargeConfig(prisma, {
+        userId: parentProfile.userId,
+        serviceKey: "payout",
+        amount,
+      });
+
+      const parentChargeAmount = parentChargeConfig.chargeAmount;
+      const markupAmount = roundCurrency(currentChargeAmount - parentChargeAmount);
+
+      if (markupAmount > 0) {
+        chargeByUser.set(parentProfile.userId, roundCurrency((chargeByUser.get(parentProfile.userId) || 0) + markupAmount));
+      }
+
+      currentChargeAmount = Math.max(0, parentChargeAmount);
+      currentProfile = parentProfile;
     }
 
-    const netAmount = Number(fundReq.amount) - totalCharge;
+    if (lastAncestorUserId && currentChargeAmount > 0) {
+      chargeByUser.set(lastAncestorUserId, roundCurrency((chargeByUser.get(lastAncestorUserId) || 0) + currentChargeAmount));
+    }
+
+    const chargeDistributions = Array.from(chargeByUser.entries()).map(([userId, distributionAmount]) => ({
+      userId,
+      amount: distributionAmount,
+    }));
 
     await prisma.$transaction(async (tx) => {
         // 1. Credit Net Amount to Requester's eWalletBalance
@@ -304,7 +282,7 @@ router.patch("/:id/reject", requireAuth, async (req: AuthRequest, res) => {
       return res.status(403).json({ error: "Only admins or authorized staff can reject transfer requests." });
     }
 
-    let fundReq;
+    let fundReq: { requesterId: string; amount: unknown } | null = null;
     await prisma.$transaction(async (tx) => {
         fundReq = await tx.fundRequest.update({
             where: { id: req.params.id },
@@ -333,9 +311,9 @@ router.patch("/:id/reject", requireAuth, async (req: AuthRequest, res) => {
 
     await prisma.notification.create({
       data: {
-        userId: fundReq.requesterId,
+        userId: fundReqCurrent.requesterId,
         title: "Fund Request Rejected",
-        message: `Your fund request of ₹${fundReq.amount} was rejected. Reason: ${reason || "Not specified"}`,
+        message: `Your fund request of ₹${fundReqCurrent.amount} was rejected. Reason: ${reason || "Not specified"}`,
         type: "error",
       },
     });
