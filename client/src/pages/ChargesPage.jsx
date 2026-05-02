@@ -389,8 +389,6 @@ const ChargesPage = () => {
                                             <option value="master">Master</option>
                                             <option value="merchant">Merchant</option>
                                             <option value="branch">Branch</option>
-                                            <option value="distributor">Distributor</option>
-                                            <option value="retailer">Retailer</option>
                                         </select>
                                     </div>
                                 )}
