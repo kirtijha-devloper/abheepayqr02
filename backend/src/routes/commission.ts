@@ -114,25 +114,38 @@ router.get("/slabs", requireAuth, async (_req, res) => {
 // POST /api/commission/slabs — create a new global slab
 router.post("/slabs", requireAuth, requirePermission("canManageCommissions"), async (req: AuthRequest, res) => {
     const { role, service_key, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
-    if (!role || !service_key) return res.status(400).json({ error: "Role and service_key are required" });
+    
+    if (!role || !service_key) {
+        return res.status(400).json({ error: "Role and service_key are required" });
+    }
 
     try {
-        console.log(`[Slabs] Creating slab for role: ${role}, service: ${service_key}, range: ${min_amount}-${max_amount}`);
+        console.log(`[Slabs] Incoming body:`, req.body);
         
+        const n_min = Number(min_amount ?? 0);
+        const n_max = Number(max_amount ?? 99999999);
+        const n_cval = Number(charge_value ?? 0);
+        const n_comm = Number(commission_value ?? 0);
+
+        if (isNaN(n_min) || isNaN(n_max) || isNaN(n_cval) || isNaN(n_comm)) {
+            return res.status(400).json({ error: "Invalid numeric values provided for amounts or charges" });
+        }
+
         const slab = await prisma.commissionSlab.create({
             data: {
                 role: role as any,
                 serviceKey: service_key,
                 serviceLabel: service_key.charAt(0).toUpperCase() + service_key.slice(1),
-                minAmount: Number(min_amount || 0),
-                maxAmount: Number(max_amount || 99999999),
+                minAmount: n_min,
+                maxAmount: n_max,
                 commissionType: commission_type || "percent",
-                commissionValue: Number(commission_value || 0),
+                commissionValue: n_comm,
                 chargeType: charge_type || "flat",
-                chargeValue: Number(charge_value || 0),
+                chargeValue: n_cval,
                 isActive: true
             }
         });
+        
         console.log(`[Slabs] Successfully created slab ID: ${slab.id}`);
         res.json(slab);
     } catch (e: any) {
@@ -231,6 +244,17 @@ router.post("/overrides", requireAuth, requirePermission("canManageCommissions")
   if (!target_user_id) return res.status(400).json({ error: "target_user_id is required" });
 
   try {
+    console.log(`[Overrides] Incoming body:`, req.body);
+
+    const n_min = Number(min_amount ?? 0);
+    const n_max = Number(max_amount ?? 99999999);
+    const n_cval = Number(charge_value ?? 0);
+    const n_comm = Number(commission_value ?? 0);
+
+    if (isNaN(n_min) || isNaN(n_max) || isNaN(n_cval) || isNaN(n_comm)) {
+        return res.status(400).json({ error: "Invalid numeric values provided for amounts or charges" });
+    }
+
     // Debug check: verify user exists
     const userExists = await prisma.user.findUnique({ where: { id: target_user_id } });
     if (!userExists) {
@@ -243,7 +267,7 @@ router.post("/overrides", requireAuth, requirePermission("canManageCommissions")
         targetUserId_serviceKey_minAmount: { 
             targetUserId: target_user_id, 
             serviceKey: service_key,
-            minAmount: Number(min_amount || 0)
+            minAmount: n_min
         } 
       },
       create: {
@@ -251,25 +275,27 @@ router.post("/overrides", requireAuth, requirePermission("canManageCommissions")
         targetUserId: target_user_id,
         serviceKey: service_key,
         serviceLabel: service_label || service_key,
-        minAmount: Number(min_amount || 0),
-        maxAmount: Number(max_amount || 99999999),
+        minAmount: n_min,
+        maxAmount: n_max,
         commissionType: commission_type || "flat",
-        commissionValue: Number(commission_value || 0),
+        commissionValue: n_comm,
         chargeType: charge_type || "flat",
-        chargeValue: Number(charge_value || 0),
+        chargeValue: n_cval,
         isActive: true,
       },
       update: {
-        maxAmount: Number(max_amount || 99999999),
+        maxAmount: n_max,
         commissionType: commission_type,
-        commissionValue: Number(commission_value),
+        commissionValue: n_comm,
         chargeType: charge_type,
-        chargeValue: Number(charge_value),
+        chargeValue: n_cval,
       },
     });
+    console.log(`[Overrides] Successfully saved override ID: ${override.id}`);
     res.json(override);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(`[Overrides] Error saving override:`, e);
+    res.status(500).json({ error: e.message || "Failed to save override" });
   }
 });
 
