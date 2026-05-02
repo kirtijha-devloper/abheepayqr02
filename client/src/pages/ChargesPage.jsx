@@ -14,11 +14,12 @@ const ChargesPage = () => {
     const { success, error } = useToast();
     
     const [overrides, setOverrides] = useState([]);
+    const [downlineDefaults, setDownlineDefaults] = useState([]);
     const [slabs, setSlabs] = useState([]); // Default global slabs
     const [allUsers, setAllUsers] = useState([]); // For search suggestion
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [isGlobalModal, setIsGlobalModal] = useState(false);
+    const [modalMode, setModalMode] = useState('override');
     
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
@@ -56,13 +57,14 @@ const ChargesPage = () => {
             const requests = [
                 fetch(`${API_BASE}/commission/overrides`, { headers }),
                 fetch(`${API_BASE}/commission/slabs`, { headers }),
+                fetch(`${API_BASE}/commission/downline-defaults`, { headers }),
             ];
 
             if (canSearchAllUsers) {
                 requests.push(fetch(`${API_BASE}/users/all`, { headers }));
             }
 
-            const [ovRes, slabRes, usersRes] = await Promise.all(requests);
+            const [ovRes, slabRes, defaultsRes, usersRes] = await Promise.all(requests);
 
             if (ovRes.ok) {
                 setOverrides(await ovRes.json());
@@ -76,6 +78,12 @@ const ChargesPage = () => {
                 const slabError = await parseErrorResponse(slabRes, 'Failed to fetch slabs');
                 console.error('Failed to fetch slabs:', slabError);
                 error(`Slabs load failed: ${slabError}`);
+            }
+
+            if (defaultsRes.ok) {
+                setDownlineDefaults(await defaultsRes.json());
+            } else {
+                console.error('Failed to fetch downline defaults:', await parseErrorResponse(defaultsRes, 'Unknown error'));
             }
 
             if (usersRes?.ok) {
@@ -102,7 +110,7 @@ const ChargesPage = () => {
     }, [currentUser?.role, merchants]);
 
     const handleOpenOverride = (userObj) => {
-        setIsGlobalModal(false);
+        setModalMode('override');
         setTargetUser(userObj);
         setChargeType('percent');
         setChargeValue('');
@@ -114,9 +122,20 @@ const ChargesPage = () => {
     };
 
     const handleOpenGlobalSlab = () => {
-        setIsGlobalModal(true);
+        setModalMode('global');
         setTargetUser(null);
         setTargetRole('merchant');
+        setChargeType('percent');
+        setChargeValue('');
+        setMinAmount('0');
+        setMaxAmount('999999');
+        setShowModal(true);
+    };
+
+    const handleOpenDownlineDefault = () => {
+        setModalMode('downline-default');
+        setTargetUser(null);
+        setTargetRole(currentUser?.role === 'admin' || currentUser?.role === 'staff' ? 'master' : currentUser?.role === 'master' ? 'merchant' : 'branch');
         setChargeType('percent');
         setChargeValue('');
         setMinAmount('0');
@@ -137,7 +156,7 @@ const ChargesPage = () => {
         };
 
         try {
-            if (isGlobalModal) {
+            if (modalMode === 'global') {
                 // Save Global Default Slab
                 const res = await fetch(`${API_BASE}/commission/slabs`, {
                     method: 'POST',
@@ -157,6 +176,29 @@ const ChargesPage = () => {
                     fetchData();
                 } else {
                     error(await parseErrorResponse(res, "Failed to add global slab."));
+                }
+            } else if (modalMode === 'downline-default') {
+                const res = await fetch(`${API_BASE}/commission/downline-defaults`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        target_role: targetRole,
+                        service_key: 'payout',
+                        service_label: 'Downline Payout Charge',
+                        min_amount: Number(minAmount),
+                        max_amount: Number(maxAmount),
+                        charge_type: chargeType,
+                        charge_value: Number(chargeValue),
+                        commission_type: 'percent',
+                        commission_value: 0
+                    })
+                });
+                if (res.ok) {
+                    success("Downline default saved.");
+                    setShowModal(false);
+                    fetchData();
+                } else {
+                    error(await parseErrorResponse(res, "Failed to save downline default."));
                 }
             } else {
                 // Save User Override Slab
@@ -193,7 +235,7 @@ const ChargesPage = () => {
         if (!window.confirm("Delete this slab?")) return;
         try {
             const token = sessionStorage.getItem('authToken');
-            const endpoint = type === 'global' ? `slabs/${id}` : `overrides/${id}`;
+            const endpoint = type === 'global' ? `slabs/${id}` : type === 'downline-default' ? `downline-defaults/${id}` : `overrides/${id}`;
             const res = await fetch(`${API_BASE}/commission/${endpoint}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -239,6 +281,13 @@ const ChargesPage = () => {
     ).slice(0, 5);
 
     const defaultCharges = slabs.filter(s => s.serviceKey === 'payout');
+    const myDownlineDefaults = downlineDefaults.filter(d => d.service_key === 'payout' && (currentUser?.role === 'admin' || currentUser?.role === 'staff' ? true : d.owner_user_id === currentUser?.id));
+    const canManageDownlineDefaults = ['admin', 'staff', 'master', 'merchant'].includes(currentUser?.role);
+    const defaultTargetLabel = currentUser?.role === 'admin' || currentUser?.role === 'staff'
+        ? 'Masters'
+        : currentUser?.role === 'master'
+            ? 'Merchants'
+            : 'Branches';
 
     return (
         <div className="dashboard-layout">
@@ -250,7 +299,7 @@ const ChargesPage = () => {
                     <div className="charges-header">
                         <div className="charges-title">
                             <h2>Charge Configuration</h2>
-                            <p>Global defaults and manual user overrides.</p>
+                            <p>Global defaults, downline defaults, and manual user overrides.</p>
                         </div>
                         
                         <div className="charges-search-container">
@@ -345,6 +394,45 @@ const ChargesPage = () => {
                         </>
                     )}
 
+                    {canManageDownlineDefaults && (
+                        <>
+                            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3><span>↳</span> Default Charges For My {defaultTargetLabel}</h3>
+                                <button className="add-slab-btn" onClick={handleOpenDownlineDefault}>+ Add Downline Default</button>
+                            </div>
+                            <div className="charges-card animated-fade-in" style={{ background: 'rgba(34, 197, 94, 0.05)' }}>
+                                <div className="table-responsive">
+                                    <table className="charges-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Applies To</th>
+                                                <th>Range (Min - Max)</th>
+                                                <th>Charge Type</th>
+                                                <th>Value</th>
+                                                <th style={{ textAlign: 'right' }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {myDownlineDefaults.length === 0 ? (
+                                                <tr><td colSpan="5" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No downline defaults configured yet.</td></tr>
+                                            ) : myDownlineDefaults.map((item) => (
+                                                <tr key={item.id}>
+                                                    <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{item.target_role?.replace('_', ' ')}</strong></td>
+                                                    <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{item.min_amount} - {item.max_amount >= 9999999 ? '∞' : item.max_amount}</span></td>
+                                                    <td>{item.charge_type === 'percent' ? 'Percent (%)' : 'Flat (INR)'}</td>
+                                                    <td>{item.charge_type === 'percent' ? `${item.charge_value}%` : `₹${item.charge_value}`}</td>
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <button className="delete-btn-v2" onClick={() => handleDeleteSlab(item.id, 'downline-default')}>Delete</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
                     {/* Manual Overrides Section */}
                     <div className="section-header">
                         <h3><span>✏️</span> Manual Overrides (User Specific)</h3>
@@ -372,6 +460,7 @@ const ChargesPage = () => {
                                             <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No user overrides configured yet.</td></tr>
                                         ) : merchants.map(merchant => {
                                             const userSlabs = overrides.filter(o => o.target_user_id === merchant.userId && o.service_key === 'payout');
+                                            const matchingDownlineDefault = myDownlineDefaults.find((item) => item.target_role === merchant.role);
                                             return (
                                                 <tr key={merchant.userId}>
                                                     <td>
@@ -387,7 +476,9 @@ const ChargesPage = () => {
                                                     <td>
                                                         <div className="slabs-list">
                                                             {userSlabs.length === 0 ? (
-                                                                <span style={{ color: '#64748b', fontSize: '12px' }}>Using Global Defaults</span>
+                                                                <span style={{ color: '#64748b', fontSize: '12px' }}>
+                                                                    {matchingDownlineDefault ? 'Using Your Downline Default' : 'Using Global Defaults'}
+                                                                </span>
                                                             ) : userSlabs.map(slab => (
                                                                 <div key={slab.id} className="slab-badge">
                                                                     <span>₹{slab.min_amount} - ₹{slab.max_amount >= 999999 ? '∞' : slab.max_amount}: </span>
@@ -415,11 +506,11 @@ const ChargesPage = () => {
                 <div className="modal-overlay">
                     <div className="modal-container" style={{ maxWidth: '500px' }}>
                         <div className="modal-header-gradient">
-                            <h3>{isGlobalModal ? 'Add Global Default' : 'Override Amount Slab'}</h3>
+                            <h3>{modalMode === 'global' ? 'Add Global Default' : modalMode === 'downline-default' ? 'Add Downline Default' : 'Override Amount Slab'}</h3>
                             <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
                         </div>
                         <div className="modal-body hide-scrollbar">
-                            {!isGlobalModal && (
+                            {modalMode === 'override' && (
                                 <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
                                     <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '4px' }}>Target User</div>
                                     <div style={{ color: '#fff', fontWeight: 600 }}>{targetUser?.fullName}</div>
@@ -428,13 +519,13 @@ const ChargesPage = () => {
                             )}
 
                             <div className="modal-grid">
-                                {isGlobalModal && (
+                                {modalMode !== 'override' && (
                                     <div className="form-group full-width">
                                         <label className="callback-label">Target Role</label>
                                         <select className="form-input-box" value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
-                                            <option value="master">Master</option>
-                                            <option value="merchant">Merchant</option>
-                                            <option value="branch">Branch</option>
+                                            {(modalMode === 'global' ? ['master', 'merchant', 'branch'] : currentUser?.role === 'admin' || currentUser?.role === 'staff' ? ['master'] : currentUser?.role === 'master' ? ['merchant'] : ['branch']).map((roleOption) => (
+                                                <option key={roleOption} value={roleOption}>{roleOption.charAt(0).toUpperCase() + roleOption.slice(1)}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 )}
@@ -463,7 +554,7 @@ const ChargesPage = () => {
                         <div className="modal-footer">
                             <button className="btn-cancel" onClick={() => setShowModal(false)}>Close</button>
                             <button className="btn-create" onClick={handleSaveSlab}>
-                                {isGlobalModal ? 'Create Slab' : 'Apply Override'}
+                                {modalMode === 'global' ? 'Create Slab' : modalMode === 'downline-default' ? 'Save Default' : 'Apply Override'}
                             </button>
                         </div>
                     </div>

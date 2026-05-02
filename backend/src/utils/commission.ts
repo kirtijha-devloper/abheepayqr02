@@ -3,7 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 type TxClient = PrismaClient | Prisma.TransactionClient;
 
 export type EffectiveChargeConfig = {
-  source: "override" | "global" | "none";
+  source: "override" | "downline_default" | "global" | "none";
   userId: string;
   role: string | null;
   serviceKey: string;
@@ -12,6 +12,8 @@ export type EffectiveChargeConfig = {
   chargeValue: number;
   chargeAmount: number;
   overrideId?: string;
+  downlineDefaultId?: string;
+  downlineDefaultOwnerUserId?: string;
   slabId?: string;
 };
 
@@ -94,6 +96,13 @@ export async function getAccessibleUserIds(tx: TxClient, rootUserId: string) {
   return accessibleUserIds;
 }
 
+export function getAllowedDownlineRole(ownerRole?: string | null) {
+  if (ownerRole === "admin" || ownerRole === "staff") return "master";
+  if (ownerRole === "master") return "merchant";
+  if (ownerRole === "merchant") return "branch";
+  return null;
+}
+
 export async function getEffectiveChargeConfig(
   tx: TxClient,
   {
@@ -147,6 +156,51 @@ export async function getEffectiveChargeConfig(
       chargeValue: 0,
       chargeAmount: 0,
     };
+  }
+
+  const profile = await getProfileByUserId(tx, userId);
+  const visited = new Set<string>();
+  let currentParentId = profile?.parentId || null;
+
+  while (currentParentId && !visited.has(currentParentId)) {
+    visited.add(currentParentId);
+
+    const parentProfile = await tx.profile.findUnique({
+      where: { id: currentParentId },
+      select: { userId: true, parentId: true },
+    });
+    if (!parentProfile) break;
+
+    const downlineDefault = await tx.downlineChargeDefault.findFirst({
+      where: {
+        ownerUserId: parentProfile.userId,
+        targetRole: role,
+        serviceKey,
+        isActive: true,
+        minAmount: { lte: numericAmount },
+        maxAmount: { gte: numericAmount },
+      },
+      orderBy: [{ minAmount: "desc" }, { createdAt: "desc" }],
+    });
+
+    if (downlineDefault) {
+      const chargeType = downlineDefault.chargeType || "flat";
+      const chargeValue = Number(downlineDefault.chargeValue || 0);
+      return {
+        source: "downline_default",
+        userId,
+        role,
+        serviceKey,
+        amount: numericAmount,
+        chargeType,
+        chargeValue,
+        chargeAmount: calculateChargeAmount(numericAmount, chargeType, chargeValue),
+        downlineDefaultId: downlineDefault.id,
+        downlineDefaultOwnerUserId: parentProfile.userId,
+      };
+    }
+
+    currentParentId = parentProfile.parentId || null;
   }
 
   const slab = await tx.commissionSlab.findFirst({

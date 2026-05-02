@@ -2,11 +2,9 @@ import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requirePermission, AuthRequest } from "../middleware/auth";
 import {
-  calculateChargeAmount,
   getAccessibleUserIds,
+  getAllowedDownlineRole,
   getEffectiveChargeConfig,
-  getProfileByUserId,
-  getUserRole,
   isDescendantUser,
   roundCurrency,
 } from "../utils/commission";
@@ -21,6 +19,13 @@ function canManageGlobalSlabs(req: AuthRequest) {
 
 function canManageHierarchyOverrides(req: AuthRequest) {
   return canManageGlobalSlabs(req) || req.userRole === "master" || req.userRole === "merchant";
+}
+
+function getAllowedTargetRolesForUser(req: AuthRequest) {
+  if (canManageGlobalSlabs(req)) return ["master"];
+  if (req.userRole === "master") return ["merchant"];
+  if (req.userRole === "merchant") return ["branch"];
+  return [];
 }
 
 // POST /api/commission/process — auto-distribute commissions up hierarchy
@@ -288,6 +293,131 @@ router.get("/overrides", requireAuth, async (req: AuthRequest, res) => {
     }));
 
     res.json(enriched);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/downline-defaults", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    if (!canManageHierarchyOverrides(req)) {
+      return res.json([]);
+    }
+
+    const defaults = await prisma.downlineChargeDefault.findMany({
+      where: canManageGlobalSlabs(req) ? {} : { ownerUserId: req.userId! },
+      orderBy: [{ targetRole: "asc" }, { minAmount: "asc" }, { createdAt: "desc" }],
+    });
+
+    const ownerIds = Array.from(new Set(defaults.map((item) => item.ownerUserId)));
+    const ownerProfiles = await prisma.profile.findMany({
+      where: { userId: { in: ownerIds } },
+      select: { userId: true, fullName: true },
+    });
+    const ownerMap = new Map(ownerProfiles.map((profile) => [profile.userId, profile.fullName]));
+
+    res.json(
+      defaults.map((item) => ({
+        ...item,
+        owner_user_id: item.ownerUserId,
+        owner_name: ownerMap.get(item.ownerUserId) || "Unknown",
+        service_key: item.serviceKey,
+        service_label: item.serviceLabel,
+        target_role: item.targetRole,
+        commission_type: item.commissionType,
+        commission_value: item.commissionValue,
+        charge_type: item.chargeType,
+        charge_value: item.chargeValue,
+        min_amount: item.minAmount,
+        max_amount: item.maxAmount,
+        is_active: item.isActive,
+      }))
+    );
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => {
+  const { target_role, service_key, service_label, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
+
+  if (!canManageHierarchyOverrides(req)) {
+    return res.status(403).json({ error: "You are not allowed to manage downline defaults." });
+  }
+
+  const allowedRoles = getAllowedTargetRolesForUser(req);
+  if (!target_role || !allowedRoles.includes(target_role)) {
+    return res.status(400).json({ error: "Invalid target role for your hierarchy." });
+  }
+
+  try {
+    const n_min = Number(min_amount ?? 0);
+    const n_max = Number(max_amount ?? 99999999);
+    const n_cval = Number(charge_value ?? 0);
+    const n_comm = Number(commission_value ?? 0);
+
+    if ([n_min, n_max, n_cval, n_comm].some((value) => Number.isNaN(value))) {
+      return res.status(400).json({ error: "Invalid numeric values provided for amounts or charges" });
+    }
+    if (n_min < 0 || n_max <= n_min) {
+      return res.status(400).json({ error: "Invalid default range. Max amount must be greater than min amount." });
+    }
+    if (n_cval < 0 || n_comm < 0) {
+      return res.status(400).json({ error: "Charge and commission values cannot be negative." });
+    }
+
+    const created = await prisma.downlineChargeDefault.upsert({
+      where: {
+        ownerUserId_targetRole_serviceKey_minAmount: {
+          ownerUserId: req.userId!,
+          targetRole: target_role,
+          serviceKey: service_key || "payout",
+          minAmount: n_min,
+        },
+      },
+      create: {
+        ownerUserId: req.userId!,
+        targetRole: target_role,
+        serviceKey: service_key || "payout",
+        serviceLabel: service_label || "Payout Downline Default",
+        minAmount: n_min,
+        maxAmount: n_max,
+        commissionType: commission_type || "percent",
+        commissionValue: n_comm,
+        chargeType: charge_type || "flat",
+        chargeValue: n_cval,
+        isActive: true,
+      },
+      update: {
+        maxAmount: n_max,
+        commissionType: commission_type || "percent",
+        commissionValue: n_comm,
+        chargeType: charge_type || "flat",
+        chargeValue: n_cval,
+        isActive: true,
+      },
+    });
+
+    res.json(created);
+  } catch (e: any) {
+    if (e.code === "P2002") {
+      return res.status(400).json({ error: "A default for this role and min amount already exists." });
+    }
+    res.status(500).json({ error: e.message || "Failed to save downline default" });
+  }
+});
+
+router.delete("/downline-defaults/:id", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const existing = await prisma.downlineChargeDefault.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: "Downline default not found" });
+
+    if (!canManageGlobalSlabs(req) && existing.ownerUserId !== req.userId!) {
+      return res.status(403).json({ error: "You can only delete your own downline defaults." });
+    }
+
+    await prisma.downlineChargeDefault.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

@@ -1,6 +1,11 @@
+const browserOrigin =
+  typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : null;
+
 const defaultApiOrigin =
   import.meta.env.MODE === 'production'
-    ? 'https://abheepayqr02.vercel.app'
+    ? (browserOrigin || 'https://abheepayqr02.vercel.app')
     : 'http://localhost:4001';
 
 const apiBase = import.meta.env.VITE_API_URL || `${defaultApiOrigin}/api`;
