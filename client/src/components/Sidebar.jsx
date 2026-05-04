@@ -145,7 +145,7 @@ const Sidebar = () => {
       <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-wordmark">
-            <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em' }}>TeleRing</span>
+            <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em' }}>LeoPay</span>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Platform</span>
           </div>
         </div>

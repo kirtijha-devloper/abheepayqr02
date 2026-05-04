@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   const adminUser = await prisma.user.findFirst({
-    where: { email: "admin@telering.com" },
+    where: { email: "admin@leopay.com" },
     include: { roles: true, profile: true }
   });
 

@@ -142,7 +142,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
         await tx.walletTransaction.create({
             data: {
                 toUserId: req.userId!,
-                amount: Number(amount),
+                amount: -Number(amount),
                 type: "transfer_hold",
                 description: `Fund Request (Transfer to Payout) Hold`,
                 toBalanceAfter: newBalance,

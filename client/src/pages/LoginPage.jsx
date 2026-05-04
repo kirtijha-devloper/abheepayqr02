@@ -66,7 +66,7 @@ const LoginPage = () => {
           <div className="login-brand-v2">
             <div className="brand-logo-glow">T</div>
             <div className="brand-text-v2">
-              <span className="brand-name">TeleRing</span>
+              <span className="brand-name">LeoPay</span>
               <span className="brand-tag">Platform</span>
             </div>
           </div>

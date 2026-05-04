@@ -1,7 +1,7 @@
-# Project Documentation: AbheePay / Telering Platform
+# Project Documentation: AbheePay / Leopay Platform
 
 ## 1. Executive Summary
-AbheePay (also known as Telering) is a comprehensive B2B Fintech and QR Payment Gateway designed to facilitate digital transactions between merchants, distributors, and administrative entities. The platform provides a robust infrastructure for QR code generation, wallet management, settlement processing, and comprehensive reporting.
+AbheePay (also known as Leopay) is a comprehensive B2B Fintech and QR Payment Gateway designed to facilitate digital transactions between merchants, distributors, and administrative entities. The platform provides a robust infrastructure for QR code generation, wallet management, settlement processing, and comprehensive reporting.
 
 ### Key Value Propositions
 - **Multi-tenant Architecture**: Support for a strict three-tier hierarchy (Admin -> Merchant -> Branch).

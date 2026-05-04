@@ -4,7 +4,7 @@ require('dotenv').config({ path: './.env' }); // load JWT_SECRET
 async function testApi() {
   const { PrismaClient } = require("@prisma/client");
   const prisma = new PrismaClient();
-  const admin = await prisma.user.findFirst({where: {email: "admin@telering.com"}});
+  const admin = await prisma.user.findFirst({where: {email: "admin@leopay.com"}});
   const token = jwt.sign({ sub: admin.id, email: admin.email }, process.env.JWT_SECRET || "supersecretkey_replace_me_in_prod123!", { expiresIn: "7d" });
 
   const firstMerchantProfile = await prisma.profile.findFirst({

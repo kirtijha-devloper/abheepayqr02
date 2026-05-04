@@ -297,7 +297,7 @@ export async function getChargeDistribution(
       chargeByUser.set(parentProfile.userId, roundCurrency((chargeByUser.get(parentProfile.userId) || 0) + markupAmount));
     }
 
-    currentChargeAmount = Math.max(0, parentChargeAmount);
+    currentChargeAmount = roundCurrency(Math.min(currentChargeAmount, parentChargeAmount));
     currentProfile = parentProfile;
   }
 

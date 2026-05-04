@@ -8,7 +8,7 @@ async function main() {
   console.log("🧹 Clearing database...");
 
   // Keep the admin user intact
-  const adminEmail = "admin@telering.com";
+  const adminEmail = "admin@leopay.com";
   const adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
   
   const adminId = adminUser ? adminUser.id : 'THIS_WONT_MATCH';

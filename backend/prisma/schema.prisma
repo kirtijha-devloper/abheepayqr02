@@ -13,11 +13,13 @@ model User {
   passwordHash            String                   @map("password_hash")
   createdAt               DateTime                 @default(now()) @map("created_at")
   updatedAt               DateTime                 @updatedAt @map("updated_at")
+  downlineChargeDefaults  DownlineChargeDefault[]  @relation("DownlineChargeOwner")
   approvedFundRequests    FundRequest[]            @relation("Approver")
   fundRequests            FundRequest[]            @relation("Requester")
   merchantBankAccounts    MerchantBankAccount[]
   profile                 Profile?
   qrCodes                 QrCode[]
+  staffPermission         StaffPermission?
   supportTickets          SupportTicket[]
   transactions            Transaction[]
   setCommissionOverrides  UserCommissionOverride[] @relation("SettledByOverrides")
@@ -28,8 +30,6 @@ model User {
   sentWalletTransactions  WalletTransaction[]      @relation("FromUser")
   walletTransactions      WalletTransaction[]      @relation("ToUser")
   wallet                  Wallet?
-  staffPermission         StaffPermission?
-  downlineChargeDefaults  DownlineChargeDefault[]  @relation("DownlineChargeOwner")
 
   @@map("users")
 }
@@ -70,9 +70,9 @@ model Wallet {
   userId         String   @unique @map("user_id") @db.Uuid
   balance        Decimal  @default(0.00) @db.Decimal(15, 2)
   eWalletBalance Decimal  @default(0.00) @map("e_wallet_balance") @db.Decimal(15, 2)
-  holdBalance    Decimal  @default(0.00) @map("hold_balance") @db.Decimal(15, 2)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
+  holdBalance    Decimal  @default(0.00) @map("hold_balance") @db.Decimal(15, 2)
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("wallets")
@@ -121,13 +121,13 @@ model CommissionSlab {
   role            AppRole
   commissionType  String   @default("flat") @map("commission_type")
   commissionValue Decimal  @default(0) @map("commission_value")
-  chargeType      String   @default("flat") @map("charge_type")
-  chargeValue     Decimal  @default(0) @map("charge_value")
   isActive        Boolean  @default(true) @map("is_active")
-  minAmount       Decimal  @default(0) @map("min_amount") @db.Decimal(15, 2)
-  maxAmount       Decimal  @default(99999999) @map("max_amount") @db.Decimal(15, 2)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
+  chargeType      String   @default("flat") @map("charge_type")
+  chargeValue     Decimal  @default(0) @map("charge_value")
+  maxAmount       Decimal  @default(99999999) @map("max_amount") @db.Decimal(15, 2)
+  minAmount       Decimal  @default(0) @map("min_amount") @db.Decimal(15, 2)
 
   @@unique([serviceKey, role, minAmount])
   @@map("commission_slabs")

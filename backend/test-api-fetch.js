@@ -4,7 +4,7 @@ async function testApi() {
   const loginRes = await fetch("http://127.0.0.1:4001/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "admin@telering.com", password: "password123" }) // assuming default password
+    body: JSON.stringify({ email: "admin@leopay.com", password: "password123" }) // assuming default password
   });
 
   const loginData = await loginRes.json();

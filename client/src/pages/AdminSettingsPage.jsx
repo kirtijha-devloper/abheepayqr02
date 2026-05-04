@@ -13,7 +13,7 @@ const defaultPayoutConfig = {
 };
 
 const defaultLocalSettings = {
-  appName: 'TeleRing',
+  appName: 'LeoPay',
   language: 'English (US)',
   timezone: 'IST (India Standard Time) - GMT+5:30',
   notifications: { txnAlerts: true, securityAlerts: true, monthlyReports: false },
@@ -27,7 +27,7 @@ const AdminSettingsPage = () => {
     payout_config: JSON.stringify(defaultPayoutConfig),
   });
   const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('teleringAdminSettings');
+    const saved = localStorage.getItem('leopayAdminSettings');
     return saved ? JSON.parse(saved) : defaultLocalSettings;
   });
 
@@ -65,7 +65,7 @@ const AdminSettingsPage = () => {
   }, []);
 
   const handleSave = async () => {
-    localStorage.setItem('teleringAdminSettings', JSON.stringify(settings));
+    localStorage.setItem('leopayAdminSettings', JSON.stringify(settings));
     const authToken = sessionStorage.getItem('authToken');
     try {
       const res = await fetch(`${API_BASE}/settings`, {

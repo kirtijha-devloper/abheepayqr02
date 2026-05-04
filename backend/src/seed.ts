@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminEmail = "admin@telering.com";
+  const adminEmail = "admin@leopay.com";
   const adminPassword = "admin123";
 
   console.log("🌱 Seeding database...");

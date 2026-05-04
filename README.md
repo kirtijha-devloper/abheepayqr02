@@ -1,4 +1,4 @@
-# AbheePay / Telering Platform
+# AbheePay / Leopay Platform
 
 Monorepo with:
 - `client/`: React + Vite frontend

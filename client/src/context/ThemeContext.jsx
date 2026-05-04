@@ -4,11 +4,11 @@ const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
     const [theme, setTheme] = useState(() => {
-        return localStorage.getItem('teleringTheme') || 'dark';
+        return localStorage.getItem('leopayTheme') || 'dark';
     });
 
     useEffect(() => {
-        localStorage.setItem('teleringTheme', theme);
+        localStorage.setItem('leopayTheme', theme);
         if (theme === 'dark') {
             document.documentElement.classList.add('dark-theme');
         } else {
