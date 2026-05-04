@@ -36,6 +36,7 @@ router.get("/all", requireAuth, async (req: AuthRequest, res) => {
       status: u.profile?.status,
       kycStatus: u.profile?.kycStatus,
       walletBalance: Number(u.wallet?.balance ?? 0),
+      holdBalance: Number(u.wallet?.holdBalance ?? 0),
       createdAt: u.createdAt,
       parentId: u.profile?.parentId,
       parentName: u.profile?.parentId ? profileNameMap.get(u.profile.parentId) : "Direct Admin",
@@ -65,6 +66,7 @@ router.get("/profile", requireAuth, async (req: AuthRequest, res) => {
       email: user.email,
       role: user.roles[0]?.role,
       walletBalance: Number(user.wallet?.balance ?? 0),
+      holdBalance: Number(user.wallet?.holdBalance ?? 0),
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

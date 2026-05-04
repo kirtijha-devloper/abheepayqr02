@@ -5,7 +5,7 @@ const AppContext = createContext();
 import { API_BASE } from '../config';
 
 export const AppProvider = ({ children }) => {
-    const [wallet, setWallet] = useState({ balance: 0, eWalletBalance: 0 });
+    const [wallet, setWallet] = useState({ balance: 0, eWalletBalance: 0, holdBalance: 0 });
     const [merchants, setMerchants] = useState([]);
     const [qrCodes, setQrCodes] = useState([]);
     const [bankAccounts, setBankAccounts] = useState([]);
@@ -43,7 +43,7 @@ export const AppProvider = ({ children }) => {
             // Process each result independently
             if (results[0].status === 'fulfilled' && results[0].value.ok) {
                 const data = await results[0].value.json();
-                setWallet(data || { balance: 0, eWalletBalance: 0 });
+                setWallet(data || { balance: 0, eWalletBalance: 0, holdBalance: 0 });
             }
 
             if (results[1].status === 'fulfilled' && results[1].value.ok) {
@@ -61,7 +61,7 @@ export const AppProvider = ({ children }) => {
             if (user?.role === 'admin') {
                 const staffRes = await fetch(`${API_BASE}/staff`, { headers: getHeaders() });
                 if (staffRes.ok) {
-                    const staffData = await staffRes.ok ? await staffRes.json() : [];
+                    const staffData = await staffRes.json();
                     setStaffMembers(staffData);
                 }
             }
@@ -99,7 +99,7 @@ export const AppProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [getHeaders]);
+    }, [getHeaders, user?.role]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -403,6 +403,45 @@ export const AppProvider = ({ children }) => {
         }
     };
 
+    // --- Wallet Hold Management ---
+    const holdWallet = async (userId, amount, description) => {
+        try {
+            const res = await fetch(`${API_BASE}/wallet/hold`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ target_user_id: userId, amount, description })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                await fetchData();
+                return { success: true };
+            }
+            return { success: false, error: data.error };
+        } catch (err) {
+            console.error("Hold wallet failed", err);
+            return { success: false, error: "Network error" };
+        }
+    };
+
+    const unholdWallet = async (userId, amount, description) => {
+        try {
+            const res = await fetch(`${API_BASE}/wallet/unhold`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ target_user_id: userId, amount, description })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                await fetchData();
+                return { success: true };
+            }
+            return { success: false, error: data.error };
+        } catch (err) {
+            console.error("Unhold wallet failed", err);
+            return { success: false, error: "Network error" };
+        }
+    };
+
     // --- Bank Account Management ---
     const addBankAccount = async (bankData) => {
         try {
@@ -694,6 +733,8 @@ export const AppProvider = ({ children }) => {
             updateStaffMember,
             deleteStaffMember,
             loginAs,
+            holdWallet,
+            unholdWallet,
             generateApiKey,
             getSystemSetting,
             fetchData

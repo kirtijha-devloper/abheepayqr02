@@ -70,6 +70,7 @@ model Wallet {
   userId         String   @unique @map("user_id") @db.Uuid
   balance        Decimal  @default(0.00) @db.Decimal(15, 2)
   eWalletBalance Decimal  @default(0.00) @map("e_wallet_balance") @db.Decimal(15, 2)
+  holdBalance    Decimal  @default(0.00) @map("hold_balance") @db.Decimal(15, 2)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)

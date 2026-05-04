@@ -30,7 +30,7 @@ const titleCase = (value = '') => value ? value.charAt(0).toUpperCase() + value.
 
 const MerchantsPage = () => {
   const [showModal, setShowModal] = useState(false);
-  const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant, fetchData } = useAppContext();
+  const { merchants, addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant, fetchData, holdWallet, unholdWallet } = useAppContext();
   const { user, getImpersonateToken } = useAuth();
   const { success, error } = useToast();
   const isAdmin = user?.role === 'admin' || user?.role === 'staff';
@@ -50,6 +50,8 @@ const MerchantsPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdData, setHoldData] = useState({ amount: '', description: '', type: 'hold' });
   const [uplineMembers, setUplineMembers] = useState([]);
   const itemsPerPage = 8;
 
@@ -203,6 +205,28 @@ const MerchantsPage = () => {
     }
 
     success(`Merchant marked as ${nextStatus}.`);
+  };
+
+  const handleHoldAction = (merchant, type = 'hold') => {
+    setSelectedMerchant(merchant);
+    setHoldData({ amount: '', description: '', type });
+    setShowHoldModal(true);
+  };
+
+  const submitHold = async (e) => {
+    e.preventDefault();
+    if (!selectedMerchant) return;
+    
+    const action = holdData.type === 'hold' ? holdWallet : unholdWallet;
+    const res = await action(selectedMerchant.userId || selectedMerchant.id, Number(holdData.amount), holdData.description);
+    
+    if (res.success) {
+      success(`Wallet ${holdData.type} successful.`);
+      setShowHoldModal(false);
+      setSelectedMerchant(null);
+    } else {
+      error(res.error || `Failed to ${holdData.type} wallet`);
+    }
   };
 
   const filteredMerchants = merchants.filter((merchant) => {
@@ -369,7 +393,14 @@ const MerchantsPage = () => {
                           </div>
                         </td>
                         <td><span className="mid-badge">{merchant.mid || 'MID-102938'}</span></td>
-                        <td className="volume-cell">Rs {merchant.walletBalance || '0.00'}</td>
+                        <td className="volume-cell">
+                          <div className="hold-balance-info">
+                            <div>₹{Number(merchant.walletBalance || 0).toFixed(2)}</div>
+                            {Number(merchant.holdBalance || 0) > 0 && (
+                              <div className="hold-amount">Held: ₹{Number(merchant.holdBalance).toFixed(2)}</div>
+                            )}
+                          </div>
+                        </td>
                         <td><span className={`status-pill ${currentStatus}`}>{titleCase(currentStatus)}</span></td>
                         <td className="commission-cell">
                           {merchant.payoutOverride ? (
@@ -383,6 +414,8 @@ const MerchantsPage = () => {
                             {!isMerchant && (
                                 <button className="action-btn" style={{background: 'var(--brand-primary)', color: 'white'}} onClick={() => handleViewBranches(merchant)}>See Branches</button>
                             )}
+                            <button className="action-btn hold-btn" onClick={() => handleHoldAction(merchant, 'hold')}>Hold</button>
+                            <button className="action-btn unhold-btn" onClick={() => handleHoldAction(merchant, 'unhold')}>Unhold</button>
                             <button className="action-btn login-btn" onClick={() => handleLoginAs(merchant)}>Login</button>
                             <button className="action-btn" onClick={() => handleEdit(merchant)}>Edit</button>
                             <button className="action-btn" onClick={() => handleToggleStatus(merchant)}>Toggle</button>
@@ -518,6 +551,65 @@ const MerchantsPage = () => {
               <div className="modal-footer">
                 <button type="button" className="btn-cancel" onClick={closeModal}>Cancel</button>
                 <button type="submit" className="btn-create">{isEditing ? 'Save Changes' : 'Create Merchant'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showHoldModal && (
+        <div className="modal-overlay">
+          <div className="modal-container" style={{ maxWidth: '450px' }}>
+            <div className="modal-header-gradient" style={{ background: holdData.type === 'hold' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #10b981, #059669)' }}>
+              <h3>{holdData.type === 'hold' ? 'Hold Wallet Amount' : 'Release Held Amount'}</h3>
+              <button className="close-modal" onClick={() => setShowHoldModal(false)}>&times;</button>
+            </div>
+            <form onSubmit={submitHold}>
+              <div className="modal-body">
+                <div className="hold-modal-info">
+                    <div className="hold-modal-merchant">MERCHANT</div>
+                    <div className="hold-modal-name">{selectedMerchant?.fullName}</div>
+                    <div className="hold-modal-stats">
+                        <div className="hold-stat-card">
+                            <div className="hold-stat-label">AVAILABLE</div>
+                            <div className="hold-stat-value success">₹{Number(selectedMerchant?.walletBalance || 0).toFixed(2)}</div>
+                        </div>
+                        <div className="hold-stat-card">
+                            <div className="hold-stat-label">HELD</div>
+                            <div className="hold-stat-value warning">₹{Number(selectedMerchant?.holdBalance || 0).toFixed(2)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="callback-label">Amount to {holdData.type === 'hold' ? 'Hold' : 'Release'}</label>
+                  <input 
+                    type="number" 
+                    className="form-input-box" 
+                    placeholder="Enter amount" 
+                    required 
+                    step="0.01"
+                    min="0.01"
+                    value={holdData.amount}
+                    onChange={(e) => setHoldData({ ...holdData, amount: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="callback-label">Reason / Description</label>
+                  <textarea 
+                    className="form-input-box" 
+                    placeholder="Reason for this action" 
+                    rows="3"
+                    style={{ resize: 'none' }}
+                    value={holdData.description}
+                    onChange={(e) => setHoldData({ ...holdData, description: e.target.value })}
+                  ></textarea>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-cancel" onClick={() => setShowHoldModal(false)}>Cancel</button>
+                <button type="submit" className={holdData.type === 'hold' ? 'btn-hold' : 'btn-unhold'}>
+                  Confirm {holdData.type === 'hold' ? 'Hold' : 'Release'}
+                </button>
               </div>
             </form>
           </div>

@@ -12,7 +12,11 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       where: { userId: req.userId! },
     });
     if (!wallet) return res.status(404).json({ error: "Wallet not found" });
-    res.json({ balance: Number(wallet.balance), eWalletBalance: Number(wallet.eWalletBalance) });
+    res.json({ 
+      balance: Number(wallet.balance), 
+      eWalletBalance: Number(wallet.eWalletBalance),
+      holdBalance: Number(wallet.holdBalance || 0)
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -545,6 +549,122 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
+});
+
+// POST /api/wallet/hold — admin holds an amount from a user's wallet
+router.post("/hold", requireAuth, async (req: AuthRequest, res) => {
+  const { target_user_id, amount, description } = req.body;
+  try {
+    if (req.userRole !== "admin" && !req.permissions?.canManageFinances) {
+        return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId: target_user_id } });
+    if (!wallet) return res.status(404).json({ error: "User wallet not found" });
+
+    const currentBalance = Number(wallet.balance);
+    const holdAmount = Number(amount);
+
+    if (currentBalance < holdAmount) {
+        return res.status(400).json({ error: "Insufficient balance to hold this amount" });
+    }
+
+    const newBalance = roundCurrency(currentBalance - holdAmount);
+    const newHoldBalance = roundCurrency(Number(wallet.holdBalance || 0) + holdAmount);
+
+    const [, txn] = await prisma.$transaction([
+      prisma.wallet.update({ 
+        where: { userId: target_user_id }, 
+        data: { 
+            balance: newBalance,
+            holdBalance: newHoldBalance
+        } 
+      }),
+      prisma.walletTransaction.create({
+        data: {
+          toUserId: target_user_id,
+          fromUserId: target_user_id,
+          amount: -holdAmount,
+          type: "hold",
+          description: description || "Admin Hold Amount",
+          fromBalanceAfter: newBalance,
+          toBalanceAfter: newBalance,
+          createdBy: req.userId!,
+        },
+      }),
+    ]);
+
+    await prisma.notification.create({
+      data: {
+        userId: target_user_id,
+        title: "Amount Held 🔒",
+        message: `An amount of ₹${amount} has been held in your wallet by Admin.`,
+        type: "warning",
+      },
+    });
+
+    res.json({ success: true, balance: newBalance, holdBalance: newHoldBalance });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/wallet/unhold — admin releases a held amount
+router.post("/unhold", requireAuth, async (req: AuthRequest, res) => {
+  const { target_user_id, amount, description } = req.body;
+  try {
+    if (req.userRole !== "admin" && !req.permissions?.canManageFinances) {
+        return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId: target_user_id } });
+    if (!wallet) return res.status(404).json({ error: "User wallet not found" });
+
+    const currentHoldBalance = Number(wallet.holdBalance || 0);
+    const unholdAmount = Number(amount);
+
+    if (currentHoldBalance < unholdAmount) {
+        return res.status(400).json({ error: "Cannot release more than the currently held amount" });
+    }
+
+    const newBalance = roundCurrency(Number(wallet.balance) + unholdAmount);
+    const newHoldBalance = roundCurrency(currentHoldBalance - unholdAmount);
+
+    const [, txn] = await prisma.$transaction([
+      prisma.wallet.update({ 
+        where: { userId: target_user_id }, 
+        data: { 
+            balance: newBalance,
+            holdBalance: newHoldBalance
+        } 
+      }),
+      prisma.walletTransaction.create({
+        data: {
+          toUserId: target_user_id,
+          fromUserId: target_user_id,
+          amount: unholdAmount,
+          type: "unhold",
+          description: description || "Admin Released Hold Amount",
+          fromBalanceAfter: newBalance,
+          toBalanceAfter: newBalance,
+          createdBy: req.userId!,
+        },
+      }),
+    ]);
+
+    await prisma.notification.create({
+      data: {
+        userId: target_user_id,
+        title: "Amount Released 🔓",
+        message: `An amount of ₹${amount} has been released to your wallet by Admin.`,
+        type: "success",
+      },
+    });
+
+    res.json({ success: true, balance: newBalance, holdBalance: newHoldBalance });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 export default router;
