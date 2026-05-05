@@ -73,7 +73,21 @@ router.get("/profile", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// PATCH /api/users/profile — update own profile
+// PATCH /api/users/me — update own profile (fullName)
+router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
+  const { fullName, phone, businessName, callbackUrl } = req.body;
+  try {
+    const profile = await prisma.profile.update({
+      where: { userId: req.userId! },
+      data: { fullName, phone, businessName, callbackUrl },
+    });
+    res.json(profile);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PATCH /api/users/profile — update own profile (full profile)
 router.patch("/profile", requireAuth, async (req: AuthRequest, res) => {
   const { fullName, phone, businessName, callbackUrl } = req.body;
   try {

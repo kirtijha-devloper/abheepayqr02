@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import { API_BASE } from '../config';
 import { useToast } from '../context/ToastContext';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import './AdminSettingsPage.css';
 
 const defaultPayoutConfig = {
@@ -23,8 +24,9 @@ const defaultLocalSettings = {
 const AdminSettingsPage = () => {
   const navigate = useNavigate();
   const { success, error } = useToast();
+  const { user } = useAuth();
   const { bankAccounts, addBankAccount, deleteBankAccount } = useAppContext();
-  const [activeTab, setActiveTab] = useState('payouts');
+  const [activeTab, setActiveTab] = useState('profile');
   const [newBank, setNewBank] = useState({
     bankName: '',
     accountName: '',
@@ -123,6 +125,33 @@ const AdminSettingsPage = () => {
     confirm: ''
   });
 
+  // Profile state
+  const [profileName, setProfileName] = useState(user?.name || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const handleUpdateName = async () => {
+    if (!profileName.trim()) { error('Name cannot be empty.'); return; }
+    setIsSavingProfile(true);
+    const token = sessionStorage.getItem('authToken');
+    try {
+      const res = await fetch(`${API_BASE}/users/me`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ fullName: profileName.trim() }),
+      });
+      if (res.ok) {
+        success('Name updated successfully.');
+      } else {
+        const data = await res.json();
+        error(data.error || 'Failed to update name.');
+      }
+    } catch (err) {
+      error('Error updating name.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const handleChangePassword = async () => {
     if (passwords.new !== passwords.confirm) {
       error('Passwords do not match.');
@@ -159,7 +188,7 @@ const AdminSettingsPage = () => {
   };
 
   const tabs = [
-    { id: 'payouts', label: 'Payout Charges', icon: 'PC' },
+    { id: 'profile', label: 'Profile', icon: 'PR' },
     { id: 'banks', label: 'Bank Accounts', icon: 'BA' },
     { id: 'notifications', label: 'Notifications', icon: 'NT' },
     { id: 'security', label: 'Security', icon: 'SC' },
@@ -202,6 +231,62 @@ const AdminSettingsPage = () => {
             </div>
 
             <div className="settings-main-portal">
+              {activeTab === 'profile' && (
+                <div className="portal-card card animated-fade-in">
+                  <div className="portal-header">
+                    <h3>Profile</h3>
+                    <p>Update your display name and account details.</p>
+                  </div>
+                  <div className="portal-content">
+                    <div className="setting-group">
+                      <label className="setting-label">Display Name</label>
+                      <p style={{ fontSize: '13px', color: 'var(--text-mute)', marginBottom: '12px' }}>
+                        Current: <strong style={{ color: 'var(--text-h)' }}>{user?.name || 'Not set'}</strong>
+                      </p>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          className="setting-input"
+                          placeholder="Enter new name"
+                          value={profileName}
+                          onChange={e => setProfileName(e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          className="save-settings-btn"
+                          style={{ whiteSpace: 'nowrap', padding: '10px 24px' }}
+                          onClick={handleUpdateName}
+                          disabled={isSavingProfile}
+                        >
+                          {isSavingProfile ? 'Saving...' : 'Update Name'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="setting-group" style={{ marginTop: '2rem' }}>
+                      <label className="setting-label">Email</label>
+                      <input
+                        type="text"
+                        className="setting-input"
+                        value={user?.email || ''}
+                        disabled
+                        style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                      />
+                      <p style={{ fontSize: '12px', color: 'var(--text-mute)', marginTop: '6px' }}>Email cannot be changed.</p>
+                    </div>
+                    <div className="setting-group" style={{ marginTop: '2rem' }}>
+                      <label className="setting-label">Role</label>
+                      <input
+                        type="text"
+                        className="setting-input"
+                        value={user?.role ? user.role.toUpperCase() : ''}
+                        disabled
+                        style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'banks' && (
                 <div className="portal-card card animated-fade-in">
                   <div className="portal-header">
