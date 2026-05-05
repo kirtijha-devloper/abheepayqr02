@@ -183,7 +183,7 @@ const QrCodesPage = () => {
                 <p className="subtitle">{activeQr ? `Showing ${activeQr.label}` : 'No QR codes assigned.'}</p>
               </div>
               <div className="qr-card-exact card">
-                <div className="qr-frame" style={{ background: 'white', padding: '24px', borderRadius: '24px' }}>
+                <div className="qr-frame">
                   {activeQr ? (
                     <QRCodeSVG value={upiString} size={256} />
                   ) : (
@@ -212,7 +212,7 @@ const QrCodesPage = () => {
                     style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '18px' }}
                   />
                 </div>
-                <div className="qr-frame" style={{ background: 'white', padding: '24px', borderRadius: '24px', margin: '1.5rem' }}>
+                <div className="qr-frame" style={{ margin: '1.5rem' }}>
                   {activeQr ? (
                     <QRCodeSVG value={dynamicUpiString} size={256} />
                   ) : (

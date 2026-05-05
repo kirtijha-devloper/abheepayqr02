@@ -54,8 +54,8 @@
 }
 
 .qr-card-exact {
-  width: 100%;
-  max-width: 480px;
+  width: fit-content;
+  max-width: 360px;
   background: var(--surface-glass);
   backdrop-filter: blur(20px);
   border: 1px solid var(--border-glass);
@@ -230,6 +230,9 @@
   background: white;
   border-radius: 16px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @keyframes scan-move {
