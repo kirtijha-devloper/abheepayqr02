@@ -238,50 +238,52 @@ const AdminSettingsPage = () => {
                     <p>Update your display name and account details.</p>
                   </div>
                   <div className="portal-content">
-                    <div className="setting-group">
-                      <label className="setting-label">Display Name</label>
-                      <p style={{ fontSize: '13px', color: 'var(--text-mute)', marginBottom: '12px' }}>
-                        Current: <strong style={{ color: 'var(--text-h)' }}>{user?.name || 'Not set'}</strong>
-                      </p>
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div className="form-grid-v2">
+                      <div className="form-group-v2 full-width">
+                        <label>Display Name</label>
+                        <div className="profile-header-info" style={{ marginBottom: '8px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                           <span style={{ color: 'var(--text-mute)', fontSize: '13px' }}>Current: </span>
+                           <strong style={{ color: 'var(--text-h)', fontSize: '15px' }}>{user?.name || 'Not set'}</strong>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                          <input
+                            type="text"
+                            className="premium-input"
+                            placeholder="Enter new display name"
+                            value={profileName}
+                            onChange={e => setProfileName(e.target.value)}
+                          />
+                          <button
+                            className="settings-save-btn"
+                            onClick={handleUpdateName}
+                            disabled={isSavingProfile}
+                            style={{ padding: '0 24px', height: '48px', whiteSpace: 'nowrap' }}
+                          >
+                            {isSavingProfile ? 'Saving...' : 'Update Name'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="form-group-v2">
+                        <label>Email Address</label>
                         <input
                           type="text"
-                          className="setting-input"
-                          placeholder="Enter new name"
-                          value={profileName}
-                          onChange={e => setProfileName(e.target.value)}
-                          style={{ flex: 1 }}
+                          className="premium-input payout-readonly-input"
+                          value={user?.email || ''}
+                          disabled
                         />
-                        <button
-                          className="save-settings-btn"
-                          style={{ whiteSpace: 'nowrap', padding: '10px 24px' }}
-                          onClick={handleUpdateName}
-                          disabled={isSavingProfile}
-                        >
-                          {isSavingProfile ? 'Saving...' : 'Update Name'}
-                        </button>
+                        <p className="settings-helper-text">Email cannot be changed.</p>
                       </div>
-                    </div>
-                    <div className="setting-group" style={{ marginTop: '2rem' }}>
-                      <label className="setting-label">Email</label>
-                      <input
-                        type="text"
-                        className="setting-input"
-                        value={user?.email || ''}
-                        disabled
-                        style={{ opacity: 0.5, cursor: 'not-allowed' }}
-                      />
-                      <p style={{ fontSize: '12px', color: 'var(--text-mute)', marginTop: '6px' }}>Email cannot be changed.</p>
-                    </div>
-                    <div className="setting-group" style={{ marginTop: '2rem' }}>
-                      <label className="setting-label">Role</label>
-                      <input
-                        type="text"
-                        className="setting-input"
-                        value={user?.role ? user.role.toUpperCase() : ''}
-                        disabled
-                        style={{ opacity: 0.5, cursor: 'not-allowed' }}
-                      />
+
+                      <div className="form-group-v2">
+                        <label>User Role</label>
+                        <input
+                          type="text"
+                          className="premium-input payout-readonly-input"
+                          value={user?.role ? user.role.toUpperCase() : ''}
+                          disabled
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
