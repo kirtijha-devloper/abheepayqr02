@@ -48,7 +48,7 @@ const DashboardPage = () => {
       totalCount: transactions.length,
       totalVolume: transactions.filter(t => t.type === 'credit').reduce((sum, t) => sum + t.amount, 0),
       successRate: transactions.length ? ((transactions.filter(t => t.status === 'Completed').length / transactions.length) * 100).toFixed(1) : '0.0',
-      activeQrs: (qrCodes || []).filter(q => q && (q.status?.toLowerCase() === 'active')).length,
+      activeQrs: (qrCodes || []).filter(q => q && (q.status || '').toLowerCase() === 'active').length,
     };
   }, [transactions, qrCodes]);
 
