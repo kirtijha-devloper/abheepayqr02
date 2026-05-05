@@ -41,7 +41,7 @@ const AdminDashboard = () => {
       todaysVolume: todaysTxns.reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0),
       totalMerchants: (merchants || []).length,
       successRate,
-      activeQrs: (qrCodes || []).filter(q => q && (q.status || '').toLowerCase() === 'active').length,
+      activeQrs: (qrCodes || []).filter(q => q && (q.status || '').toLowerCase() !== 'disabled').length,
       pendingPayoutsTotal,
       pendingFundRequestsCount
     };
@@ -131,12 +131,12 @@ const AdminDashboard = () => {
               to="/admin/transactions"
             />
             <MetricCard 
-              title="ACTIVE QR CODES" 
+              title="TOTAL ACTIVE QRS" 
               value={metrics.activeQrs.toString()} 
               icon="⊞" 
               iconBg="warning"
               period="on-field devices"
-              to="/admin/qr-codes"
+              to="/admin/qr-codes?tab=inventory"
             />
             <MetricCard 
               title="PENDING PAYOUTS" 

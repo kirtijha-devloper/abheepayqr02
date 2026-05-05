@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import ManualQrModal from '../components/ManualQrModal';
@@ -11,7 +12,11 @@ import JSZip from 'jszip';
 import './QrCodesAdminPage.css';
 
 const QrCodesAdminPage = () => {
-  const [activeTab, setActiveTab] = useState('upload'); // 'upload' or 'manage'
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialTab = searchParams.get('tab') === 'inventory' ? 'manage' : 'upload';
+  
+  const [activeTab, setActiveTab] = useState(initialTab); // 'upload' or 'manage'
   const [uploadMode, setUploadMode] = useState('single');
   const [expandedSection, setExpandedSection] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
