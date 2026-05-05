@@ -16,6 +16,13 @@
   RewriteRule ^ /index.html [L]
 </IfModule>
 
+# Prevent index.html from being served for missing assets (force 404)
+# This prevents browsers from trying to execute index.html as a JS script
+<IfModule mod_rewrite.c>
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^assets/.*$ - [R=404,L]
+</IfModule>
+
 # Ensure correct MIME types for JS modules
 <IfModule mod_mime.c>
   AddType application/javascript .js .mjs

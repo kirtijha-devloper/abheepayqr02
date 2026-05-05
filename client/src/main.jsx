@@ -10,6 +10,21 @@ document.addEventListener("wheel", (e) => {
   }
 });
 
+// Deployment fix: Reload page if a dynamic import fails (old build files gone)
+window.addEventListener('vite:preloadError', (event) => {
+  console.log('Vite preload error detected, reloading page...', event);
+  window.location.reload();
+});
+
+// Generic catch for dynamic import failures
+window.addEventListener('error', (event) => {
+  if (event.message?.includes('Failed to fetch dynamically') || 
+      event.message?.includes('Importing a module script failed')) {
+    console.log('Dynamic import error caught, reloading...', event.message);
+    window.location.reload();
+  }
+}, true);
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
