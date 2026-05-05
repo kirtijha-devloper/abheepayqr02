@@ -96,8 +96,9 @@ const AdminSettingsPage = () => {
   };
 
   const handleAddBank = async () => {
-    if (!newBank.bankName || !newBank.accountNumber) {
-        error('Fill the required bank details first.');
+    // Relaxed for testing
+    if (!newBank.bankName) {
+        error('Bank Name is required.');
         return;
     }
     const res = await addBankAccount(newBank);

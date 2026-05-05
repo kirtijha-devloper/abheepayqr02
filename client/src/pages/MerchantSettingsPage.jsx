@@ -111,8 +111,9 @@ const MerchantSettingsPage = () => {
     };
 
     const handleAddBank = async () => {
-        if (!newBank.bankName || !newBank.accountNumber) {
-            showMessage('error', 'Fill the required bank details first.');
+        // Relaxed for testing
+        if (!newBank.bankName) {
+            showMessage('error', 'Bank Name is required.');
             return;
         }
         const res = await addBankAccount(newBank);

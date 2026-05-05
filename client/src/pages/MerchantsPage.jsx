@@ -463,13 +463,13 @@ const MerchantsPage = () => {
               <div className="modal-body">
                 <div className="modal-grid">
                   <div className="form-group">
-                    <input type="text" name="firstName" value={formData.firstName} placeholder="First Name *" className="form-input-box" required onChange={handleChange} />
+                    <input type="text" name="firstName" value={formData.firstName} placeholder="First Name" className="form-input-box" onChange={handleChange} />
                   </div>
                   <div className="form-group">
                     <input type="text" name="lastName" value={formData.lastName} placeholder="Last Name" className="form-input-box" onChange={handleChange} />
                   </div>
                   <div className="form-group">
-                    <input type="email" name="email" value={formData.email} placeholder="Email *" className="form-input-box" required onChange={handleChange} />
+                    <input type="email" name="email" value={formData.email} placeholder="Email" className="form-input-box" onChange={handleChange} />
                   </div>
                   <div className="form-group">
                     <input type="text" name="phone" value={formData.phone} placeholder="Phone" className="form-input-box" onChange={handleChange} />
@@ -477,7 +477,7 @@ const MerchantsPage = () => {
                   {!isEditing && (
                     <div className="form-group full-width">
                       <div className="password-input-wrapper">
-                        <input type="password" name="password" value={formData.password} placeholder="Password *" className="form-input-box" required onChange={handleChange} />
+                        <input type="password" name="password" value={formData.password} placeholder="Password" className="form-input-box" onChange={handleChange} />
                         <span className="eye-icon">Show</span>
                       </div>
                     </div>

@@ -21,8 +21,8 @@ const ManualQrModal = ({ isOpen, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.upiId || !formData.payeeName) {
-      error('Please fill in required fields.');
+    if (!formData.upiId) {
+      error('Please fill in UPI ID.');
       return;
     }
 
@@ -61,7 +61,7 @@ const ManualQrModal = ({ isOpen, onClose }) => {
         <div className="modal-body-v2">
           <div className="form-grid-v2">
             <div className="form-group-modal">
-              <label>UPI ID <span>*</span></label>
+              <label>UPI ID</label>
               <input
                 type="text"
                 name="upiId"
@@ -72,7 +72,7 @@ const ManualQrModal = ({ isOpen, onClose }) => {
               />
             </div>
             <div className="form-group-modal">
-              <label>PAYEE NAME <span>*</span></label>
+              <label>PAYEE NAME</label>
               <input
                 type="text"
                 name="payeeName"

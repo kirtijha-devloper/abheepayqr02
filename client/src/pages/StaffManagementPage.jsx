@@ -225,11 +225,11 @@ const StaffManagementPage = () => {
                   <div className="modal-grid">
                     <div className="form-group full-width">
                       <label htmlFor="fullName">Full Name</label>
-                      <input type="text" id="fullName" name="fullName" value={formData.fullName} placeholder="e.g. John Doe" className="form-input-box" required onChange={handleChange} />
+                      <input type="text" id="fullName" name="fullName" value={formData.fullName} placeholder="e.g. John Doe" className="form-input-box" onChange={handleChange} />
                     </div>
                     <div className="form-group">
                       <label htmlFor="email">Email Address</label>
-                      <input type="email" id="email" name="email" value={formData.email} placeholder="name@example.com" className="form-input-box" required onChange={handleChange} disabled={isEditing} />
+                      <input type="email" id="email" name="email" value={formData.email} placeholder="name@example.com" className="form-input-box" onChange={handleChange} disabled={isEditing} />
                     </div>
                     <div className="form-group">
                       <label htmlFor="phone">Phone Number</label>
@@ -238,7 +238,7 @@ const StaffManagementPage = () => {
                     {!isEditing && (
                       <div className="form-group full-width">
                         <label htmlFor="password">Login Password</label>
-                        <input type="password" id="password" name="password" value={formData.password} placeholder="Minimum 6 characters" className="form-input-box" required onChange={handleChange} />
+                        <input type="password" id="password" name="password" value={formData.password} placeholder="Minimum 6 characters" className="form-input-box" onChange={handleChange} />
                       </div>
                     )}
                   </div>
