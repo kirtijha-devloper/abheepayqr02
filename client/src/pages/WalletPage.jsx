@@ -33,7 +33,8 @@ const WalletPage = () => {
   const handleOpenPayout = async () => {
     if (bankAccounts.length === 0) {
       info('Please add a bank account in Settings first.');
-      navigate('/settings');
+      const settingsPath = (user?.role === 'admin' || user?.role === 'staff' || user?.role === 'master') ? '/admin/settings' : '/settings';
+      navigate(settingsPath);
       return;
     }
 
@@ -165,11 +166,9 @@ const WalletPage = () => {
                 Rs {(Number(wallet?.eWalletBalance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
               <div className="wallet-actions" style={{ marginTop: '20px' }}>
-                {user?.role !== 'admin' && (
-                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
-                    <span style={{ fontSize: '1.2rem', marginRight: '8px' }}>💸</span> Request Settlement (Bank)
-                  </button>
-                )}
+                <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
+                  <span style={{ fontSize: '1.2rem', marginRight: '8px' }}>💸</span> Request Settlement (Bank)
+                </button>
               </div>
             </div>
           </div>

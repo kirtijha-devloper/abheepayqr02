@@ -37,7 +37,9 @@ export const AppProvider = ({ children }) => {
                 fetch(`${API_BASE}/users`, { headers: getHeaders() }),
                 fetch(`${API_BASE}/qrcodes`, { headers: getHeaders() }),
                 fetch(`${API_BASE}/transactions`, { headers: getHeaders() }),
-                fetch(`${API_BASE}/wallet/transactions`, { headers: getHeaders() })
+                fetch(`${API_BASE}/wallet/transactions`, { headers: getHeaders() }),
+                fetch(`${API_BASE}/fund-requests`, { headers: getHeaders() }),
+                fetch(`${API_BASE}/wallet/settlements?status=pending`, { headers: getHeaders() })
             ]);
 
             // Process each result independently
@@ -49,7 +51,6 @@ export const AppProvider = ({ children }) => {
             if (results[1].status === 'fulfilled' && results[1].value.ok) {
                 const data = await results[1].value.json();
                 if (Array.isArray(data)) {
-                    // Filter out admins and staff from the main merchant list
                     const filtered = data.filter((user) => {
                         const r = (user.role || '').toLowerCase();
                         return r !== 'admin' && r !== 'staff';
@@ -81,6 +82,16 @@ export const AppProvider = ({ children }) => {
                 if (Array.isArray(data)) setWalletHistory(data);
             }
 
+            if (results[5].status === 'fulfilled' && results[5].value.ok) {
+                const data = await results[5].value.json();
+                setFundRequests(data);
+            }
+
+            if (results[6].status === 'fulfilled' && results[6].value.ok) {
+                const data = await results[6].value.json();
+                setSettlements(data);
+            }
+
             // Fetch Bank Accounts for Merchant separately
             const bankRes = await fetch(`${API_BASE}/bank-accounts`, { headers: getHeaders() });
             if (bankRes.ok) {
@@ -88,12 +99,6 @@ export const AppProvider = ({ children }) => {
                 setBankAccounts(data);
             }
 
-            // Fetch Pending Settlements for Dashboard counters
-            const setRes = await fetch(`${API_BASE}/wallet/settlements?status=pending`, { headers: getHeaders() });
-            if (setRes.ok) {
-                const data = await setRes.json();
-                setSettlements(data);
-            }
         } catch (err) {
             console.error("Failed to fetch data", err);
         } finally {
@@ -104,6 +109,13 @@ export const AppProvider = ({ children }) => {
     useEffect(() => {
         if (isAuthenticated) {
             fetchData();
+            
+            // Set up polling interval for auto-refresh (every 10 seconds)
+            const interval = setInterval(() => {
+                fetchData();
+            }, 10000);
+
+            return () => clearInterval(interval);
         }
     }, [fetchData, isAuthenticated, user?.id]);
 

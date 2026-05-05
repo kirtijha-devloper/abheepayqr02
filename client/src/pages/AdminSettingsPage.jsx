@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { API_BASE } from '../config';
 import { useToast } from '../context/ToastContext';
+import { useAppContext } from '../context/AppContext';
 import './AdminSettingsPage.css';
 
 const defaultPayoutConfig = {
@@ -22,7 +23,14 @@ const defaultLocalSettings = {
 const AdminSettingsPage = () => {
   const navigate = useNavigate();
   const { success, error } = useToast();
+  const { bankAccounts, addBankAccount, deleteBankAccount } = useAppContext();
   const [activeTab, setActiveTab] = useState('payouts');
+  const [newBank, setNewBank] = useState({
+    bankName: '',
+    accountName: '',
+    accountNumber: '',
+    ifscCode: ''
+  });
   const [dbSettings, setDbSettings] = useState({
     payout_config: JSON.stringify(defaultPayoutConfig),
   });
@@ -87,6 +95,63 @@ const AdminSettingsPage = () => {
     }
   };
 
+  const handleAddBank = async () => {
+    if (!newBank.bankName || !newBank.accountNumber) {
+        error('Fill the required bank details first.');
+        return;
+    }
+    const res = await addBankAccount(newBank);
+    if (res.success) {
+        success('Bank account added.');
+        setNewBank({ bankName: '', accountName: '', accountNumber: '', ifscCode: '' });
+    } else {
+        error('Failed to add bank account.');
+    }
+  };
+
+  const handleDeleteBank = async (id) => {
+    if (window.confirm("Remove this bank account?")) {
+        await deleteBankAccount(id);
+        success('Bank account removed.');
+    }
+  };
+
+  const [passwords, setPasswords] = useState({
+    current: '',
+    new: '',
+    confirm: ''
+  });
+
+  const handleChangePassword = async () => {
+    if (passwords.new !== passwords.confirm) {
+      error('Passwords do not match.');
+      return;
+    }
+    const token = sessionStorage.getItem('authToken');
+    try {
+      const res = await fetch(`${API_BASE}/auth/change-password`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          oldPassword: passwords.current, 
+          newPassword: passwords.new 
+        })
+      });
+      if (res.ok) {
+        success('Password changed successfully.');
+        setPasswords({ current: '', new: '', confirm: '' });
+      } else {
+        const data = await res.json();
+        error(data.error || 'Failed to change password.');
+      }
+    } catch (err) {
+      error('Error updating password.');
+    }
+  };
+
   const handleReset = () => {
     setSettings(defaultLocalSettings);
     setDbSettings({ payout_config: JSON.stringify(defaultPayoutConfig) });
@@ -94,6 +159,7 @@ const AdminSettingsPage = () => {
 
   const tabs = [
     { id: 'payouts', label: 'Payout Charges', icon: 'PC' },
+    { id: 'banks', label: 'Bank Accounts', icon: 'BA' },
     { id: 'notifications', label: 'Notifications', icon: 'NT' },
     { id: 'security', label: 'Security', icon: 'SC' },
   ];
@@ -107,7 +173,7 @@ const AdminSettingsPage = () => {
           <div className="settings-header">
             <div className="text-section">
               <h2>System Settings</h2>
-              <p>Configure platform preferences, security, and integration hooks.</p>
+              <p>Configure platform preferences, security, and settlement accounts.</p>
             </div>
           </div>
 
@@ -128,13 +194,107 @@ const AdminSettingsPage = () => {
               </div>
 
               <div className="settings-info-box">
-                <h4>Need Help?</h4>
-                <p>Read our documentation for advanced configuration guides.</p>
-                <button className="docs-link-btn" onClick={() => navigate('/docs')}>View Documentation</button>
+                <h4>Settlements Info</h4>
+                <p>Whitelisted accounts are used for manual and automated payouts.</p>
+                <button className="docs-link-btn" onClick={() => navigate('/admin/settlements')}>Manage Settlements</button>
               </div>
             </div>
 
             <div className="settings-main-portal">
+              {activeTab === 'banks' && (
+                <div className="portal-card card animated-fade-in">
+                  <div className="portal-header">
+                    <h3>Settlement Bank Accounts</h3>
+                    <p>Manage whitelisted accounts where you receive your payouts and commissions.</p>
+                  </div>
+                  <div className="portal-content">
+                    <div className="bank-list-v2">
+                      {bankAccounts.length === 0 ? (
+                        <div style={{ padding: '32px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                          <div style={{ fontSize: '24px', marginBottom: '8px' }}>🏦</div>
+                          <p style={{ color: 'var(--text-mute)', fontSize: '14px' }}>No bank accounts linked to your profile.</p>
+                        </div>
+                      ) : (
+                        bankAccounts.map(bank => (
+                          <div key={bank.id} className="bank-item-v2">
+                            <div className="bank-info-v2">
+                              <div className="bank-name">{bank.bankName}</div>
+                              <div className="bank-details">
+                                {bank.accountNumber} <span style={{ opacity: 0.3, margin: '0 8px' }}>|</span> {bank.ifscCode}
+                              </div>
+                              <div className="holder-name">{bank.accountName}</div>
+                            </div>
+                            <button 
+                              className="action-btn danger-btn" 
+                              onClick={() => handleDeleteBank(bank.id)}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="portal-divider"></div>
+
+                    <div className="add-bank-form-v2">
+                      <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Link New Account</h4>
+                      <div className="form-row-grid">
+                        <div className="form-group-v2">
+                          <label>Bank Name</label>
+                          <input 
+                            type="text" 
+                            className="premium-input" 
+                            placeholder="e.g. State Bank of India"
+                            value={newBank.bankName}
+                            onChange={e => setNewBank({...newBank, bankName: e.target.value})}
+                          />
+                        </div>
+                        <div className="form-group-v2">
+                          <label>Account Holder Name</label>
+                          <input 
+                            type="text" 
+                            className="premium-input" 
+                            placeholder="As per bank records"
+                            value={newBank.accountName}
+                            onChange={e => setNewBank({...newBank, accountName: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                      <div className="form-row-grid" style={{ marginTop: '16px' }}>
+                        <div className="form-group-v2">
+                          <label>Account Number</label>
+                          <input 
+                            type="text" 
+                            className="premium-input" 
+                            placeholder="Enter full account number"
+                            value={newBank.accountNumber}
+                            onChange={e => setNewBank({...newBank, accountNumber: e.target.value})}
+                          />
+                        </div>
+                        <div className="form-group-v2">
+                          <label>IFSC Code</label>
+                          <input 
+                            type="text" 
+                            className="premium-input" 
+                            placeholder="e.g. SBIN0001234"
+                            value={newBank.ifscCode}
+                            onChange={e => setNewBank({...newBank, ifscCode: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                      <button 
+                        className="premium-btn primary" 
+                        onClick={handleAddBank}
+                        style={{ marginTop: '24px', width: 'auto', padding: '12px 32px' }}
+                      >
+                        Add Bank Account
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'notifications' && (
                 <div className="portal-card card animated-fade-in">
                   <div className="portal-header">
@@ -178,19 +338,37 @@ const AdminSettingsPage = () => {
                     <div className="security-section">
                       <div className="form-group-v2">
                         <label>Current Password</label>
-                        <input type="password" placeholder="Current password" className="premium-input" />
+                        <input 
+                          type="password" 
+                          placeholder="Current password" 
+                          className="premium-input" 
+                          value={passwords.current}
+                          onChange={e => setPasswords({...passwords, current: e.target.value})}
+                        />
                       </div>
                       <div className="form-row-grid">
                         <div className="form-group-v2">
                           <label>New Password</label>
-                          <input type="password" placeholder="Min 8 characters" className="premium-input" />
+                          <input 
+                            type="password" 
+                            placeholder="Min 8 characters" 
+                            className="premium-input" 
+                            value={passwords.new}
+                            onChange={e => setPasswords({...passwords, new: e.target.value})}
+                          />
                         </div>
                         <div className="form-group-v2">
                           <label>Confirm Password</label>
-                          <input type="password" placeholder="Repeat new password" className="premium-input" />
+                          <input 
+                            type="password" 
+                            placeholder="Repeat new password" 
+                            className="premium-input" 
+                            value={passwords.confirm}
+                            onChange={e => setPasswords({...passwords, confirm: e.target.value})}
+                          />
                         </div>
                       </div>
-                      <button className="action-link-btn">Update Password</button>
+                      <button className="premium-btn primary" onClick={handleChangePassword} style={{ marginTop: '20px', width: 'auto', padding: '12px 32px' }}>Update Password</button>
                     </div>
 
                     <div className="portal-divider"></div>
