@@ -249,7 +249,7 @@ router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerId = req.userId!;
     const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
-    const isAdmin = roleRow?.role === "admin";
+    const isAdmin = roleRow?.role === "admin" || roleRow?.role === "master" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
     const isMerchant = roleRow?.role === "merchant";
 
     if (!isAdmin && !isMerchant) {
@@ -319,7 +319,7 @@ router.post("/:id/unassign", requireAuth, async (req: AuthRequest, res) => {
   const { id } = req.params;
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const isAdmin = roleRow?.role === "admin";
+    const isAdmin = roleRow?.role === "admin" || roleRow?.role === "master" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
 
     const qr = await prisma.qrCode.findUnique({ where: { id } });
     if (!qr) return res.status(404).json({ error: "QR Code not found" });
