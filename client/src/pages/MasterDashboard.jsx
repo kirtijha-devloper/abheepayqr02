@@ -40,7 +40,7 @@ const MasterDashboard = () => {
       successRate: (transactions || []).length
         ? ((successCount / transactions.length) * 100).toFixed(1)
         : '0.0',
-      activeQrs: (qrCodes || []).filter(q => q?.status === 'active' || q?.status === 'Active').length,
+      activeQrs: (qrCodes || []).filter(q => q && (q.status?.toLowerCase() === 'active')).length,
       pendingRequests,
       walletBalance: Number(wallet?.balance || 0),
       trendData: trendData.length ? trendData : [{ name: 'No data', value: 0 }],

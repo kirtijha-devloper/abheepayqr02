@@ -41,7 +41,7 @@ const AdminDashboard = () => {
       todaysVolume: todaysTxns.reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0),
       totalMerchants: (merchants || []).length,
       successRate,
-      activeQrs: (qrCodes || []).filter(q => q && q.status === 'Active').length,
+      activeQrs: (qrCodes || []).filter(q => q && (q.status?.toLowerCase() === 'active')).length,
       pendingPayoutsTotal,
       pendingFundRequestsCount
     };
