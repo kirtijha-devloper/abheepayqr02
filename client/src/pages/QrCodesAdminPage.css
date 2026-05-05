@@ -541,6 +541,27 @@
   color: var(--accent);
 }
 
+.upi-expandable {
+  cursor: pointer;
+  border-bottom: 1px dashed rgba(124, 108, 248, 0.4);
+  padding-bottom: 1px;
+  letter-spacing: 0.04em;
+  transition: color 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.upi-expandable:hover {
+  color: #a78bfa;
+  border-bottom-color: rgba(167, 139, 250, 0.7);
+}
+
+.upi-expandable.expanded {
+  white-space: normal;
+  word-break: break-all;
+  border-bottom-style: solid;
+}
+
 .mid-label-cell { display: flex; flex-direction: column; gap: 2px; }
 .label-text { font-size: 0.875rem; font-weight: 600; color: var(--text-h); }
 .mid-text { font-size: 0.75rem; color: var(--text-mute); font-family: monospace; }

@@ -38,6 +38,18 @@ const QrCodesAdminPage = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editQrData, setEditQrData] = useState(null);
 
+  // UPI expand state
+  const [expandedUpiIds, setExpandedUpiIds] = useState(new Set());
+  const toggleUpiExpand = (id, e) => {
+    e.stopPropagation();
+    setExpandedUpiIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const fileInputRef = useRef(null);
   const { success, error } = useToast();
   const { 
@@ -723,7 +735,16 @@ const QrCodesAdminPage = () => {
                                   ) : (
                                       <div className="qr-thumb-small">▦</div>
                                   )}
-                                  <span className="upi-text">{item.upiId}</span>
+                                  <span
+                                    className={`upi-text upi-expandable ${expandedUpiIds.has(item.id) ? 'expanded' : ''}`}
+                                    onClick={(e) => toggleUpiExpand(item.id, e)}
+                                    title="Click to expand/collapse"
+                                  >
+                                    {expandedUpiIds.has(item.id)
+                                      ? item.upiId
+                                      : `${(item.upiId || '').substring(0, 4)}••••`
+                                    }
+                                  </span>
                                 </div>
                               </td>
                               <td>
