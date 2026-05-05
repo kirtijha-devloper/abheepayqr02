@@ -239,7 +239,7 @@ router.post("/assign-by-tid", requireAuth, requirePermission("canManageServices"
   }
 });
 
-// POST /api/qrcodes/assign-by-ids — Assign QR codes by their IDs (admin or merchant)
+// POST /api/qrcodes/assign-by-ids — Any upline can assign their inventory QRs to their direct downline
 router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
   const { ids, merchantId } = req.body;
   if (!Array.isArray(ids) || ids.length === 0 || !merchantId) {
@@ -250,11 +250,6 @@ router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
     const callerId = req.userId!;
     const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
     const isAdmin = roleRow?.role === "admin" || roleRow?.role === "master" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
-    const isMerchant = roleRow?.role === "merchant";
-
-    if (!isAdmin && !isMerchant) {
-        return res.status(403).json({ error: "Unauthorized" });
-    }
 
     const targetUser = await prisma.user.findUnique({
       where: { id: merchantId },
@@ -263,29 +258,30 @@ router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
 
     if (!targetUser) return res.status(404).json({ error: "Target user not found" });
 
-    // If Merchant is assigning, verify the target is THEIR branch
-    if (isMerchant) {
-        const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
-        if (targetUser.profile?.parentId !== myProfile?.id) {
-            return res.status(403).json({ error: "You can only assign QRs to your own branches." });
-        }
-    }
-
-    // Check ownership of the QRs being assigned
-    const qrsToAssign = await prisma.qrCode.findMany({
-        where: { id: { in: ids } }
-    });
-
-    if (qrsToAssign.length !== ids.length) {
-        return res.status(400).json({ error: "Some QR codes not found." });
-    }
-
     if (!isAdmin) {
-        // Merchant can only assign QRs currently assigned to themselves
-        const invalidQrs = qrsToAssign.filter(qr => qr.merchantId !== callerId);
-        if (invalidQrs.length > 0) {
-            return res.status(403).json({ error: "You can only assign QRs that are currently assigned to you." });
-        }
+      // Non-admins: target must be their direct downline
+      const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
+      if (!myProfile) return res.status(403).json({ error: "Profile not found" });
+      
+      if (targetUser.profile?.parentId !== myProfile.id) {
+        return res.status(403).json({ error: "You can only assign QRs to your direct downline members." });
+      }
+
+      // QRs must currently be in caller's inventory
+      const qrsToAssign = await prisma.qrCode.findMany({ where: { id: { in: ids } } });
+      if (qrsToAssign.length !== ids.length) {
+        return res.status(400).json({ error: "Some QR codes not found." });
+      }
+      const notOwned = qrsToAssign.filter(qr => qr.merchantId !== callerId);
+      if (notOwned.length > 0) {
+        return res.status(403).json({ error: `${notOwned.length} QR code(s) are not in your inventory.` });
+      }
+    } else {
+      // Admin: just verify QRs exist
+      const qrsToAssign = await prisma.qrCode.findMany({ where: { id: { in: ids } } });
+      if (qrsToAssign.length !== ids.length) {
+        return res.status(400).json({ error: "Some QR codes not found." });
+      }
     }
 
     const updated = await prisma.qrCode.updateMany({
@@ -296,7 +292,6 @@ router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
       },
     });
 
-    // Notify the target user
     if (updated.count > 0) {
       await prisma.notification.create({
         data: {
@@ -309,6 +304,47 @@ router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
     }
 
     res.json({ success: true, count: updated.count });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/qrcodes/my-downline — Get direct downline members of the caller
+router.get("/my-downline", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerId = req.userId!;
+    const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
+    const isAdmin = roleRow?.role === "admin" || roleRow?.role === "master" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
+
+    if (isAdmin) {
+      // Admins: return all users (they can assign to anyone)
+      const allUsers = await prisma.profile.findMany({
+        include: { user: { select: { id: true, email: true } } },
+        orderBy: { fullName: 'asc' }
+      });
+      return res.json(allUsers.map(p => ({
+        id: p.user?.id,
+        userId: p.user?.id,
+        fullName: p.fullName || p.user?.email,
+        email: p.user?.email,
+      })));
+    }
+
+    const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
+    if (!myProfile) return res.json([]);
+
+    const downline = await prisma.profile.findMany({
+      where: { parentId: myProfile.id },
+      include: { user: { select: { id: true, email: true } } },
+      orderBy: { fullName: 'asc' }
+    });
+
+    res.json(downline.map(p => ({
+      id: p.user?.id,
+      userId: p.user?.id,
+      fullName: p.fullName || p.user?.email,
+      email: p.user?.email,
+    })));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
