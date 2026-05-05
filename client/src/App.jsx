@@ -56,7 +56,8 @@ function App() {
                   <Route path="/dashboard" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><DashboardPage /></ProtectedRoute>} />
                   <Route path="/transactions" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><TransactionsPage /></ProtectedRoute>} />
                   <Route path="/reports" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><ReportsPage /></ProtectedRoute>} />
-                  <Route path="/qr-codes" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><QrCodesPage /></ProtectedRoute>} />
+                  <Route path="/qr-codes" element={<ProtectedRoute requiredRole={["branch"]}><QrCodesPage /></ProtectedRoute>} />
+                  <Route path="/merchant/qr-codes" element={<ProtectedRoute requiredRole={["merchant"]}><QrCodesAdminPage /></ProtectedRoute>} />
                   <Route path="/wallet" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><WalletPage /></ProtectedRoute>} />
                   <Route path="/api-services" element={<ProtectedRoute requiredRole="merchant"><ApiServicesPage /></ProtectedRoute>} />
                   <Route path="/branches" element={<ProtectedRoute requiredRole="merchant"><MerchantsPage /></ProtectedRoute>} />

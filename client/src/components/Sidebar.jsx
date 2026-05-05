@@ -66,7 +66,7 @@ const Sidebar = () => {
     { name: 'Dashboard', icon: '▦', path: '/dashboard' },
     { name: 'Transactions', icon: '⇄', path: '/transactions' },
     { name: 'Branches', icon: '👥', path: '/branches' },
-    { name: 'QR Codes', icon: '🔳', path: '/qr-codes' },
+    { name: 'QR Codes', icon: '🔳', path: '/merchant/qr-codes' },
     { name: 'Settlements', icon: '💸', path: '/settlements' },
     { name: 'Fund Requests', icon: '📥', path: '/fund-requests' },
     { name: 'Reconciliation', icon: '⚖', path: '/reconciliation' },

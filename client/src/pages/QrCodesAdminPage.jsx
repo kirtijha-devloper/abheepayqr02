@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import ManualQrModal from '../components/ManualQrModal';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { UPLOADS_BASE } from '../config';
+import { UPLOADS_BASE, API_BASE } from '../config';
 import jsQR from 'jsqr';
 import JSZip from 'jszip';
 import './QrCodesAdminPage.css';
@@ -52,10 +53,33 @@ const QrCodesAdminPage = () => {
 
   const fileInputRef = useRef(null);
   const { success, error } = useToast();
+  const { user } = useAuth();
   const { 
     qrCodes, addQrCode, bulkAddQrCodes, assignQrByTid, assignQrByIds, 
     unassignQrCode, merchants, deleteQrCode, updateQrCode, fetchData 
   } = useAppContext();
+
+  const isMerchantUser = user?.role === 'merchant';
+
+  // Fetch downline for merchant users (their direct branches)
+  const [downline, setDownline] = useState([]);
+  useEffect(() => {
+    const fetchDownline = async () => {
+      const token = sessionStorage.getItem('authToken');
+      try {
+        const res = await fetch(`${API_BASE}/qrcodes/my-downline`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) setDownline(await res.json());
+      } catch (e) {
+        console.error('Failed to fetch downline', e);
+      }
+    };
+    if (isMerchantUser) fetchDownline();
+  }, [isMerchantUser]);
+
+  // Use downline for merchants, full merchants list for admin/master
+  const assignTargets = isMerchantUser ? downline : merchants;
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -596,9 +620,9 @@ const QrCodesAdminPage = () => {
                     className="inner-input" 
                     style={{ width: '250px', background: 'rgba(0,0,0,0.5)', color: '#fff' }}
                   >
-                  <option value="">Select Merchant</option>
-                  {merchants.map(m => (
-                    <option key={m.id} value={m.userId || m.id}>{m.fullName || m.email}</option>
+                  <option value="">{isMerchantUser ? 'Select Branch' : 'Select Merchant'}</option>
+                  {assignTargets.map(m => (
+                    <option key={m.id || m.userId} value={m.userId || m.id}>{m.fullName || m.email}</option>
                   ))}
                   </select>
                   <button 
