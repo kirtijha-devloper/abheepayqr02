@@ -65,18 +65,32 @@ const AdminDashboard = () => {
   }, [transactions, timeRange]);
 
   const recentAlerts = useMemo(() => {
-    const alerts = (fundRequests || [])
-      .filter(f => (f.status || '').toLowerCase() === 'pending')
-      .slice(0, 5)
-      .map(f => ({
-        id: f.id,
-        type: 'Fund Request',
-        message: `New fund request of ₹${f.amount.toLocaleString()} received from ${f.user?.fullName || 'Merchant'}.`,
-        time: new Date(f.createdAt).toLocaleString(),
-        status: 'pending'
-      }));
-    return alerts;
-  }, [fundRequests]);
+    const alerts = [
+      ...(fundRequests || [])
+        .filter(f => (f.status || '').toLowerCase() === 'pending')
+        .map(f => ({
+          id: f.id,
+          type: 'REQ',
+          label: 'Fund Request',
+          message: `New fund request of ₹${f.amount.toLocaleString()} received from ${f.user?.fullName || 'Merchant'}.`,
+          time: new Date(f.createdAt).toLocaleString(),
+          path: '/admin/fund-requests'
+        })),
+      ...(settlements || [])
+        .filter(s => (s.status || '').toLowerCase() === 'pending')
+        .map(s => ({
+          id: s.id,
+          type: 'PAY',
+          label: 'Settlement',
+          message: `Payout request of ₹${s.amount.toLocaleString()} from ${s.user?.profile?.fullName || s.user?.fullName || 'Merchant'}.`,
+          time: new Date(s.createdAt).toLocaleString(),
+          path: '/admin/settlements'
+        }))
+    ];
+    
+    // Sort by time descending
+    return alerts.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 10);
+  }, [fundRequests, settlements]);
 
   return (
     <div className="dashboard-layout">
@@ -202,10 +216,10 @@ const AdminDashboard = () => {
           
           <section className="recent-txns-section card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 className="section-title" style={{ margin: 0 }}>SYSTEM ALERTS & FUND REQUESTS</h3>
-              {metrics.pendingFundRequestsCount > 0 && (
+              <h3 className="section-title" style={{ margin: 0 }}>SYSTEM ALERTS & ACTION ITEMS</h3>
+              {(metrics.pendingFundRequestsCount + (settlements?.filter(s => s.status === 'pending').length || 0)) > 0 && (
                 <span style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
-                  {metrics.pendingFundRequestsCount} PENDING
+                  {metrics.pendingFundRequestsCount + (settlements?.filter(s => s.status === 'pending').length || 0)} PENDING
                 </span>
               )}
             </div>
@@ -213,13 +227,13 @@ const AdminDashboard = () => {
               {recentAlerts.length === 0 ? (
                 <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
                   <div style={{ fontSize: '32px', marginBottom: '10px' }}>✅</div>
-                  <p>No new fund requests to process.</p>
+                  <p>No new requests or alerts to process.</p>
                 </div>
               ) : recentAlerts.map(alert => (
-                <div key={alert.id} className="activity-item" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/fund-requests')}>
-                  <span className="activity-icon info">REQ</span>
+                <div key={`${alert.type}-${alert.id}`} className="activity-item" style={{ cursor: 'pointer' }} onClick={() => navigate(alert.path)}>
+                  <span className={`activity-icon ${alert.type === 'REQ' ? 'info' : 'warning'}`}>{alert.type}</span>
                   <div className="activity-details">
-                    <p>{alert.message}</p>
+                    <p><strong>[{alert.label}]</strong> {alert.message}</p>
                     <span className="activity-time">{alert.time}</span>
                   </div>
                 </div>
