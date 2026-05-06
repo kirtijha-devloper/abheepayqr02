@@ -78,7 +78,9 @@ const WalletPage = () => {
   const handleConfirmPayout = async () => {
     if (!payoutAmount || Number(payoutAmount) <= 0) return error('Enter a valid amount.');
     if (!selectedBankId) return error('Please select a bank account.');
-    if (payoutTotal > Number(wallet?.balance || 0)) return error('Insufficient wallet balance.');
+    const isAdmin = user?.role === 'admin';
+    const checkBalance = isAdmin ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0);
+    if (payoutTotal > Number(checkBalance)) return error(`Insufficient ${isAdmin ? 'wallet' : 'payout wallet'} balance.`);
 
     setPayoutLoading(true);
     const res = await requestSettlement(payoutAmount, selectedBankId);
@@ -148,29 +150,37 @@ const WalletPage = () => {
           <div className="wallet-balance-card" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', background: 'transparent', padding: 0, boxShadow: 'none' }}>
             {/* Main Wallet */}
             <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
-              <div className="balance-label" style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>MAIN WALLET BALANCE</div>
+              <div className="balance-label" style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>{user?.role === 'admin' ? 'WALLET BALANCE' : 'MAIN WALLET BALANCE'}</div>
               <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: '#fff' }}>
                 Rs {(Number(wallet?.balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
               <div className="wallet-actions" style={{ marginTop: '20px' }}>
-                <button className="request-funds-btn" onClick={() => setShowFundModal(true)} style={{ width: '100%' }}>
-                  Transfer to Payout Wallet
-                </button>
+                {user?.role === 'admin' ? (
+                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
+                    <span style={{ fontSize: '1.2rem', marginRight: '8px' }}>💸</span> Request Settlement (Bank)
+                  </button>
+                ) : (
+                  <button className="request-funds-btn" onClick={() => setShowFundModal(true)} style={{ width: '100%' }}>
+                    Transfer to Payout Wallet
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Payout Wallet */}
-            <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
-              <div className="balance-label" style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>PAYOUT WALLET BALANCE</div>
-              <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: '#fff' }}>
-                Rs {(Number(wallet?.eWalletBalance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {/* Payout Wallet (Only for non-admins) */}
+            {user?.role !== 'admin' && (
+              <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
+                <div className="balance-label" style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>PAYOUT WALLET BALANCE</div>
+                <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: '#fff' }}>
+                  Rs {(Number(wallet?.eWalletBalance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+                <div className="wallet-actions" style={{ marginTop: '20px' }}>
+                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
+                    <span style={{ fontSize: '1.2rem', marginRight: '8px' }}>💸</span> Request Settlement (Bank)
+                  </button>
+                </div>
               </div>
-              <div className="wallet-actions" style={{ marginTop: '20px' }}>
-                <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
-                  <span style={{ fontSize: '1.2rem', marginRight: '8px' }}>💸</span> Request Settlement (Bank)
-                </button>
-              </div>
-            </div>
+            )}
           </div>
 
           {showPayoutModal && (
@@ -224,13 +234,13 @@ const WalletPage = () => {
                   </button>
                   <button
                     onClick={handleConfirmPayout}
-                    disabled={payoutLoading || !payoutAmount || payoutTotal > Number(wallet?.balance || 0)}
-                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: '700', cursor: 'pointer', opacity: (payoutLoading || !payoutAmount || payoutTotal > Number(wallet?.balance || 0)) ? 0.5 : 1 }}
+                    disabled={payoutLoading || !payoutAmount || payoutTotal > Number(user?.role === 'admin' ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0))}
+                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: '700', cursor: 'pointer', opacity: (payoutLoading || !payoutAmount || payoutTotal > Number(user?.role === 'admin' ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0))) ? 0.5 : 1 }}
                   >
                     {payoutLoading ? 'Processing...' : 'Confirm Payout'}
                   </button>
                 </div>
-                {payoutTotal > Number(wallet?.balance || 0) && (
+                {payoutTotal > Number(user?.role === 'admin' ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0)) && (
                   <p style={{ color: '#ef4444', fontSize: '12px', textAlign: 'center', margin: '12px 0 0 0' }}>
                     Insufficient balance for this payout.
                   </p>

@@ -234,13 +234,16 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
 
     const fee = roundCurrency(payoutChargeConfig.chargeAmount);
     const totalDeduction = roundCurrency(withdrawalAmount + fee);
+    const isAdmin = req.userRole === "admin";
+    const balanceField = isAdmin ? "balance" : "eWalletBalance";
+    const currentBalance = Number(isAdmin ? wallet.balance : wallet.eWalletBalance);
 
-    // Check Payout Wallet (eWalletBalance)
-    if (Number(wallet.eWalletBalance) < totalDeduction) {
-      return res.status(400).json({ error: `Insufficient payout wallet balance. Available: ₹${Number(wallet.eWalletBalance).toFixed(2)}` });
+    // Check Balance
+    if (currentBalance < totalDeduction) {
+      return res.status(400).json({ error: `Insufficient ${isAdmin ? 'main' : 'payout'} wallet balance. Available: ₹${currentBalance.toFixed(2)}` });
     }
 
-    const newEWalletBalance = roundCurrency(Number(wallet.eWalletBalance) - totalDeduction);
+    const newBalance = roundCurrency(currentBalance - totalDeduction);
 
     // Fetch bank account details for snapshot
     const bankAccount = await (prisma as any).merchantBankAccount.findUnique({
@@ -256,7 +259,7 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
     });
 
     const [, , pTxn] = await prisma.$transaction([
-      prisma.wallet.update({ where: { userId: req.userId! }, data: { eWalletBalance: newEWalletBalance } }),
+      prisma.wallet.update({ where: { userId: req.userId! }, data: { [balanceField]: newBalance } }),
       prisma.walletTransaction.create({
         data: {
           toUserId: req.userId!,
@@ -264,8 +267,8 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
           amount: -totalDeduction,
           type: "payout",
           description: `Settlement Request: ₹${withdrawalAmount} + Fee: ₹${fee.toFixed(2)}`,
-          fromBalanceAfter: newEWalletBalance,
-          toBalanceAfter: newEWalletBalance,
+          fromBalanceAfter: newBalance,
+          toBalanceAfter: newBalance,
           createdBy: req.userId!,
         },
       }),
@@ -512,8 +515,13 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
 
         const refundAmount = walletTxn ? Math.abs(Number(walletTxn.amount)) : Number(txn.amount);
 
+        const requesterRole = await prisma.userRole.findFirst({ where: { userId: txn.userId } });
+        const isAdmin = requesterRole?.role === "admin";
+        const balanceField = isAdmin ? "balance" : "eWalletBalance";
+
         const wallet = await prisma.wallet.findUnique({ where: { userId: txn.userId } });
-        const newEWalletBalance = Number(wallet?.eWalletBalance || 0) + refundAmount;
+        const currentBalance = Number(isAdmin ? wallet?.balance : wallet?.eWalletBalance);
+        const newBalance = roundCurrency(currentBalance + refundAmount);
 
         await prisma.$transaction([
             prisma.transaction.update({
@@ -522,7 +530,7 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
             }),
             prisma.wallet.update({
                 where: { userId: txn.userId },
-                data: { eWalletBalance: newEWalletBalance }
+                data: { [balanceField]: newBalance }
             }),
             prisma.walletTransaction.create({
                 data: {
@@ -530,7 +538,7 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
                     amount: refundAmount,
                     type: "refund",
                     description: `Refund for Rejected Settlement - Ref: ${id.substring(0,8)}. Reason: ${reason || "Admin rejection"}`,
-                    toBalanceAfter: newEWalletBalance,
+                    toBalanceAfter: newBalance,
                     createdBy: req.userId!
                 }
             })
