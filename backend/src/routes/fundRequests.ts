@@ -210,7 +210,7 @@ router.patch("/:id/approve", requireAuth, async (req: AuthRequest, res) => {
     const amount = Number(fundReq.amount);
     const { totalCharge, netAmount, distributions: chargeDistributions } = await getChargeDistribution(prisma, {
       userId: fundReq.requesterId,
-      serviceKey: "payout",
+      serviceKey: "collection",
       amount,
     });
     const chargeReference = `fundreq_charge_${fundReq.id}`;

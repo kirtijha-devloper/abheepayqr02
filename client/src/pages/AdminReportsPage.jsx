@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { API_BASE } from '../config';
@@ -149,12 +149,14 @@ const AdminReportsPage = () => {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const filteredFR = fundRequests.filter(r =>
+  const filteredFR = useMemo(() => fundRequests.filter(r =>
     (!roleFilter || r.requesterRole === roleFilter) &&
     (!statusFilter || r.status === statusFilter)
-  );
-  const filteredSt = settlements.filter(r => !statusFilter || r.status === statusFilter);
-  const filteredUsers = users.filter(u => !roleFilter || u.role === roleFilter);
+  ), [fundRequests, roleFilter, statusFilter]);
+
+  const filteredSt = useMemo(() => settlements.filter(r => !statusFilter || r.status === statusFilter), [settlements, statusFilter]);
+
+  const filteredUsers = useMemo(() => users.filter(u => !roleFilter || u.role === roleFilter), [users, roleFilter]);
 
   const handleDownload = (rows, cols, baseName, type) => {
     const headers = cols.map(c => c.key);

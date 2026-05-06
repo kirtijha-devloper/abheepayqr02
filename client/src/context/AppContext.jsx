@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 
 const AppContext = createContext();
@@ -119,7 +119,7 @@ export const AppProvider = ({ children }) => {
         }
     }, [fetchData, isAuthenticated, user?.id]);
 
-    const addFunds = async (amount) => {
+    const addFunds = useCallback(async (amount) => {
         try {
             const res = await fetch(`${API_BASE}/wallet/pg-add`, {
                 method: 'POST',
@@ -130,9 +130,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             console.error("Add funds failed", err);
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const requestFunds = async (amount, reason) => {
+    const requestFunds = useCallback(async (amount, reason) => {
         try {
             const res = await fetch(`${API_BASE}/fund-requests`, {
                 method: 'POST',
@@ -153,9 +153,9 @@ export const AppProvider = ({ children }) => {
             console.error("Fund request failed", err);
             return { success: false, error: "Server error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const fetchFundRequests = async () => {
+    const fetchFundRequests = useCallback(async () => {
         try {
             const res = await fetch(`${API_BASE}/fund-requests`, {
                 headers: getHeaders()
@@ -168,7 +168,7 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             console.error("Fetch fund requests failed", err);
         }
-    };
+    }, [getHeaders]);
 
     const fetchReports = useCallback(async ({ limit = 100, status } = {}) => {
         try {
@@ -210,7 +210,7 @@ export const AppProvider = ({ children }) => {
         return [];
     }, [getHeaders]);
 
-    const approveFundRequest = async (id) => {
+    const approveFundRequest = useCallback(async (id) => {
         try {
             const res = await fetch(`${API_BASE}/fund-requests/${id}/approve`, {
                 method: 'PATCH',
@@ -224,9 +224,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false };
         }
-    };
+    }, [getHeaders, fetchFundRequests, fetchData]);
 
-    const rejectFundRequest = async (id, reason) => {
+    const rejectFundRequest = useCallback(async (id, reason) => {
         try {
             const res = await fetch(`${API_BASE}/fund-requests/${id}/reject`, {
                 method: 'PATCH',
@@ -240,9 +240,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false };
         }
-    };
+    }, [getHeaders, fetchFundRequests]);
 
-    const addMerchant = async (merchant) => {
+    const addMerchant = useCallback(async (merchant) => {
         try {
             const res = await fetch(`${API_BASE}/users`, {
                 method: 'POST',
@@ -267,9 +267,9 @@ export const AppProvider = ({ children }) => {
             console.error("Add merchant failed", err);
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const updateMerchant = async (id, merchantData) => {
+    const updateMerchant = useCallback(async (id, merchantData) => {
         try {
             const res = await fetch(`${API_BASE}/users/${id}`, {
                 method: 'PATCH',
@@ -286,9 +286,9 @@ export const AppProvider = ({ children }) => {
             console.error("Update merchant failed", err);
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const updateMerchantStatus = async (id, status) => {
+    const updateMerchantStatus = useCallback(async (id, status) => {
         try {
             const res = await fetch(`${API_BASE}/users/${id}/status`, {
                 method: 'PATCH',
@@ -305,9 +305,9 @@ export const AppProvider = ({ children }) => {
             console.error("Update merchant status failed", err);
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const deleteMerchant = async (id) => {
+    const deleteMerchant = useCallback(async (id) => {
         if (!window.confirm("Are you sure you want to delete this merchant?")) return { success: false };
         try {
             const res = await fetch(`${API_BASE}/users/${id}`, {
@@ -325,7 +325,7 @@ export const AppProvider = ({ children }) => {
             console.error("Delete merchant failed", err);
             return { success: false, error: 'Network error' };
         }
-    };
+    }, [getHeaders, fetchData]);
 
     // --- Staff Management ---
     const fetchStaffMembers = useCallback(async () => {
@@ -342,7 +342,7 @@ export const AppProvider = ({ children }) => {
         return [];
     }, [getHeaders]);
 
-    const addStaffMember = async (staffData) => {
+    const addStaffMember = useCallback(async (staffData) => {
         try {
             const res = await fetch(`${API_BASE}/staff`, {
                 method: 'POST',
@@ -358,9 +358,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchStaffMembers]);
 
-    const updateStaffMember = async (id, staffData) => {
+    const updateStaffMember = useCallback(async (id, staffData) => {
         try {
             const res = await fetch(`${API_BASE}/staff/${id}`, {
                 method: 'PATCH',
@@ -376,9 +376,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchStaffMembers]);
 
-    const loginAs = async (id) => {
+    const loginAs = useCallback(async (id) => {
         try {
             const res = await fetch(`${API_BASE}/auth/login-as/${id}`, {
                 method: 'POST',
@@ -395,9 +395,9 @@ export const AppProvider = ({ children }) => {
             console.error("Login-as failed", err);
             return { success: false, error: "Server error" };
         }
-    };
+    }, [getHeaders]);
 
-    const deleteStaffMember = async (id) => {
+    const deleteStaffMember = useCallback(async (id) => {
         if (!window.confirm("Are you sure you want to delete this staff member?")) return { success: false };
         try {
             const res = await fetch(`${API_BASE}/staff/${id}`, {
@@ -413,10 +413,10 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchStaffMembers]);
 
     // --- Wallet Hold Management ---
-    const holdWallet = async (userId, amount, description) => {
+    const holdWallet = useCallback(async (userId, amount, description) => {
         try {
             const res = await fetch(`${API_BASE}/wallet/hold`, {
                 method: 'POST',
@@ -433,9 +433,9 @@ export const AppProvider = ({ children }) => {
             console.error("Hold wallet failed", err);
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const unholdWallet = async (userId, amount, description) => {
+    const unholdWallet = useCallback(async (userId, amount, description) => {
         try {
             const res = await fetch(`${API_BASE}/wallet/unhold`, {
                 method: 'POST',
@@ -452,10 +452,10 @@ export const AppProvider = ({ children }) => {
             console.error("Unhold wallet failed", err);
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
     // --- Bank Account Management ---
-    const addBankAccount = async (bankData) => {
+    const addBankAccount = useCallback(async (bankData) => {
         try {
             const res = await fetch(`${API_BASE}/bank-accounts`, {
                 method: 'POST',
@@ -470,9 +470,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const deleteBankAccount = async (id) => {
+    const deleteBankAccount = useCallback(async (id) => {
         try {
             const res = await fetch(`${API_BASE}/bank-accounts/${id}`, {
                 method: 'DELETE',
@@ -482,10 +482,10 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             console.error("Delete bank account failed", err);
         }
-    };
+    }, [getHeaders, fetchData]);
 
     // --- Settlement Management ---
-    const requestSettlement = async (amount, bankAccountId) => {
+    const requestSettlement = useCallback(async (amount, bankAccountId) => {
         try {
             const res = await fetch(`${API_BASE}/wallet/payout`, {
                 method: 'POST',
@@ -502,9 +502,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false, error: "Network error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const fetchSettlements = async (status = '') => {
+    const fetchSettlements = useCallback(async (status = '') => {
         try {
             const normalizedStatus = status === 'all' ? '' : status;
             const res = await fetch(`${API_BASE}/wallet/settlements${normalizedStatus ? `?status=${normalizedStatus}` : ''}`, {
@@ -518,9 +518,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             console.error("Fetch settlements failed", err);
         }
-    };
+    }, [getHeaders]);
 
-    const approveSettlement = async (id) => {
+    const approveSettlement = useCallback(async (id) => {
         try {
             const res = await fetch(`${API_BASE}/wallet/settlements/${id}/approve`, {
                 method: 'POST',
@@ -533,9 +533,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const rejectSettlement = async (id, reason) => {
+    const rejectSettlement = useCallback(async (id, reason) => {
         try {
             const res = await fetch(`${API_BASE}/wallet/settlements/${id}/reject`, {
                 method: 'POST',
@@ -549,9 +549,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             return { success: false };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const addQrCode = async (formData) => {
+    const addQrCode = useCallback(async (formData) => {
         try {
             const token = sessionStorage.getItem('authToken');
             const res = await fetch(`${API_BASE}/qrcodes`, {
@@ -563,9 +563,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             console.error("Add QR code failed", err);
         }
-    };
+    }, [fetchData]);
 
-    const bulkAddQrCodes = async (formData) => {
+    const bulkAddQrCodes = useCallback(async (formData) => {
         try {
             const token = sessionStorage.getItem('authToken');
             const res = await fetch(`${API_BASE}/qrcodes/bulk`, {
@@ -579,9 +579,9 @@ export const AppProvider = ({ children }) => {
             console.error("Bulk QR onboarding failed", err);
             return { success: false, error: "Server error" };
         }
-    };
+    }, [fetchData]);
 
-    const updateQrCode = async (id, qrData) => {
+    const updateQrCode = useCallback(async (id, qrData) => {
         try {
             const res = await fetch(`${API_BASE}/qrcodes/${id}`, {
                 method: 'PATCH',
@@ -599,9 +599,9 @@ export const AppProvider = ({ children }) => {
             console.error("Update QR network error:", err);
             return { success: false, error: 'Network error' };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const deleteQrCode = async (id) => {
+    const deleteQrCode = useCallback(async (id) => {
         if (!window.confirm("Are you sure you want to delete this QR code?")) return;
         try {
             const res = await fetch(`${API_BASE}/qrcodes/${id}`, {
@@ -612,9 +612,9 @@ export const AppProvider = ({ children }) => {
         } catch (err) {
             console.error("Delete QR code failed", err);
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const assignQrByTid = async (tid, merchantId) => {
+    const assignQrByTid = useCallback(async (tid, merchantId) => {
         try {
             const res = await fetch(`${API_BASE}/qrcodes/assign-by-tid`, {
                 method: 'POST',
@@ -631,9 +631,9 @@ export const AppProvider = ({ children }) => {
             console.error("Assign QR by TID failed", err);
             return { success: false, error: "Server error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const assignQrByIds = async (ids, merchantId) => {
+    const assignQrByIds = useCallback(async (ids, merchantId) => {
         try {
             const res = await fetch(`${API_BASE}/qrcodes/assign-by-ids`, {
                 method: 'POST',
@@ -650,9 +650,9 @@ export const AppProvider = ({ children }) => {
             console.error("Assign QR by IDs failed", err);
             return { success: false, error: "Server error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
-    const unassignQrCode = async (id) => {
+    const unassignQrCode = useCallback(async (id) => {
         try {
             const res = await fetch(`${API_BASE}/qrcodes/${id}/unassign`, {
                 method: 'POST',
@@ -668,10 +668,10 @@ export const AppProvider = ({ children }) => {
             console.error("Unassign QR failed", err);
             return { success: false, error: "Server error" };
         }
-    };
+    }, [getHeaders, fetchData]);
 
 
-    const uploadReport = async (file) => {
+    const uploadReport = useCallback(async (file) => {
         const formData = new FormData();
         formData.append('report', file);
 
@@ -693,13 +693,13 @@ export const AppProvider = ({ children }) => {
             console.error("Report upload failed", err);
             return { success: false, error: "Server error" };
         }
-    };
+    }, [fetchData, fetchReports]);
 
-    const generateApiKey = (environment = 'sandbox') => {
+    const generateApiKey = useCallback((environment = 'sandbox') => {
         return environment === 'production' ? 'tl_live_backend_gen_key' : 'tl_test_backend_gen_key';
-    };
+    }, []);
 
-    const getSystemSetting = async (key) => {
+    const getSystemSetting = useCallback(async (key) => {
         try {
             // We fetch all settings for now since it's a small map
             const res = await fetch(`${API_BASE}/settings`, {
@@ -713,44 +713,57 @@ export const AppProvider = ({ children }) => {
             console.error("Failed to fetch setting", err);
         }
         return null; // or default
-    };
+    }, [getHeaders]);
+
+    const contextValue = useMemo(() => ({
+        wallet,
+        merchants,
+        qrCodes,
+        transactions,
+        walletHistory,
+        loading,
+        addFunds,
+        requestFunds,
+        addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant,
+        addBankAccount, deleteBankAccount, bankAccounts,
+        requestSettlement, fetchSettlements, settlements,
+        approveSettlement, rejectSettlement,
+        approveFundRequest, rejectFundRequest, fundRequests, fetchFundRequests,
+        bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,
+        unassignQrCode,
+        updateQrCode,
+        deleteQrCode,
+        uploadReport,
+        reports,
+        fetchReports,
+        mappingTrace,
+        fetchMappingTrace,
+        staffMembers,
+        fetchStaffMembers,
+        addStaffMember,
+        updateStaffMember,
+        deleteStaffMember,
+        loginAs,
+        holdWallet,
+        unholdWallet,
+        generateApiKey,
+        getSystemSetting,
+        fetchData
+    }), [
+        wallet, merchants, qrCodes, transactions, walletHistory, loading,
+        addFunds, requestFunds, addMerchant, updateMerchant, updateMerchantStatus,
+        deleteMerchant, addBankAccount, deleteBankAccount, bankAccounts,
+        requestSettlement, fetchSettlements, settlements, approveSettlement,
+        rejectSettlement, approveFundRequest, rejectFundRequest, fundRequests,
+        fetchFundRequests, bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,
+        unassignQrCode, updateQrCode, deleteQrCode, uploadReport, reports,
+        fetchReports, mappingTrace, fetchMappingTrace, staffMembers,
+        fetchStaffMembers, addStaffMember, updateStaffMember, deleteStaffMember,
+        loginAs, holdWallet, unholdWallet, generateApiKey, getSystemSetting, fetchData
+    ]);
 
     return (
-        <AppContext.Provider value={{
-            wallet,
-            merchants,
-            qrCodes,
-            transactions,
-            walletHistory,
-            loading,
-            addFunds,
-            requestFunds,
-            addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant,
-            addBankAccount, deleteBankAccount, bankAccounts,
-            requestSettlement, fetchSettlements, settlements,
-            approveSettlement, rejectSettlement,
-            approveFundRequest, rejectFundRequest, fundRequests, fetchFundRequests,
-            bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,
-            unassignQrCode,
-            updateQrCode,
-            deleteQrCode,
-            uploadReport,
-            reports,
-            fetchReports,
-            mappingTrace,
-            fetchMappingTrace,
-            staffMembers,
-            fetchStaffMembers,
-            addStaffMember,
-            updateStaffMember,
-            deleteStaffMember,
-            loginAs,
-            holdWallet,
-            unholdWallet,
-            generateApiKey,
-            getSystemSetting,
-            fetchData
-        }}>
+        <AppContext.Provider value={contextValue}>
             {children}
         </AppContext.Provider>
     );

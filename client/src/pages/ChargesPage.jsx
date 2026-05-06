@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
@@ -32,6 +32,7 @@ const ChargesPage = () => {
     const [chargeValue, setChargeValue] = useState('');
     const [minAmount, setMinAmount] = useState('0');
     const [maxAmount, setMaxAmount] = useState('999999');
+    const [serviceKey, setServiceKey] = useState('payout');
 
     const parseErrorResponse = async (res, fallbackMessage) => {
         try {
@@ -116,6 +117,7 @@ const ChargesPage = () => {
         setChargeValue('');
         setMinAmount('0');
         setMaxAmount('999999');
+        setServiceKey('payout');
         setShowModal(true);
         setSearchQuery('');
         setShowSuggestions(false);
@@ -129,6 +131,7 @@ const ChargesPage = () => {
         setChargeValue('');
         setMinAmount('0');
         setMaxAmount('999999');
+        setServiceKey('payout');
         setShowModal(true);
     };
 
@@ -140,6 +143,7 @@ const ChargesPage = () => {
         setChargeValue('');
         setMinAmount('0');
         setMaxAmount('999999');
+        setServiceKey('payout');
         setShowModal(true);
     };
 
@@ -163,7 +167,7 @@ const ChargesPage = () => {
                     headers,
                     body: JSON.stringify({
                         role: targetRole,
-                        service_key: 'payout',
+                        service_key: serviceKey,
                         min_amount: Number(minAmount),
                         max_amount: Number(maxAmount),
                         charge_type: chargeType,
@@ -183,8 +187,8 @@ const ChargesPage = () => {
                     headers,
                     body: JSON.stringify({
                         target_role: targetRole,
-                        service_key: 'payout',
-                        service_label: 'Downline Payout Charge',
+                        service_key: serviceKey,
+                        service_label: serviceKey === 'payout' ? 'Downline Payout Charge' : 'Downline Collection Charge',
                         min_amount: Number(minAmount),
                         max_amount: Number(maxAmount),
                         charge_type: chargeType,
@@ -207,8 +211,8 @@ const ChargesPage = () => {
                     headers,
                     body: JSON.stringify({
                         target_user_id: targetUser.userId || targetUser.id,
-                        service_key: 'payout',
-                        service_label: 'Transfer Charge',
+                        service_key: serviceKey,
+                        service_label: serviceKey === 'payout' ? 'Transfer Charge' : 'Collection Charge',
                         min_amount: Number(minAmount),
                         max_amount: Number(maxAmount),
                         charge_type: chargeType,
@@ -274,14 +278,18 @@ const ChargesPage = () => {
         }
     };
 
-    const suggestions = allUsers.filter(u => 
+    const suggestions = useMemo(() => allUsers.filter(u => 
         (u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
          u.email?.toLowerCase().includes(searchQuery.toLowerCase())) &&
         u.role !== 'admin'
-    ).slice(0, 5);
+    ).slice(0, 5), [allUsers, searchQuery]);
 
-    const defaultCharges = slabs.filter(s => s.serviceKey === 'payout');
-    const myDownlineDefaults = downlineDefaults.filter(d => d.service_key === 'payout' && (currentUser?.role === 'admin' || currentUser?.role === 'staff' ? true : d.owner_user_id === currentUser?.id));
+    const defaultCharges = slabs;
+    
+    const myDownlineDefaults = useMemo(() => 
+        downlineDefaults.filter(d => (currentUser?.role === 'admin' || currentUser?.role === 'staff' ? true : d.owner_user_id === currentUser?.id)),
+        [downlineDefaults, currentUser]
+    );
     const canManageDownlineDefaults = ['admin', 'staff', 'master', 'merchant'].includes(currentUser?.role);
     const defaultTargetLabel = currentUser?.role === 'admin' || currentUser?.role === 'staff'
         ? 'Masters'
@@ -347,6 +355,7 @@ const ChargesPage = () => {
                                         <thead>
                                             <tr>
                                                 <th>User Role</th>
+                                                <th>Service</th>
                                                 <th>Range (Min - Max)</th>
                                                 <th>Charge Type</th>
                                                 <th>Value</th>
@@ -357,6 +366,7 @@ const ChargesPage = () => {
                                             {defaultCharges.map(slab => (
                                                 <tr key={slab.id}>
                                                     <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
+                                                    <td><span className={`status-pill ${slab.serviceKey === 'payout' ? 'active' : 'info'}`} style={{ fontSize: '10px' }}>{slab.serviceKey.toUpperCase()}</span></td>
                                                     <td>
                                                         <span style={{ color: '#94a3b8', fontSize: '12px' }}>
                                                             {slab.minAmount} - {slab.maxAmount >= 9999999 ? '∞' : slab.maxAmount}
@@ -406,6 +416,7 @@ const ChargesPage = () => {
                                         <thead>
                                             <tr>
                                                 <th>Applies To</th>
+                                                <th>Service</th>
                                                 <th>Range (Min - Max)</th>
                                                 <th>Charge Type</th>
                                                 <th>Value</th>
@@ -418,6 +429,7 @@ const ChargesPage = () => {
                                             ) : myDownlineDefaults.map((item) => (
                                                 <tr key={item.id}>
                                                     <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{item.target_role?.replace('_', ' ')}</strong></td>
+                                                    <td><span className={`status-pill ${item.service_key === 'payout' ? 'active' : 'info'}`} style={{ fontSize: '10px' }}>{item.service_key?.toUpperCase()}</span></td>
                                                     <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{item.min_amount} - {item.max_amount >= 9999999 ? '∞' : item.max_amount}</span></td>
                                                     <td>{item.charge_type === 'percent' ? 'Percent (%)' : 'Flat (INR)'}</td>
                                                     <td>{item.charge_type === 'percent' ? `${item.charge_value}%` : `₹${item.charge_value}`}</td>
@@ -459,7 +471,7 @@ const ChargesPage = () => {
                                         {merchants.length === 0 ? (
                                             <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No user overrides configured yet.</td></tr>
                                         ) : merchants.map(merchant => {
-                                            const userSlabs = overrides.filter(o => o.target_user_id === merchant.userId && o.service_key === 'payout');
+                                            const userSlabs = overrides.filter(o => o.target_user_id === merchant.userId);
                                             const matchingDownlineDefault = myDownlineDefaults.find((item) => item.target_role === merchant.role);
                                             return (
                                                 <tr key={merchant.userId}>
@@ -481,6 +493,7 @@ const ChargesPage = () => {
                                                                 </span>
                                                             ) : userSlabs.map(slab => (
                                                                 <div key={slab.id} className="slab-badge">
+                                                                    <span style={{ color: '#fff', opacity: 0.5 }}>{slab.service_key?.toUpperCase()}: </span>
                                                                     <span>₹{slab.min_amount} - ₹{slab.max_amount >= 999999 ? '∞' : slab.max_amount}: </span>
                                                                     <strong>{slab.charge_type === 'percent' ? `${slab.charge_value}%` : `₹${slab.charge_value}`}</strong>
                                                                     <button className="remove-slab" onClick={() => handleDeleteSlab(slab.id)}>&times;</button>
@@ -529,6 +542,14 @@ const ChargesPage = () => {
                                         </select>
                                     </div>
                                 )}
+                                
+                                <div className="form-group full-width">
+                                    <label className="callback-label">Service Type</label>
+                                    <select className="form-input-box" value={serviceKey} onChange={(e) => setServiceKey(e.target.value)}>
+                                        <option value="payout">Settlement (Payout)</option>
+                                        <option value="collection">Fund Request (Collection)</option>
+                                    </select>
+                                </div>
                                 
                                 <div className="form-group">
                                     <label className="callback-label">Min Amount (₹)</label>

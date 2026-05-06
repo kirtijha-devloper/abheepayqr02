@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 
 const AuthContext = createContext();
 import { API_BASE } from '../config';
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
-    const login = async (email, password) => {
+    const login = useCallback(async (email, password) => {
         if (!email || !password) return { success: false, message: 'Please enter both email and password.' };
 
         try {
@@ -74,9 +74,9 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
             return { success: false, message: 'Server error. Please try again.' };
         }
-    };
+    }, []);
 
-    const getImpersonateToken = async (merchantId) => {
+    const getImpersonateToken = useCallback(async (merchantId) => {
         try {
             const token = sessionStorage.getItem('authToken');
             const res = await fetch(`${API_BASE}/auth/login-as/${merchantId}`, {
@@ -92,15 +92,24 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
             return { success: false, message: 'Server error' };
         }
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         setUser(null);
         sessionStorage.removeItem('authToken');
-    };
+    }, []);
+
+    const value = useMemo(() => ({
+        user,
+        login,
+        logout,
+        getImpersonateToken,
+        isAuthenticated: !!user,
+        loading
+    }), [user, login, logout, getImpersonateToken, loading]);
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, getImpersonateToken, isAuthenticated: !!user, loading }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { API_BASE } from '../config';
@@ -64,7 +64,7 @@ const HierarchyUsersPage = () => {
         fetchAllUsers();
     }, []);
 
-    const filteredUsers = allUsers.filter(u => {
+    const filteredUsers = useMemo(() => allUsers.filter(u => {
         if (u.role !== selectedRole) return false;
         
         const normalizedStatus = (u.status || 'active').toLowerCase();
@@ -76,7 +76,7 @@ const HierarchyUsersPage = () => {
         const midMatch = u.mid?.toLowerCase().includes(term);
         
         return !searchTerm || nameMatch || emailMatch || midMatch;
-    });
+    }), [allUsers, selectedRole, activeStatusTab, searchTerm]);
 
     const roles = [
         { key: 'master', label: 'Masters', icon: '👑', desc: 'Top-level partners managing downlines.' },

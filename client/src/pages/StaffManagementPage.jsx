@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
@@ -100,12 +100,12 @@ const StaffManagementPage = () => {
     setShowModal(true);
   };
 
-  const filteredStaff = staffMembers.filter((staff) => {
+  const filteredStaff = useMemo(() => staffMembers.filter((staff) => {
     const term = searchTerm.toLowerCase();
     return !searchTerm || 
       staff.fullName?.toLowerCase().includes(term) || 
       staff.email?.toLowerCase().includes(term);
-  });
+  }), [staffMembers, searchTerm]);
 
   return (
     <div className="dashboard-layout">
