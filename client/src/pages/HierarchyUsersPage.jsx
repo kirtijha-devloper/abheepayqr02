@@ -73,9 +73,9 @@ const HierarchyUsersPage = () => {
         const term = searchTerm.toLowerCase();
         const nameMatch = u.fullName?.toLowerCase().includes(term);
         const emailMatch = u.email?.toLowerCase().includes(term);
-        const midMatch = u.mid?.toLowerCase().includes(term);
+        const phoneMatch = u.phone?.includes(term);
         
-        return !searchTerm || nameMatch || emailMatch || midMatch;
+        return !searchTerm || nameMatch || emailMatch || phoneMatch;
     }), [allUsers, selectedRole, activeStatusTab, searchTerm]);
 
     const roles = [
@@ -196,7 +196,7 @@ const HierarchyUsersPage = () => {
                                     <span className="merchant-search-icon">SEARCH</span>
                                     <input 
                                         type="text" 
-                                        placeholder={`Filter ${selectedRole}s by MID, name or email...`} 
+                                        placeholder={`Filter by ID, name, email, phone...`} 
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
@@ -218,8 +218,8 @@ const HierarchyUsersPage = () => {
                                 <table className="merchants-table">
                                     <thead>
                                         <tr>
+                                            <th>ID</th>
                                             <th>Member Identity</th>
-                                            <th>MID / Code</th>
                                             <th>Wallet Balance</th>
                                             <th>Status</th>
                                             <th>Commission</th>
@@ -227,7 +227,7 @@ const HierarchyUsersPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {loading ? (
+                                         {loading ? (
                                             <tr>
                                                 <td colSpan="6" style={{ padding: '80px', textAlign: 'center' }}>
                                                     <div className="route-loader-spinner" style={{ margin: '0 auto 20px' }}></div>
@@ -241,8 +241,11 @@ const HierarchyUsersPage = () => {
                                                     <p style={{ color: '#64748b' }}>No matching {selectedRole}s found.</p>
                                                 </td>
                                             </tr>
-                                        ) : filteredUsers.map(user => (
+                                        ) : filteredUsers.map((user, index) => (
                                             <tr key={user.userId}>
+                                                <td>
+                                                    <span className="mid-badge">LEO{String(index + 1).padStart(3, '0')}</span>
+                                                </td>
                                                 <td>
                                                     <div className="merchant-name-cell">
                                                         <div className="merchant-avatar">
@@ -251,17 +254,15 @@ const HierarchyUsersPage = () => {
                                                         <div className="merchant-name-info">
                                                             <div className="m-name">{user.fullName || 'Unnamed'}</div>
                                                             <div className="m-email">{user.email}</div>
+                                                            {user.phone && <div className="m-email" style={{opacity: 0.8}}>{user.phone}</div>}
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td>
-                                                    <span className="mid-badge">{user.mid || `ID-${user.userId?.substring(0,8)}`}</span>
                                                 </td>
                                                 <td className="volume-cell">
                                                     Rs {Number(user.walletBalance || 0).toFixed(2)}
                                                 </td>
                                                 <td>
-                                                    <span className={`status-pill ${(user.status || 'active').toLowerCase()}`}>
+                                                    <span className={`status-pill ${(user.status || 'active').toLowerCase()}`} onClick={() => handleToggleStatus(user)} style={{cursor: 'pointer'}}>
                                                         {user.status || 'Active'}
                                                     </span>
                                                 </td>
@@ -276,7 +277,7 @@ const HierarchyUsersPage = () => {
                                                     <div className="merchant-actions">
                                                         <button className="action-btn login-btn" onClick={() => handleLoginAs(user.userId)}>Login</button>
                                                         <button className="action-btn" onClick={() => handleEdit(user)}>Edit</button>
-                                                        <button className="action-btn" onClick={() => handleToggleStatus(user)}>Toggle</button>
+                                                        
                                                         <button className="action-btn danger-btn" onClick={() => handleDeleteUser(user.userId)}>Delete</button>
                                                     </div>
                                                 </td>

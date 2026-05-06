@@ -104,7 +104,8 @@ const StaffManagementPage = () => {
     const term = searchTerm.toLowerCase();
     return !searchTerm || 
       staff.fullName?.toLowerCase().includes(term) || 
-      staff.email?.toLowerCase().includes(term);
+      staff.email?.toLowerCase().includes(term) ||
+      staff.phone?.includes(term);
   }), [staffMembers, searchTerm]);
 
   return (
@@ -139,28 +140,41 @@ const StaffManagementPage = () => {
             <div className="table-responsive">
               <table className="staff-table">
                 <thead>
-                  <tr>
+                   <tr>
+                    <th>ID</th>
                     <th>Staff Member</th>
-                    <th>Contact Info</th>
+                    <th>Status</th>
                     <th>Permissions</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredStaff.map((staff) => (
+                   {filteredStaff.map((staff, index) => (
                     <tr key={staff.id}>
+                      <td><span className="mid-badge">LEO{String(index + 1).padStart(3, '0')}</span></td>
                       <td>
                         <div className="staff-name-cell">
                           <div className="staff-avatar">{staff.fullName?.charAt(0).toUpperCase() || 'S'}</div>
                           <div className="staff-name-info">
                             <div className="s-name">{staff.fullName}</div>
-                            <div className="s-id">ID: {staff.id.substring(0, 8)}</div>
+                            <div className="s-email">{staff.email}</div>
+                            {staff.phone && <div className="s-email" style={{opacity: 0.8}}>{staff.phone}</div>}
                           </div>
                         </div>
                       </td>
                       <td>
-                        <div className="s-email">{staff.email}</div>
-                        <div className="s-phone">{staff.phone || 'No phone'}</div>
+                        <span 
+                          className={`status-pill ${staff.status === 'blocked' ? 'inactive' : 'active'}`}
+                          onClick={async () => {
+                            const newStatus = staff.status === 'blocked' ? 'active' : 'blocked';
+                            const res = await updateStaffMember(staff.id, { status: newStatus });
+                            if (res.success) success(`Staff member ${newStatus === 'active' ? 'activated' : 'blocked'}.`);
+                            else error(res.error || 'Update failed');
+                          }}
+                          style={{cursor: 'pointer'}}
+                        >
+                          {staff.status === 'blocked' ? 'Blocked' : 'Active'}
+                        </span>
                       </td>
                       <td>
                         <div className="permissions-summary">
@@ -179,18 +193,7 @@ const StaffManagementPage = () => {
                       </td>
                       <td>
                         <div className="staff-actions">
-                          <button className="action-btn" onClick={() => handleEdit(staff)}>Edit</button>
-                          <button 
-                            className={`action-btn ${staff.status === 'blocked' ? 'success-btn' : 'warning-btn'}`}
-                            onClick={async () => {
-                              const newStatus = staff.status === 'blocked' ? 'active' : 'blocked';
-                              const res = await updateStaffMember(staff.id, { status: newStatus });
-                              if (res.success) success(`Staff member ${newStatus === 'active' ? 'activated' : 'blocked'}.`);
-                              else error(res.error || 'Update failed');
-                            }}
-                          >
-                            {staff.status === 'blocked' ? 'Unblock' : 'Block'}
-                          </button>
+                           <button className="action-btn" onClick={() => handleEdit(staff)}>Edit</button>
                           <button className="action-btn login-btn" onClick={() => loginAs(staff.id)}>Login</button>
                           <button className="action-btn danger-btn" onClick={() => deleteStaffMember(staff.id)}>Delete</button>
                         </div>

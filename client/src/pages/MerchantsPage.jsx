@@ -236,7 +236,8 @@ const MerchantsPage = () => {
     const term = searchTerm.toLowerCase();
     const nameMatch = merchant.fullName?.toLowerCase().includes(term);
     const emailMatch = merchant.email?.toLowerCase().includes(term);
-    return !searchTerm || nameMatch || emailMatch;
+    const phoneMatch = merchant.phone?.includes(term);
+    return !searchTerm || nameMatch || emailMatch || phoneMatch;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredMerchants.length / itemsPerPage));
@@ -298,7 +299,7 @@ const MerchantsPage = () => {
                               </td>
                               <td><div style={{color: 'var(--text-mute)', fontSize: '0.875rem'}}>{branch.email}</div></td>
                               <td className="volume-cell">Rs {Number(branch.walletBalance || 0).toFixed(2)}</td>
-                              <td><span className={`status-pill ${(branch.status || 'active').toLowerCase()}`}>{titleCase(branch.status || 'active')}</span></td>
+                              <td><span className={`status-pill ${(branch.status || 'active').toLowerCase()}`} onClick={() => handleToggleStatus(branch)} style={{cursor: 'pointer'}}>{titleCase(branch.status || 'active')}</span></td>
                               <td className="merchant-actions">
                                 {(user?.role === 'admin' || user?.role === 'staff') && (
                                   <button title="Login as Branch" className="action-btn login-btn" onClick={() => handleLoginAsMerchant(branch.id)}>
@@ -306,9 +307,7 @@ const MerchantsPage = () => {
                                   </button>
                                 )}
                                 <button className="action-btn edit-btn" onClick={() => openEditModal(branch)}>Edit</button>
-                                <button className="action-btn danger-btn" onClick={() => handleToggleStatus(branch)}>
-                                  {(branch.status || 'active').toLowerCase() === 'active' ? 'Disable' : 'Enable'}
-                                </button>
+
                               </td>
                             </tr>
                          )) : (
@@ -348,7 +347,7 @@ const MerchantsPage = () => {
                 <span className="merchant-search-icon">Search</span>
                 <input
                   type="text"
-                  placeholder="Filter merchants by MID, name, email..."
+                  placeholder="Filter by ID, name, email, phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -370,8 +369,8 @@ const MerchantsPage = () => {
               <table className="merchants-table">
                 <thead>
                   <tr>
+                    <th>ID</th>
                     <th>Merchant Identity</th>
-                    <th>Merchant Code (MID)</th>
                     <th>Wallet Balance</th>
                     <th>Status</th>
                     <th>Commission</th>
@@ -379,29 +378,31 @@ const MerchantsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedMerchants.map((merchant) => {
+                  {paginatedMerchants.map((merchant, index) => {
                     const currentStatus = (merchant.status || 'active').toLowerCase();
+                    const serialId = `LEO${String((currentPage - 1) * itemsPerPage + index + 1).padStart(3, '0')}`;
                     return (
                       <tr key={merchant.id}>
+                        <td><span className="mid-badge">{serialId}</span></td>
                         <td>
                           <div className="merchant-name-cell">
                             <div className="merchant-avatar">{merchant.fullName?.charAt(0) || '?'}</div>
                             <div className="merchant-name-info">
                               <div className="m-name">{merchant.fullName}</div>
                               <div className="m-email">{merchant.email}</div>
+                              {merchant.phone && <div className="m-email" style={{opacity: 0.8}}>{merchant.phone}</div>}
                             </div>
                           </div>
                         </td>
-                        <td><span className="mid-badge">{merchant.mid || 'MID-102938'}</span></td>
                         <td className="volume-cell">
                           <div className="hold-balance-info">
                             <div>₹{Number(merchant.walletBalance || 0).toFixed(2)}</div>
                             {Number(merchant.holdBalance || 0) > 0 && (
-                              <div className="hold-amount">Held: ₹{Number(merchant.holdBalance).toFixed(2)}</div>
+                              <div className="hold-amount">Holded Amount: ₹{Number(merchant.holdBalance).toFixed(2)}</div>
                             )}
                           </div>
                         </td>
-                        <td><span className={`status-pill ${currentStatus}`}>{titleCase(currentStatus)}</span></td>
+                        <td><span className={`status-pill ${currentStatus}`} onClick={() => handleToggleStatus(merchant)} style={{cursor: 'pointer'}}>{titleCase(currentStatus)}</span></td>
                         <td className="commission-cell">
                           {merchant.payoutOverride ? (
                             <span className="commission-value">
@@ -418,7 +419,7 @@ const MerchantsPage = () => {
                             <button className="action-btn unhold-btn" onClick={() => handleHoldAction(merchant, 'unhold')}>Unhold</button>
                             <button className="action-btn login-btn" onClick={() => handleLoginAs(merchant)}>Login</button>
                             <button className="action-btn" onClick={() => handleEdit(merchant)}>Edit</button>
-                            <button className="action-btn" onClick={() => handleToggleStatus(merchant)}>Toggle</button>
+
                             <button className="action-btn danger-btn" onClick={async () => {
                               const res = await deleteMerchant(merchant.id);
                               if (res?.success) success('Merchant deleted successfully.');
@@ -560,7 +561,7 @@ const MerchantsPage = () => {
         <div className="modal-overlay">
           <div className="modal-container" style={{ maxWidth: '450px' }}>
             <div className="modal-header-gradient" style={{ background: holdData.type === 'hold' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #10b981, #059669)' }}>
-              <h3>{holdData.type === 'hold' ? 'Hold Wallet Amount' : 'Release Held Amount'}</h3>
+              <h3>{holdData.type === 'hold' ? 'Hold Wallet Amount' : 'Release Holded Amount'}</h3>
               <button className="close-modal" onClick={() => setShowHoldModal(false)}>&times;</button>
             </div>
             <form onSubmit={submitHold}>
@@ -574,7 +575,7 @@ const MerchantsPage = () => {
                             <div className="hold-stat-value success">₹{Number(selectedMerchant?.walletBalance || 0).toFixed(2)}</div>
                         </div>
                         <div className="hold-stat-card">
-                            <div className="hold-stat-label">HELD</div>
+                            <div className="hold-stat-label">HOLDED AMOUNT</div>
                             <div className="hold-stat-value warning">₹{Number(selectedMerchant?.holdBalance || 0).toFixed(2)}</div>
                         </div>
                     </div>

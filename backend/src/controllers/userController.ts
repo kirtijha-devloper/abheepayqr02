@@ -42,7 +42,7 @@ export const getDownlineUsers = async (req: any, res: Response) => {
         select: {
           email: true,
           roles: { select: { role: true } },
-          wallet: { select: { balance: true } },
+          wallet: { select: { balance: true, holdBalance: true, eWalletBalance: true } },
           userCommissionOverrides: true
         }
       }
@@ -54,10 +54,13 @@ export const getDownlineUsers = async (req: any, res: Response) => {
     userId: p.userId,       // <-- actual User ID for wallet/QR operations
     fullName: p.fullName,
     businessName: p.businessName,
+    phone: p.phone,
     status: p.status,
     email: p.user?.email,
     role: p.user?.roles?.[0]?.role,
     walletBalance: Number(p.user?.wallet?.balance ?? 0),
+    holdBalance: Number(p.user?.wallet?.holdBalance ?? 0),
+    eWalletBalance: Number(p.user?.wallet?.eWalletBalance ?? 0),
     payoutOverride: p.user?.userCommissionOverrides?.find((ov: any) => ov.serviceKey === 'payout'),
   }));
 
