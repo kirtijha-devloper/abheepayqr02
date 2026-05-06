@@ -155,11 +155,7 @@ const WalletPage = () => {
                 Rs {(Number(wallet?.balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
               <div className="wallet-actions" style={{ marginTop: '20px' }}>
-                {user?.role === 'admin' ? (
-                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
-                    <span style={{ fontSize: '1.2rem', marginRight: '8px' }}>💸</span> Request Settlement (Bank)
-                  </button>
-                ) : (
+                {user?.role !== 'admin' && (
                   <button className="request-funds-btn" onClick={() => setShowFundModal(true)} style={{ width: '100%' }}>
                     Transfer to Payout Wallet
                   </button>
