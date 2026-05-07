@@ -21,12 +21,23 @@ const DEFAULT_TRANSACTION_TYPES = [
   'bank_deposit',
   'branchx_payout',
   'branchx_payout_debit',
-  'branchx_payout_hold',
   'branchx_payout_refund',
   'commission',
   'fund_request_approved',
   'fund_request_failed',
   'fund_request_pending',
+  'payout',
+  'pg_add',
+  'qr_settlement_credit',
+  'refund',
+  'top_up',
+  'transfer',
+  'wallet',
+];
+
+const DEFAULT_STATUS_OPTIONS = ['success', 'pending', 'failed'];
+
+const HIDDEN_TRANSACTION_TYPES = new Set([
   'hold',
   'payout',
   'pg_add',
@@ -34,14 +45,19 @@ const DEFAULT_TRANSACTION_TYPES = [
   'refund',
   'top_up',
   'transfer',
+  'transfer_credit',
+  'transfer_hold',
   'unhold',
-  'wallet',
-];
-
-const DEFAULT_STATUS_OPTIONS = ['success', 'pending', 'failed'];
+]);
 
 const mergeOptions = (defaults, incoming) =>
-  Array.from(new Set([...(defaults || []), ...((incoming || []).filter(Boolean))])).sort((a, b) => a.localeCompare(b));
+  Array.from(
+    new Set(
+      [...(defaults || []), ...((incoming || []).filter(Boolean))]
+        .map((value) => String(value || '').toLowerCase())
+        .filter((value) => value && !HIDDEN_TRANSACTION_TYPES.has(value))
+    )
+  ).sort((a, b) => a.localeCompare(b));
 
 const downloadFile = (content, filename, mimeType) => {
   const blob = new Blob([content], { type: mimeType });

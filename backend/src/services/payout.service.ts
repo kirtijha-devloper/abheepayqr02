@@ -3,6 +3,8 @@ import { prisma } from "../prisma";
 import { getChargeDistribution, roundCurrency } from "../utils/commission";
 import { checkBranchXPayoutStatus, normalizeBranchXResponse, submitBranchXPayout } from "./branchx.service";
 
+const DUPLICATE_PAYOUT_WINDOW_MS = 5 * 60 * 1000;
+
 function getPayoutWalletField(role?: string | null) {
   return role === "admin" ? "balance" : "eWalletBalance";
 }
@@ -15,6 +17,57 @@ async function getUserRole(userId: string) {
 export function generateBranchXRequestId() {
   const random = Math.random().toString(36).slice(2, 10).toUpperCase();
   return `BXP-${Date.now()}-${random}`;
+}
+
+function getRemainingDuplicateBlockMs(createdAt: Date) {
+  const elapsedMs = Date.now() - createdAt.getTime();
+  return Math.max(0, DUPLICATE_PAYOUT_WINDOW_MS - elapsedMs);
+}
+
+function formatDuplicateWindowMessage(createdAt: Date) {
+  const remainingMs = getRemainingDuplicateBlockMs(createdAt);
+  const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+  return `A payout with the same amount to this beneficiary was already submitted recently. Please wait ${remainingMinutes} minute${remainingMinutes === 1 ? "" : "s"} before trying again.`;
+}
+
+type DuplicatePayoutCheckInput = {
+  userId: string;
+  amount: number;
+  beneficiaryAccountId: string;
+};
+
+export async function assertNoRecentDuplicatePayout(input: DuplicatePayoutCheckInput) {
+  const recentCutoff = new Date(Date.now() - DUPLICATE_PAYOUT_WINDOW_MS);
+  const recentMatch = await prisma.transaction.findFirst({
+    where: {
+      userId: input.userId,
+      serviceType: { in: ["payout", "branchx_payout"] },
+      beneficiaryAccountId: input.beneficiaryAccountId,
+      amount: roundCurrency(input.amount),
+      createdAt: { gte: recentCutoff },
+      status: { in: ["pending", "success"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, createdAt: true },
+  });
+
+  if (recentMatch) {
+    throw new Error(formatDuplicateWindowMessage(recentMatch.createdAt));
+  }
+}
+
+function sanitizeBranchXRequestPayload(input: {
+  amount: number;
+  beneficiaryId: string;
+  remark?: string;
+  transferMode?: string;
+}) {
+  return {
+    amount: roundCurrency(input.amount),
+    beneficiaryId: input.beneficiaryId,
+    remark: (input.remark || "").trim() || null,
+    transferMode: (input.transferMode || "IMPS").toUpperCase(),
+  };
 }
 
 export async function verifyUserTpin(userId: string, tpin: string) {
@@ -61,6 +114,9 @@ export async function finalizeBranchXPayout(transactionId: string, providerPaylo
     await prisma.transaction.update({
       where: { id: txn.id },
       data: {
+        responsePayload: providerPayload,
+        providerStatus: normalized.normalizedStatus,
+        callbackPayload: origin === "callback" ? providerPayload : txn.callbackPayload,
         callbackStatus: normalized.rawStatus || normalized.normalizedStatus,
         callbackData: providerPayload,
         callbackReceivedAt: now,
@@ -92,7 +148,10 @@ export async function finalizeBranchXPayout(transactionId: string, providerPaylo
         where: { id: txn.id },
         data: {
           status: "success",
+          responsePayload: providerPayload,
           providerResponse: providerPayload,
+          providerStatus: normalized.normalizedStatus,
+          callbackPayload: origin === "callback" ? providerPayload : txn.callbackPayload,
           callbackStatus: normalized.rawStatus || normalized.normalizedStatus,
           callbackData: providerPayload,
           callbackReceivedAt: now,
@@ -152,7 +211,10 @@ export async function finalizeBranchXPayout(transactionId: string, providerPaylo
       where: { id: txn.id },
       data: {
         status: "failed",
+        responsePayload: providerPayload,
         providerResponse: providerPayload,
+        providerStatus: normalized.normalizedStatus,
+        callbackPayload: origin === "callback" ? providerPayload : txn.callbackPayload,
         callbackStatus: normalized.rawStatus || normalized.normalizedStatus,
         callbackData: providerPayload,
         callbackReceivedAt: now,
@@ -210,6 +272,7 @@ export async function submitPayoutToBranchX(input: {
   transferMode?: string;
 }) {
   const { userId, amount, beneficiaryId, tpin, confirmVerified, remark, transferMode } = input;
+  const normalizedAmount = roundCurrency(amount);
 
   if (!confirmVerified) {
     throw new Error("Beneficiary verification confirmation is required");
@@ -233,7 +296,13 @@ export async function submitPayoutToBranchX(input: {
   if (!profile?.phone) throw new Error("User profile must have mobile number");
   if (!wallet) throw new Error("Wallet not found");
 
-  const quote = await getPayoutQuote(userId, amount);
+  await assertNoRecentDuplicatePayout({
+    userId,
+    amount: normalizedAmount,
+    beneficiaryAccountId: beneficiary.id,
+  });
+
+  const quote = await getPayoutQuote(userId, normalizedAmount);
   if (quote.netAmount <= 0) throw new Error("Net payout amount must be greater than zero");
 
   const role = roleRow?.role || null;
@@ -246,6 +315,12 @@ export async function submitPayoutToBranchX(input: {
   const requestId = generateBranchXRequestId();
   const newBalance = roundCurrency(currentBalance - quote.walletRequired);
   const purpose = (remark || "Payout").trim();
+  const requestPayload = sanitizeBranchXRequestPayload({
+    amount: normalizedAmount,
+    beneficiaryId: beneficiary.id,
+    remark,
+    transferMode,
+  });
 
   const createdTxn = await prisma.$transaction(async (tx) => {
     await tx.wallet.update({
@@ -280,6 +355,11 @@ export async function submitPayoutToBranchX(input: {
         bank: beneficiary.bankName,
         consumer: profile.phone,
         bankRef: requestId,
+        beneficiaryAccountId: beneficiary.id,
+        beneficiaryAccountName: beneficiary.accountName,
+        beneficiaryAccountNumber: beneficiary.accountNumber,
+        beneficiaryIfscCode: beneficiary.ifscCode,
+        beneficiaryBankName: beneficiary.bankName,
         payoutBankDetails: JSON.stringify({
           beneficiaryId: beneficiary.id,
           payeeName: beneficiary.accountName,
@@ -288,6 +368,8 @@ export async function submitPayoutToBranchX(input: {
           bankName: beneficiary.bankName,
           transferMode: (transferMode || "IMPS").toUpperCase(),
         }),
+        requestPayload,
+        providerStatus: "PENDING",
       },
     });
   });
@@ -311,7 +393,10 @@ export async function submitPayoutToBranchX(input: {
       where: { id: createdTxn.id },
       data: {
         provider: "BranchX",
+        providerPayload: provider.request,
+        responsePayload: provider.payload,
         providerResponse: provider.payload,
+        providerStatus: provider.normalizedStatus,
         callbackStatus: provider.rawStatus || provider.normalizedStatus,
       },
     });

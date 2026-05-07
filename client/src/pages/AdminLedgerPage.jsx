@@ -42,12 +42,21 @@ const DEFAULT_TRANSACTION_TYPE_OPTIONS = [
   'bank_deposit',
   'branchx_payout',
   'branchx_payout_debit',
-  'branchx_payout_hold',
   'branchx_payout_refund',
   'commission',
   'fund_request_approved',
   'fund_request_failed',
   'fund_request_pending',
+  'payout',
+  'pg_add',
+  'qr_settlement_credit',
+  'refund',
+  'top_up',
+  'transfer',
+  'wallet',
+];
+
+const HIDDEN_TRANSACTION_TYPES = new Set([
   'hold',
   'payout',
   'pg_add',
@@ -55,12 +64,19 @@ const DEFAULT_TRANSACTION_TYPE_OPTIONS = [
   'refund',
   'top_up',
   'transfer',
+  'transfer_credit',
+  'transfer_hold',
   'unhold',
-  'wallet',
-];
+]);
 
 const mergeOptions = (defaults, incoming) =>
-  Array.from(new Set([...(defaults || []), ...((incoming || []).filter(Boolean))])).sort((a, b) => a.localeCompare(b));
+  Array.from(
+    new Set(
+      [...(defaults || []), ...((incoming || []).filter(Boolean))]
+        .map((value) => String(value || '').toLowerCase())
+        .filter((value) => value && !HIDDEN_TRANSACTION_TYPES.has(value))
+    )
+  ).sort((a, b) => a.localeCompare(b));
 
 const AdminLedgerPage = () => {
   const [loading, setLoading] = useState(true);

@@ -15,12 +15,21 @@ const DEFAULT_ADMIN_LEDGER_TRANSACTION_TYPES = [
   "bank_deposit",
   "branchx_payout",
   "branchx_payout_debit",
-  "branchx_payout_hold",
   "branchx_payout_refund",
   "commission",
   "fund_request_approved",
   "fund_request_failed",
   "fund_request_pending",
+  "payout",
+  "pg_add",
+  "qr_settlement_credit",
+  "refund",
+  "top_up",
+  "transfer",
+  "wallet",
+];
+
+const HIDDEN_LEDGER_TRANSACTION_TYPES = new Set([
   "hold",
   "payout",
   "pg_add",
@@ -28,9 +37,10 @@ const DEFAULT_ADMIN_LEDGER_TRANSACTION_TYPES = [
   "refund",
   "top_up",
   "transfer",
+  "transfer_credit",
+  "transfer_hold",
   "unhold",
-  "wallet",
-];
+]);
 // On Vercel, we MUST use /tmp for uploads
 const uploadDest = process.env.VERCEL ? "/tmp" : "uploads/";
 const upload = multer({ dest: uploadDest });
@@ -608,7 +618,10 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
           .map((row) => row.transactionType)
           .filter(Boolean),
       ])
-    ).sort((a, b) => a.localeCompare(b));
+    )
+      .map((value) => String(value || "").toLowerCase())
+      .filter((value) => value && !HIDDEN_LEDGER_TRANSACTION_TYPES.has(value))
+      .sort((a, b) => a.localeCompare(b));
 
     const filteredRows = ledgerRows
       .filter((row) => (roleFilter ? row.role === roleFilter : true))

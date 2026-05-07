@@ -92,15 +92,10 @@ export const AppProvider = ({ children }) => {
                 setSettlements(data);
             }
 
-            const shouldFetchBankAccounts = ['merchant', 'branch'].includes((user?.role || '').toLowerCase());
-            if (shouldFetchBankAccounts) {
-                const bankRes = await fetch(`${API_BASE}/bank-accounts`, { headers: getHeaders() });
-                if (bankRes.ok) {
-                    const data = await bankRes.json();
-                    setBankAccounts(data);
-                }
-            } else {
-                setBankAccounts([]);
+            const bankRes = await fetch(`${API_BASE}/bank-accounts`, { headers: getHeaders() });
+            if (bankRes.ok) {
+                const data = await bankRes.json();
+                setBankAccounts(Array.isArray(data) ? data : []);
             }
 
         } catch (err) {
@@ -508,6 +503,58 @@ export const AppProvider = ({ children }) => {
         }
     }, [getHeaders, fetchData]);
 
+    const getBranchXPayoutQuote = useCallback(async (amount) => {
+        try {
+            const params = new URLSearchParams({ amount: String(amount) });
+            const res = await fetch(`${API_BASE}/services/payout/quote?${params.toString()}`, {
+                headers: getHeaders()
+            });
+            const data = await res.json();
+            if (res.ok && data?.success) {
+                return { success: true, data: data.quote };
+            }
+            return { success: false, error: data?.error || data?.message || 'Failed to fetch BranchX payout quote' };
+        } catch (err) {
+            return { success: false, error: "Network error" };
+        }
+    }, [getHeaders]);
+
+    const verifyBranchXBeneficiary = useCallback(async (beneficiaryId) => {
+        try {
+            const res = await fetch(`${API_BASE}/services/payout/beneficiaries/${beneficiaryId}/verify`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({})
+            });
+            const data = await res.json();
+            if (res.ok && data?.success) {
+                await fetchData();
+                return { success: true, data: data.beneficiary };
+            }
+            return { success: false, error: data?.error || data?.message || 'Beneficiary verification failed' };
+        } catch (err) {
+            return { success: false, error: "Network error" };
+        }
+    }, [getHeaders, fetchData]);
+
+    const requestBranchXPayout = useCallback(async ({ amount, beneficiaryId, tpin, confirmVerified, remark, transferMode }) => {
+        try {
+            const res = await fetch(`${API_BASE}/services/payout`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ amount, beneficiaryId, tpin, confirmVerified, remark, transferMode })
+            });
+            const data = await res.json();
+            if (res.ok && data?.success) {
+                await fetchData();
+                return { success: true, data };
+            }
+            return { success: false, error: data?.error || data?.message || 'BranchX payout request failed', data };
+        } catch (err) {
+            return { success: false, error: "Network error" };
+        }
+    }, [getHeaders, fetchData]);
+
     const fetchSettlements = useCallback(async (status = '') => {
         try {
             const normalizedStatus = status === 'all' ? '' : status;
@@ -731,6 +778,7 @@ export const AppProvider = ({ children }) => {
         addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant,
         addBankAccount, deleteBankAccount, bankAccounts,
         requestSettlement, fetchSettlements, settlements,
+        getBranchXPayoutQuote, verifyBranchXBeneficiary, requestBranchXPayout,
         approveSettlement, rejectSettlement,
         approveFundRequest, rejectFundRequest, fundRequests, fetchFundRequests,
         bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,
@@ -757,7 +805,8 @@ export const AppProvider = ({ children }) => {
         wallet, merchants, qrCodes, transactions, walletHistory, loading,
         addFunds, requestFunds, addMerchant, updateMerchant, updateMerchantStatus,
         deleteMerchant, addBankAccount, deleteBankAccount, bankAccounts,
-        requestSettlement, fetchSettlements, settlements, approveSettlement,
+        requestSettlement, fetchSettlements, settlements, getBranchXPayoutQuote,
+        verifyBranchXBeneficiary, requestBranchXPayout, approveSettlement,
         rejectSettlement, approveFundRequest, rejectFundRequest, fundRequests,
         fetchFundRequests, bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,
         unassignQrCode, updateQrCode, deleteQrCode, uploadReport, reports,

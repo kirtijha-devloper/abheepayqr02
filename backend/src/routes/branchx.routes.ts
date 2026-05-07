@@ -167,6 +167,9 @@ const handleBranchXCallback = async (payload: any, req: Request, res: Response) 
   await prisma.transaction.update({
     where: { id: matchedTxn.id },
     data: {
+      responsePayload: payload,
+      providerStatus: settlement.status,
+      callbackPayload: payload,
       callbackStatus: normalized.rawStatus || normalized.normalizedStatus,
       callbackData: payload,
       callbackReceivedAt: new Date(),

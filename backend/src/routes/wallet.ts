@@ -2,8 +2,21 @@ import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { getAccessibleUserIds, getChargeDistribution, getEffectiveChargeConfig, roundCurrency } from "../utils/commission";
+import { assertNoRecentDuplicatePayout } from "../services/payout.service";
 
 const router = Router();
+const HIDDEN_LEDGER_TRANSACTION_TYPES = new Set([
+  "hold",
+  "payout",
+  "pg_add",
+  "qr_settlement_credit",
+  "refund",
+  "top_up",
+  "transfer",
+  "transfer_credit",
+  "transfer_hold",
+  "unhold",
+]);
 
 // GET /api/wallet — get my wallet balance
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
@@ -211,7 +224,7 @@ router.get("/e-wallet-credits", requireAuth, async (req: AuthRequest, res) => {
 // POST /api/wallet/payout — merchant requests settlement to bank
 router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
   const { amount, bankAccountId } = req.body; // Requested withdrawal amount + selected bank
-  const withdrawalAmount = Number(amount);
+  const withdrawalAmount = roundCurrency(Number(amount));
 
   if (!withdrawalAmount || withdrawalAmount <= 0) {
     return res.status(400).json({ error: "Invalid payout amount" });
@@ -246,10 +259,16 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
     const newBalance = roundCurrency(currentBalance - totalDeduction);
 
     // Fetch bank account details for snapshot
-    const bankAccount = await (prisma as any).merchantBankAccount.findUnique({
-        where: { id: bankAccountId, userId: req.userId! }
+    const bankAccount = await prisma.merchantBankAccount.findFirst({
+      where: { id: bankAccountId, userId: req.userId! }
     });
     if (!bankAccount) return res.status(400).json({ error: "Selected bank account not found" });
+
+    await assertNoRecentDuplicatePayout({
+      userId: req.userId!,
+      amount: withdrawalAmount,
+      beneficiaryAccountId: bankAccount.id,
+    });
 
     const bankDetailsSnapshot = JSON.stringify({
         bankName: bankAccount.bankName,
@@ -272,7 +291,7 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
           createdBy: req.userId!,
         },
       }),
-      (prisma as any).transaction.create({
+      prisma.transaction.create({
         data: {
           userId: req.userId!,
           serviceType: "payout",
@@ -281,7 +300,17 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
           fee: fee,
           description: `Settlement Request to ${bankAccount.bankName} (Fee: ₹${fee.toFixed(2)})`,
           status: "pending",
-          payoutBankDetails: bankDetailsSnapshot
+          beneficiaryAccountId: bankAccount.id,
+          beneficiaryAccountName: bankAccount.accountName,
+          beneficiaryAccountNumber: bankAccount.accountNumber,
+          beneficiaryIfscCode: bankAccount.ifscCode,
+          beneficiaryBankName: bankAccount.bankName,
+          payoutBankDetails: bankDetailsSnapshot,
+          requestPayload: {
+            amount: withdrawalAmount,
+            bankAccountId: bankAccount.id,
+          },
+          providerStatus: "PENDING"
         }
       })
     ]);
@@ -467,7 +496,13 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
       }),
     ];
 
-    const availableTransactionTypes = Array.from(new Set(ledgerRows.map((row) => row.transactionType).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    const availableTransactionTypes = Array.from(
+      new Set(
+        ledgerRows
+          .map((row) => String(row.transactionType || "").toLowerCase())
+          .filter((value) => value && !HIDDEN_LEDGER_TRANSACTION_TYPES.has(value))
+      )
+    ).sort((a, b) => a.localeCompare(b));
     const availableStatuses = Array.from(new Set(ledgerRows.map((row) => row.status).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
     const filteredRows = ledgerRows
@@ -643,7 +678,7 @@ router.post("/settlements/:id/approve", requireAuth, async (req: AuthRequest, re
         await prisma.$transaction(async (tx) => {
             await tx.transaction.update({
                 where: { id },
-                data: { status: "success" }
+                data: { status: "success", providerStatus: "SUCCESS" }
             });
 
             if (charge > 0) {
@@ -725,7 +760,7 @@ router.post("/settlements/:id/reject", requireAuth, async (req: AuthRequest, res
         await prisma.$transaction([
             prisma.transaction.update({
                 where: { id },
-                data: { status: "failed", description: `Rejected: ${reason || "Admin rejection"}` }
+                data: { status: "failed", providerStatus: "FAILED", description: `Rejected: ${reason || "Admin rejection"}` }
             }),
             prisma.wallet.update({
                 where: { userId: txn.userId },

@@ -124,6 +124,10 @@ const AdminSettingsPage = () => {
     new: '',
     confirm: ''
   });
+  const [tpinForm, setTpinForm] = useState({
+    tpin: '',
+    confirmTpin: ''
+  });
 
   // Profile state
   const [profileName, setProfileName] = useState(user?.name || '');
@@ -179,6 +183,39 @@ const AdminSettingsPage = () => {
       }
     } catch (err) {
       error('Error updating password.');
+    }
+  };
+
+  const handleUpdateTpin = async () => {
+    if (tpinForm.tpin.trim().length < 4) {
+      error('Transaction PIN must be at least 4 digits.');
+      return;
+    }
+    if (tpinForm.tpin !== tpinForm.confirmTpin) {
+      error('Transaction PIN values do not match.');
+      return;
+    }
+    const token = sessionStorage.getItem('authToken');
+    try {
+      const res = await fetch(`${API_BASE}/auth/tpin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          tpin: tpinForm.tpin
+        })
+      });
+      if (res.ok) {
+        success('Transaction PIN updated successfully.');
+        setTpinForm({ tpin: '', confirmTpin: '' });
+      } else {
+        const data = await res.json();
+        error(data.error || 'Failed to update transaction PIN.');
+      }
+    } catch (err) {
+      error('Error updating transaction PIN.');
     }
   };
 
@@ -457,6 +494,40 @@ const AdminSettingsPage = () => {
                         </div>
                       </div>
                       <button className="premium-btn primary" onClick={handleChangePassword} style={{ marginTop: '20px', width: 'auto', padding: '12px 32px' }}>Update Password</button>
+                    </div>
+
+                    <div className="portal-divider"></div>
+
+                    <div className="security-section">
+                      <div className="portal-header" style={{ padding: 0, marginBottom: '16px' }}>
+                        <h3 style={{ fontSize: '18px', marginBottom: '6px' }}>Add or Change TPIN</h3>
+                        <p>Use a transaction PIN to authorize secure payout actions.</p>
+                      </div>
+                      <div className="form-row-grid">
+                        <div className="form-group-v2">
+                          <label>New TPIN</label>
+                          <input
+                            type="password"
+                            placeholder="Minimum 4 digits"
+                            className="premium-input"
+                            value={tpinForm.tpin}
+                            onChange={e => setTpinForm({ ...tpinForm, tpin: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group-v2">
+                          <label>Confirm TPIN</label>
+                          <input
+                            type="password"
+                            placeholder="Repeat TPIN"
+                            className="premium-input"
+                            value={tpinForm.confirmTpin}
+                            onChange={e => setTpinForm({ ...tpinForm, confirmTpin: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <button className="premium-btn primary" onClick={handleUpdateTpin} style={{ marginTop: '20px', width: 'auto', padding: '12px 32px' }}>
+                        Save TPIN
+                      </button>
                     </div>
 
                     <div className="portal-divider"></div>
