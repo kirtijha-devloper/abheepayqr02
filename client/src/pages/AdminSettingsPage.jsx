@@ -91,6 +91,7 @@ const AdminSettingsPage = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [selectedFeatureUserId, setSelectedFeatureUserId] = useState('');
   const [featureAccessMap, setFeatureAccessMap] = useState({});
+  const [searchFeature, setSearchFeature] = useState('');
   const [newBank, setNewBank] = useState({
     bankName: '',
     accountName: '',
@@ -719,35 +720,61 @@ const AdminSettingsPage = () => {
 
                     {selectedFeatureUser ? (
                       <>
-                        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                          <button className="settings-save-btn" onClick={() => setAllFeatureAccess(true)}>
-                            Enable All
-                          </button>
-                          <button className="settings-cancel-btn" onClick={() => setAllFeatureAccess(false)}>
-                            Pause All
-                          </button>
+                        <div className="feature-access-summary-grid">
+                           <div className="summary-card">
+                              <div className="summary-label">TOTAL</div>
+                              <div className="summary-value" style={{ color: 'var(--accent)' }}>{selectedFeatureOptions.length}</div>
+                           </div>
+                           <div className="summary-card">
+                              <div className="summary-label">ENABLED</div>
+                              <div className="summary-value" style={{ color: 'var(--success)' }}>{selectedFeatureValues.length}</div>
+                           </div>
+                           <div className="summary-card">
+                              <div className="summary-label">DISABLED</div>
+                              <div className="summary-value" style={{ color: 'var(--danger)' }}>{selectedFeatureOptions.length - selectedFeatureValues.length}</div>
+                           </div>
                         </div>
 
-                        <div className="option-list">
-                          {selectedFeatureOptions.map((item) => (
-                            <div className="option-item" key={item.key}>
-                              <div className="option-info">
-                                <div className="option-label">{item.label}</div>
-                                <div className="option-desc">
-                                  {selectedFeatureValues.includes(item.key)
-                                    ? 'Active: this feature is visible and accessible.'
-                                    : 'Paused: this feature is hidden and blocked for the selected user.'}
+                        <div className="feature-access-toolbar" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
+                           <div className="merchant-search-wrap" style={{ flex: 1, minWidth: '250px' }}>
+                              <span className="merchant-search-icon">🔍</span>
+                              <input 
+                                type="text" 
+                                placeholder="Search features..." 
+                                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'var(--text-h)' }}
+                                value={searchFeature}
+                                onChange={(e) => setSearchFeature(e.target.value)} 
+                              />
+                           </div>
+                           <div style={{ display: 'flex', gap: '10px' }}>
+                             <button className="premium-btn primary" onClick={() => setAllFeatureAccess(true)} style={{ width: 'auto', padding: '0 20px' }}>Enable All</button>
+                             <button className="settings-cancel-btn" onClick={() => setAllFeatureAccess(false)}>Disable All</button>
+                           </div>
+                        </div>
+
+                        <div className="feature-access-card-grid">
+                          {selectedFeatureOptions.filter(f => f.label.toLowerCase().includes(searchFeature.toLowerCase()) || f.key.toLowerCase().includes(searchFeature.toLowerCase())).map((item) => (
+                             <div className="feature-access-card" key={item.key}>
+                                <div className="fac-header">
+                                   <div className="fac-titles">
+                                      <h4>{item.label}</h4>
+                                      <span className="fac-key">{item.key}</span>
+                                   </div>
+                                   <label className="premium-switch">
+                                     <input
+                                       type="checkbox"
+                                       checked={selectedFeatureValues.includes(item.key)}
+                                       onChange={(e) => toggleFeatureAccess(item.key, e.target.checked)}
+                                     />
+                                     <span className="switch-slider"></span>
+                                   </label>
                                 </div>
-                              </div>
-                              <label className="premium-switch">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedFeatureValues.includes(item.key)}
-                                  onChange={(e) => toggleFeatureAccess(item.key, e.target.checked)}
-                                />
-                                <span className="switch-slider"></span>
-                              </label>
-                            </div>
+                                <div className="fac-footer">
+                                   <span className={`status-pill ${selectedFeatureValues.includes(item.key) ? 'active' : 'inactive'}`}>
+                                      {selectedFeatureValues.includes(item.key) ? 'Active' : 'Disabled'}
+                                   </span>
+                                </div>
+                             </div>
                           ))}
                         </div>
                       </>

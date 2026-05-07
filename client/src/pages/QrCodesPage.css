@@ -8,8 +8,8 @@
 .qr-tabs {
   display: flex;
   padding: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-glass);
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
   border-radius: 14px;
 }
 
@@ -48,7 +48,7 @@
 .qr-header-section h2 {
   font-size: 2rem;
   font-weight: 800;
-  color: white;
+  color: var(--text-h);
   margin-bottom: 0.75rem;
   letter-spacing: -0.02em;
 }
@@ -90,7 +90,7 @@
 }
 
 .merchant-id-badge {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--bg-input);
   padding: 6px 16px;
   border-radius: 10px;
   display: flex;
@@ -99,16 +99,16 @@
   font-size: 0.8125rem;
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
 }
 
 .view-mode-toggle {
   display: flex;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--bg-input);
   padding: 4px;
   border-radius: 12px;
   margin-top: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   width: 100%;
   max-width: 220px;
 }
@@ -118,7 +118,7 @@
   padding: 6px 12px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-mute);
   font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -158,11 +158,11 @@
     position: relative;
     max-width: 90vw;
     max-height: 90vh;
-    background: #1e293b;
+    background: var(--bg-card);
     border-radius: 20px;
     padding: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
     display: flex;
     flex-direction: column;
 }
@@ -261,8 +261,8 @@
 .qr-report-filter-bar input {
   flex: 1;
   min-width: 180px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
   color: #fff;
   padding: 10px 12px;
   border-radius: 10px;
@@ -289,9 +289,9 @@
 
 .qr-table-wrap {
   overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-card-2);
 }
 
 .qr-inventory-table {
@@ -304,7 +304,7 @@
 .qr-inventory-table td {
   padding: 14px 16px;
   text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
   color: #e2e8f0;
   vertical-align: middle;
 }
@@ -334,6 +334,19 @@
 .qr-mono-cell {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
+}
+
+.qr-compact-upi {
+  display: inline-block;
+  max-width: 120px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #67e8f9;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .qr-status-badge {

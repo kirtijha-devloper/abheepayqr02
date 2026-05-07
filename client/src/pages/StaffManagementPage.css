@@ -105,14 +105,7 @@
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.staff-table td {
-  padding: 1.25rem 1.5rem;
-  font-size: 0.875rem;
-  color: var(--text-p);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
@@ -135,7 +128,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 1rem;
-  border: 1px solid rgba(124, 108, 248, 0.1);
+  border: 1px solid var(--primary-dim);
 }
 
 .s-name {
@@ -174,7 +167,7 @@
   border-radius: 6px;
   font-size: 0.6875rem;
   color: var(--primary);
-  border: 1px solid rgba(124, 108, 248, 0.15);
+  border: 1px solid var(--primary-dim);
   font-weight: 600;
 }
 

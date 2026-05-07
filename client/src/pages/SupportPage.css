@@ -1,10 +1,10 @@
 /* ===== Support Workspace ===== */
 
 .support-container {
-    --support-border: rgba(255, 255, 255, 0.08);
-    --support-border-strong: rgba(124, 108, 248, 0.26);
-    --support-panel: linear-gradient(180deg, rgba(18, 19, 31, 0.98) 0%, rgba(13, 15, 26, 0.98) 100%);
-    --support-panel-soft: linear-gradient(180deg, rgba(21, 23, 38, 0.96) 0%, rgba(14, 16, 27, 0.96) 100%);
+    --support-border: var(--border);
+    --support-border-strong: var(--primary);
+    --support-panel: var(--bg-card);
+    --support-panel-soft: var(--bg-card-2);
     width: 100%;
     max-width: 1360px;
     margin: 0 auto;
@@ -60,7 +60,7 @@
 
 .support-header p {
     margin: 0.35rem 0 0;
-    color: rgba(241, 245, 249, 0.66);
+    color: var(--text-mute);
     font-size: 0.98rem;
 }
 
@@ -92,7 +92,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
 }
 
 .support-card.admin-mode {
@@ -105,7 +105,7 @@
     gap: 0.75rem;
     margin: 0 0 1.35rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid var(--border);
     font-size: 1.125rem;
     font-weight: 800;
     color: var(--text-h);
@@ -134,7 +134,7 @@
 .ticket-item {
     padding: 1.15rem;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--border);
     background: linear-gradient(180deg, rgba(21, 24, 39, 0.98), rgba(13, 16, 27, 0.98));
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -166,7 +166,7 @@
     gap: 0.6rem;
     flex-wrap: wrap;
     font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--text-mute);
 }
 
 .category-tag {
@@ -223,9 +223,9 @@
     padding: 2rem;
     text-align: center;
     border-radius: 22px;
-    border: 1px dashed rgba(255, 255, 255, 0.08);
-    background: linear-gradient(180deg, rgba(19, 22, 37, 0.96), rgba(13, 15, 26, 0.96));
-    color: rgba(255, 255, 255, 0.36);
+    border: 1px dashed var(--border);
+    background: var(--bg-input);
+    color: var(--text-mute);
 }
 
 .empty-state::before {
@@ -405,9 +405,9 @@
 
 .admin-table th {
     padding: 1.1rem 1.2rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(255, 255, 255, 0.025);
-    color: rgba(255, 255, 255, 0.46);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card-2);
+    color: var(--text-mute);
     font-size: 0.68rem;
     font-weight: 800;
     text-transform: uppercase;

@@ -115,7 +115,7 @@
 
 .merchant-filter-btn.active {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-h);
   box-shadow: 0 8px 18px rgba(124, 108, 248, 0.22);
 }
 
@@ -125,7 +125,7 @@
 }
 
 .merchants-table thead {
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--bg-card-2);
 }
 
 .merchants-table th {
@@ -136,14 +136,7 @@
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.merchants-table td {
-  padding: 1.25rem 1.5rem;
-  font-size: 0.875rem;
-  color: var(--text-p);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
@@ -304,9 +297,9 @@
 }
 
 .nav-num-v2.active {
-  background: linear-gradient(135deg, var(--primary) 0%, #9f7aea 100%);
+  background: var(--primary);
   border-color: transparent;
-  color: #fff;
+  color: var(--text-h);
   box-shadow: 0 10px 24px rgba(124, 108, 248, 0.28);
 }
 
@@ -343,12 +336,12 @@
 }
 
 .modal-header-gradient {
-  background: linear-gradient(90deg, var(--primary) 0%, #a78bfa 100%);
+  background: var(--primary);
   padding: 1.25rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #fff;
+  color: var(--text-h);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -360,9 +353,9 @@
 }
 
 .close-modal {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--primary-dim);
   border: none;
-  color: #fff;
+  color: var(--text-h);
   width: 28px;
   height: 28px;
   border-radius: 6px;
@@ -466,7 +459,7 @@
 }
 
 .payout-charge-block {
-  border-top: 1px solid #374151;
+  border-top: 1px solid var(--border);
   padding-top: 12px;
   margin-top: 8px;
 }
@@ -481,7 +474,7 @@
   margin-bottom: 1.5rem;
   text-align: center;
   padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
 }

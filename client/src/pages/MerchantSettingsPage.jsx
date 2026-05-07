@@ -204,9 +204,9 @@ const MerchantSettingsPage = () => {
                                         marginBottom: '16px',
                                         padding: '12px 16px',
                                         borderRadius: '12px',
-                                        border: `1px solid ${message.type === 'success' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-                                        background: message.type === 'success' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                                        color: message.type === 'success' ? '#34d399' : '#fca5a5',
+                                        border: `1px solid ${message.type === 'success' ? 'var(--success-bg)' : 'var(--danger-bg)'}`,
+                                        background: message.type === 'success' ? 'var(--success-bg)' : 'var(--danger-bg)',
+                                        color: message.type === 'success' ? 'var(--success)' : 'var(--danger)',
                                         fontSize: '14px',
                                         fontWeight: 600
                                     }}
@@ -266,12 +266,12 @@ const MerchantSettingsPage = () => {
                                     <div className="portal-content">
                                         <div className="bank-list" style={{ marginBottom: '32px' }}>
                                             {bankAccounts.length === 0 ? (
-                                                <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                                                <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5, border: '1px dashed var(--border)', borderRadius: '12px' }}>
                                                     No bank accounts added yet.
                                                 </div>
                                             ) : (
                                                 bankAccounts.map(bank => (
-                                                    <div key={bank.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', marginBottom: '12px' }}>
+                                                    <div key={bank.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-card-2)', borderRadius: '12px', marginBottom: '12px' }}>
                                                         <div>
                                                             <div style={{ fontWeight: 600 }}>{bank.bankName}</div>
                                                             <div style={{ fontSize: '12px', opacity: 0.7 }}>{bank.accountNumber} • {bank.ifscCode}</div>
@@ -279,7 +279,7 @@ const MerchantSettingsPage = () => {
                                                         <button 
                                                             className="icon-btn-danger" 
                                                             onClick={() => handleDeleteBank(bank.id)}
-                                                            style={{ padding: '8px', background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '8px', color: '#ef4444', cursor: 'pointer' }}
+                                                            style={{ padding: '8px', background: 'var(--danger-bg)', border: 'none', borderRadius: '8px', color: 'var(--danger)', cursor: 'pointer' }}
                                                         >
                                                             Remove
                                                         </button>
@@ -288,7 +288,7 @@ const MerchantSettingsPage = () => {
                                             )}
                                         </div>
 
-                                        <div className="add-bank-section" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '24px' }}>
+                                        <div className="add-bank-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
                                             <h4>Add New Bank Account</h4>
                                             <div className="form-grid-v2" style={{ marginTop: '16px' }}>
                                                 <div className="form-group-v2">

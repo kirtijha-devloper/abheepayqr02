@@ -42,8 +42,8 @@
 }
 
 .wallet-balance-card {
-  background: linear-gradient(135deg, #1A1040 0%, #0F1022 100%);
-  border: 1px solid rgba(124,108,248,0.2);
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 2.5rem;
   display: flex;
@@ -80,7 +80,7 @@
 .balance-value {
   font-size: 3rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-h);
   letter-spacing: -0.04em;
   margin-bottom: 1.25rem;
   line-height: 1;
@@ -98,8 +98,8 @@
   gap: 0.45rem;
   padding: 0.5rem 0.8rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
 }
 
 .wallet-balance-card .stat-label {
@@ -110,7 +110,7 @@
 .wallet-balance-card .stat-value {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-h);
 }
 
 .wallet-actions {
@@ -348,13 +348,13 @@
 }
 
 .main-wallet {
-  background: rgba(59, 130, 246, 0.15) !important;
-  color: #60a5fa !important;
-  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+  background: var(--primary-dim) !important;
+  color: var(--primary) !important;
+  border: 1px solid var(--border) !important;
 }
 
 .payout-wallet {
-  background: rgba(16, 185, 129, 0.15) !important;
-  color: #34d399 !important;
-  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+  background: var(--success-bg) !important;
+  color: var(--success) !important;
+  border: 1px solid var(--border) !important;
 }

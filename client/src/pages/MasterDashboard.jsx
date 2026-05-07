@@ -60,7 +60,7 @@ const MasterDashboard = () => {
             </div>
           </div>
 
-          <div className="admin-hero-banner" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)' }}>
+          <div className="admin-hero-banner" style={{ background: 'var(--primary)' }}>
             <div className="admin-hero-text">
               <h2>Welcome, {user?.name || 'Master'}</h2>
               <p>Your network has <span>{metrics.totalMerchants}</span> merchants active today.</p>
@@ -132,10 +132,10 @@ const MasterDashboard = () => {
                         <stop offset="95%" stopColor="#7C3AED" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                     <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
                     <YAxis hide />
-                    <Tooltip contentStyle={{ backgroundColor: '#12131F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                    <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-h)' }} />
                     <Area type="monotone" dataKey="value" stroke="#7C3AED" strokeWidth={3} fillOpacity={1} fill="url(#masterTrend)" />
                   </AreaChart>
                 </ResponsiveContainer>

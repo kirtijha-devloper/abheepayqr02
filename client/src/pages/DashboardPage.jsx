@@ -160,14 +160,14 @@ const DashboardPage = () => {
                         <stop offset="95%" stopColor="#7C6CF8" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                     <XAxis
                       dataKey="name"
                       fontSize={11}
                       fontWeight={500}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#64748b' }}
+                      tick={{ fill: 'var(--text-mute)' }}
                       dy={10}
                     />
                     <YAxis
@@ -175,13 +175,13 @@ const DashboardPage = () => {
                       fontWeight={500}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#64748b' }}
+                      tick={{ fill: 'var(--text-mute)' }}
                     />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#12131F', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
-                      itemStyle={{ color: '#fff', fontSize: '12px' }}
-                      labelStyle={{ color: '#94a3b8', marginBottom: '4px', fontSize: '11px' }}
-                      cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2 }}
+                      contentStyle={{ backgroundColor: '#fff', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: 'var(--shadow-glass)' }}
+                      itemStyle={{ color: 'var(--text-h)', fontSize: '12px' }}
+                      labelStyle={{ color: 'var(--text-mute)', marginBottom: '4px', fontSize: '11px' }}
+                      cursor={{ stroke: 'var(--border)', strokeWidth: 2 }}
                     />
                     <Area
                       type="monotone"
@@ -205,7 +205,7 @@ const DashboardPage = () => {
                 ) : (
                   <div style={{ width: '100%' }}>
                     {statusBreakdown.map(([status, count]) => (
-                      <div key={status} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div key={status} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                         <span style={{ textTransform: 'capitalize' }}>{status}</span>
                         <strong>{count}</strong>
                       </div>

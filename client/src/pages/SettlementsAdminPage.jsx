@@ -62,10 +62,10 @@ const SettlementsAdminPage = () => {
         <main className="dashboard-body animated">
           <div className="merchants-header" style={{ marginBottom: '24px' }}>
             <div className="merchants-title">
-              <h2 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', color: 'var(--text-h)' }}>
                 {isAdmin ? 'Settlement Management' : 'Settlement Report'}
               </h2>
-              <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>
+              <p style={{ color: 'var(--text-mute)', margin: 0, fontSize: '14px' }}>
                 {isAdmin 
                   ? 'Review and process bank withdrawal requests from the Payout Wallet, including configured charges.' 
                   : 'Track your bank withdrawal history and status.'}
@@ -102,19 +102,19 @@ const SettlementsAdminPage = () => {
                   {loading ? (
                     <tr><td colSpan="6" style={{ textAlign: 'center', padding: '100px 0' }}>
                       <div className="shimmer" style={{ width: '40px', height: '40px', borderRadius: '50%', margin: '0 auto 16px' }}></div>
-                      <p style={{ color: '#94a3b8' }}>Synchronizing settlement records...</p>
+                      <p style={{ color: 'var(--text-mute)' }}>Synchronizing settlement records...</p>
                     </td></tr>
                   ) : settlements.length === 0 ? (
                     <tr><td colSpan="6" style={{ textAlign: 'center', padding: '100px 0' }}>
                       <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>📥</div>
-                      <p style={{ color: '#94a3b8', fontSize: '16px' }}>No settlement requests found for this filter.</p>
+                      <p style={{ color: 'var(--text-mute)', fontSize: '16px' }}>No settlement requests found for this filter.</p>
                     </td></tr>
                   ) : (
                     settlements.map((s) => (
                       <tr key={s.id}>
                         <td>
                           <div className="merchant-name-cell">
-                            <div className="merchant-avatar" style={{ background: 'linear-gradient(135deg, #3b82f633, #1d4ed833)', color: '#60a5fa' }}>
+                             <div className="merchant-avatar" style={{ background: 'var(--primary-dim)', color: 'var(--primary)' }}>
                               {(s.user?.profile?.fullName || 'U').charAt(0)}
                             </div>
                             <div className="merchant-name-info">
@@ -124,9 +124,9 @@ const SettlementsAdminPage = () => {
                           </div>
                         </td>
                         <td>
-                          <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>₹{Number(s.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                          <div style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-h)' }}>₹{Number(s.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                           {s.fee > 0 && <div style={{ fontSize: '11px', color: '#ef4444' }}>Fee: ₹{Number(s.fee).toFixed(2)}</div>}
-                          {s.fee > 0 && <div style={{ fontSize: '11px', color: '#94a3b8' }}>Total debit: ₹{(Number(s.amount || 0) + Number(s.fee || 0)).toFixed(2)}</div>}
+                          {s.fee > 0 && <div style={{ fontSize: '11px', color: 'var(--text-mute)' }}>Total debit: ₹{(Number(s.amount || 0) + Number(s.fee || 0)).toFixed(2)}</div>}
                           {Array.isArray(s.chargeDistributions) && s.chargeDistributions.length > 0 && (
                             <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                               {s.chargeDistributions.map((dist) => (
@@ -139,15 +139,15 @@ const SettlementsAdminPage = () => {
                         </td>
                         <td>{getBankDisplay(s.payoutBankDetails)}</td>
                         <td>
-                          <div style={{ color: '#fff', fontSize: '13px' }}>{new Date(s.createdAt).toLocaleDateString()}</div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(s.createdAt).toLocaleTimeString()}</div>
+                          <div style={{ color: 'var(--text-h)', fontSize: '13px' }}>{new Date(s.createdAt).toLocaleDateString()}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-mute)' }}>{new Date(s.createdAt).toLocaleTimeString()}</div>
                         </td>
                         <td>
                           <span className={`status-pill ${s.status === 'success' ? 'active' : s.status === 'failed' ? 'suspended' : 'pending'}`}>
                             {s.status === 'success' ? 'APPROVED' : s.status === 'failed' ? 'REJECTED' : 'PENDING'}
                           </span>
                           {s.status === 'failed' && s.description && (
-                            <div style={{ fontSize: '10px', color: '#94a3b8', maxWidth: '150px', marginTop: '4px', fontStyle: 'italic' }}>
+                            <div style={{ fontSize: '10px', color: 'var(--text-mute)', maxWidth: '150px', marginTop: '4px', fontStyle: 'italic' }}>
                               {s.description.replace('Rejected: ', '')}
                             </div>
                           )}
@@ -156,7 +156,7 @@ const SettlementsAdminPage = () => {
                           <td style={{ textAlign: 'right' }}>
                             {s.status === 'pending' ? (
                               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                <button className="action-btn login-btn" onClick={() => handleApprove(s.id)} style={{ padding: '8px 16px', fontSize: '12px', background: '#22c55e22', color: '#4ade80', border: '1px solid #22c55e44' }}>
+                                <button className="action-btn login-btn" onClick={() => handleApprove(s.id)} style={{ padding: '8px 16px', fontSize: '12px', background: 'var(--bg-input)', color: 'var(--success)', border: '1px solid var(--border)' }}>
                                   Approve
                                 </button>
                                 <button className="action-btn danger-btn" onClick={() => handleReject(s.id)} style={{ padding: '8px 16px', fontSize: '12px' }}>
@@ -164,7 +164,7 @@ const SettlementsAdminPage = () => {
                                 </button>
                               </div>
                             ) : (
-                              <span style={{ fontSize: '12px', color: '#94a3b8' }}>Processed</span>
+                              <span style={{ fontSize: '12px', color: 'var(--text-mute)' }}>Processed</span>
                             )}
                           </td>
                         )}

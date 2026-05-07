@@ -265,9 +265,9 @@ const WalletPage = () => {
 
           <div className="wallet-balance-card" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', background: 'transparent', padding: 0, boxShadow: 'none' }}>
             {/* Main Wallet */}
-            <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
-              <div className="balance-label" style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>{user?.role === 'admin' ? 'WALLET BALANCE' : 'MAIN WALLET BALANCE'}</div>
-              <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: '#fff' }}>
+            <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'var(--bg-card-2)' }}>
+              <div className="balance-label" style={{ color: 'var(--text-mute)', fontSize: '14px', fontWeight: '600' }}>{user?.role === 'admin' ? 'WALLET BALANCE' : 'MAIN WALLET BALANCE'}</div>
+              <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: 'var(--text-h)' }}>
                 Rs {(Number(wallet?.balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
               <div className="wallet-actions" style={{ marginTop: '20px' }}>
@@ -281,13 +281,13 @@ const WalletPage = () => {
 
             {/* Payout Wallet (Only for non-admins) */}
             {user?.role !== 'admin' && (
-              <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
-                <div className="balance-label" style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>PAYOUT WALLET BALANCE</div>
-                <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: '#fff' }}>
+              <div className="balance-info-wrapper card" style={{ flex: 1, minWidth: '300px', padding: '24px', borderRadius: '16px', background: 'var(--bg-card-2)' }}>
+                <div className="balance-label" style={{ color: 'var(--text-mute)', fontSize: '14px', fontWeight: '600' }}>PAYOUT WALLET BALANCE</div>
+                <div className="balance-value" style={{ fontSize: '32px', fontWeight: '800', margin: '12px 0', color: 'var(--text-h)' }}>
                   Rs {(Number(wallet?.eWalletBalance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
                 <div className="wallet-actions" style={{ marginTop: '20px' }}>
-                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
+                  <button className="request-funds-btn request-settlement-btn" onClick={handleOpenPayout} style={{ width: '100%', background: 'var(--primary)' }}>
                     <span style={{ fontSize: '1.2rem', marginRight: '8px' }}>💸</span> Payout Options
                   </button>
                 </div>
@@ -297,10 +297,10 @@ const WalletPage = () => {
 
           {showPayoutModal && (
             <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-              <div className="payout-modal card animated-scale-up" style={{ width: '100%', maxWidth: '420px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+              <div className="payout-modal card animated-scale-up" style={{ width: '100%', maxWidth: '420px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '24px', padding: '32px', boxShadow: 'var(--shadow-lg)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h3 style={{ margin: 0, color: '#fff', fontSize: '20px' }}>Payout Options</h3>
-                  <button onClick={() => setShowPayoutModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '24px' }}>&times;</button>
+                  <h3 style={{ margin: 0, color: 'var(--text-h)', fontSize: '20px' }}>Payout Options</h3>
+                  <button onClick={() => setShowPayoutModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: '24px' }}>&times;</button>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
@@ -310,9 +310,9 @@ const WalletPage = () => {
                     style={{
                       padding: '12px',
                       borderRadius: '12px',
-                      border: payoutMode === 'manual' ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
-                      background: payoutMode === 'manual' ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)',
-                      color: '#fff',
+                      border: payoutMode === 'manual' ? '1px solid var(--primary)' : '1px solid var(--border)',
+                      background: payoutMode === 'manual' ? 'var(--primary-dim)' : 'var(--bg-input)',
+                      color: 'var(--text-h)',
                       fontWeight: '700',
                       cursor: 'pointer'
                     }}
@@ -325,9 +325,9 @@ const WalletPage = () => {
                     style={{
                       padding: '12px',
                       borderRadius: '12px',
-                      border: payoutMode === 'branchx' ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
-                      background: payoutMode === 'branchx' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
-                      color: '#fff',
+                      border: payoutMode === 'branchx' ? '1px solid var(--success)' : '1px solid var(--border)',
+                      background: payoutMode === 'branchx' ? 'var(--success-bg)' : 'var(--bg-input)',
+                      color: 'var(--text-h)',
                       fontWeight: '700',
                       cursor: 'pointer'
                     }}
@@ -337,13 +337,13 @@ const WalletPage = () => {
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-mute)', marginBottom: '8px' }}>
                     {payoutMode === 'branchx' ? 'Select Beneficiary Account' : 'Select Bank Account'}
                   </label>
                   <select
                     value={selectedBankId}
                     onChange={(e) => setSelectedBankId(e.target.value)}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px' }}
+                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px', color: 'var(--text-h)', fontSize: '14px' }}
                   >
                     <option value="">-- Choose Account --</option>
                     {bankAccounts.map((bank) => (
@@ -353,11 +353,11 @@ const WalletPage = () => {
                 </div>
 
                 {payoutMode === 'branchx' && selectedBank ? (
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
+                  <div style={{ background: 'var(--bg-card-2)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}>
                       <div>
-                        <div style={{ color: '#fff', fontWeight: '700', marginBottom: '4px' }}>{selectedBank.accountName || selectedBank.bankName}</div>
-                        <div style={{ color: '#94a3b8', fontSize: '13px' }}>
+                        <div style={{ color: 'var(--text-h)', fontWeight: '700', marginBottom: '4px' }}>{selectedBank.accountName || selectedBank.bankName}</div>
+                        <div style={{ color: 'var(--text-mute)', fontSize: '13px' }}>
                           Status: {selectedBank.isVerified ? 'Verified' : 'Not Verified'}
                         </div>
                       </div>
@@ -366,7 +366,7 @@ const WalletPage = () => {
                           type="button"
                           onClick={handleVerifyBeneficiary}
                           disabled={verifyingBeneficiary}
-                          style={{ padding: '10px 14px', borderRadius: '10px', border: 'none', background: '#10b981', color: '#fff', fontWeight: '700', cursor: 'pointer', opacity: verifyingBeneficiary ? 0.6 : 1 }}
+                          style={{ padding: '10px 14px', borderRadius: '10px', border: 'none', background: '#10b981', color: 'var(--text-h)', fontWeight: '700', cursor: 'pointer', opacity: verifyingBeneficiary ? 0.6 : 1 }}
                         >
                           {verifyingBeneficiary ? 'Verifying...' : 'Verify'}
                         </button>
@@ -378,7 +378,7 @@ const WalletPage = () => {
                 ) : null}
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-mute)', marginBottom: '8px' }}>
                     {payoutMode === 'branchx' ? 'Amount to Send (Rs)' : 'Amount to Request (Rs)'}
                   </label>
                   <input
@@ -386,18 +386,18 @@ const WalletPage = () => {
                     placeholder="0.00"
                     value={payoutAmount}
                     onChange={(e) => setPayoutAmount(e.target.value)}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '16px', color: '#fff', fontSize: '24px', fontWeight: '700' }}
+                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', color: 'var(--text-h)', fontSize: '24px', fontWeight: '700' }}
                   />
                 </div>
 
                 {payoutMode === 'branchx' ? (
                   <>
                     <div style={{ marginBottom: '20px' }}>
-                      <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Transfer Mode</label>
+                      <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-mute)', marginBottom: '8px' }}>Transfer Mode</label>
                       <select
                         value={branchxTransferMode}
                         onChange={(e) => setBranchxTransferMode(e.target.value)}
-                        style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px' }}
+                        style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px', color: 'var(--text-h)', fontSize: '14px' }}
                       >
                         <option value="IMPS">IMPS</option>
                         <option value="NEFT">NEFT</option>
@@ -406,18 +406,18 @@ const WalletPage = () => {
                     </div>
 
                     <div style={{ marginBottom: '20px' }}>
-                      <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Remark</label>
+                      <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-mute)', marginBottom: '8px' }}>Remark</label>
                       <input
                         type="text"
                         placeholder="Optional payout remark"
                         value={branchxRemark}
                         onChange={(e) => setBranchxRemark(e.target.value)}
-                        style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px' }}
+                        style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px', color: 'var(--text-h)', fontSize: '14px' }}
                       />
                     </div>
 
                     <div style={{ marginBottom: '20px' }}>
-                      <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Transaction PIN</label>
+                      <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-mute)', marginBottom: '8px' }}>Transaction PIN</label>
                       <input
                         type="password"
                         placeholder="Enter TPIN"
@@ -429,36 +429,36 @@ const WalletPage = () => {
                         readOnly={!branchxTpinEditable}
                         data-lpignore="true"
                         data-1p-ignore="true"
-                        style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px' }}
+                        style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px', color: 'var(--text-h)', fontSize: '14px' }}
                       />
                     </div>
                   </>
                 ) : null}
 
-                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
+                <div style={{ background: 'var(--bg-card-2)', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <span style={{ color: '#94a3b8', fontSize: '14px' }}>
+                    <span style={{ color: 'var(--text-mute)', fontSize: '14px' }}>
                       {payoutMode === 'branchx' ? 'BranchX Charge' : 'Transfer Fee'}
                     </span>
                     <span style={{ color: '#10b981', fontWeight: '600' }}>Rs {payoutFee.toFixed(2)}</span>
                   </div>
                   {payoutMode === 'branchx' ? (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                      <span style={{ color: '#94a3b8', fontSize: '14px' }}>Net Transfer Amount</span>
-                      <span style={{ color: '#fff', fontWeight: '600' }}>
+                      <span style={{ color: 'var(--text-mute)', fontSize: '14px' }}>Net Transfer Amount</span>
+                      <span style={{ color: 'var(--text-h)', fontWeight: '600' }}>
                         {branchxQuoteLoading ? 'Loading...' : `Rs ${(Number(branchxQuote.netAmount) || 0).toFixed(2)}`}
                       </span>
                     </div>
                   ) : null}
                   <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', marginBottom: '12px' }}></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#fff', fontWeight: '600' }}>Total Deduction</span>
-                    <span style={{ color: '#fff', fontWeight: '800', fontSize: '18px' }}>Rs {payoutTotal.toFixed(2)}</span>
+                    <span style={{ color: 'var(--text-h)', fontWeight: '600' }}>Total Deduction</span>
+                    <span style={{ color: 'var(--text-h)', fontWeight: '800', fontSize: '18px' }}>Rs {payoutTotal.toFixed(2)}</span>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button onClick={() => setShowPayoutModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', fontWeight: '600', cursor: 'pointer' }}>
+                  <button onClick={() => setShowPayoutModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-h)', fontWeight: '600', cursor: 'pointer' }}>
                     Cancel
                   </button>
                   <button
@@ -478,7 +478,7 @@ const WalletPage = () => {
                       borderRadius: '12px',
                       border: 'none',
                       background: 'var(--primary)',
-                      color: '#fff',
+                      color: 'var(--text-h)',
                       fontWeight: '700',
                       cursor: 'pointer',
                       opacity: (
@@ -506,41 +506,41 @@ const WalletPage = () => {
 
           {showFundModal && (
             <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-              <div className="payout-modal card animated-scale-up" style={{ width: '100%', maxWidth: '420px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+              <div className="payout-modal card animated-scale-up" style={{ width: '100%', maxWidth: '420px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '24px', padding: '32px', boxShadow: 'var(--shadow-lg)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h3 style={{ margin: 0, color: '#fff', fontSize: '20px' }}>Transfer to Payout Wallet</h3>
-                  <button onClick={() => setShowFundModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '24px' }}>&times;</button>
+                  <h3 style={{ margin: 0, color: 'var(--text-h)', fontSize: '20px' }}>Transfer to Payout Wallet</h3>
+                  <button onClick={() => setShowFundModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: '24px' }}>&times;</button>
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Amount to Transfer (Rs)</label>
+                  <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-mute)', marginBottom: '8px' }}>Amount to Transfer (Rs)</label>
                   <input
                     type="number"
                     placeholder="0.00"
                     value={fundAmount}
                     onChange={(e) => setFundAmount(e.target.value)}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '16px', color: '#fff', fontSize: '24px', fontWeight: '700' }}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '16px', color: 'var(--text-h)', fontSize: '24px', fontWeight: '700' }}
                   />
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '8px' }}>Remarks (UTR / Ref No.)</label>
+                  <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-mute)', marginBottom: '8px' }}>Remarks (UTR / Ref No.)</label>
                   <textarea
                     placeholder="Enter payment details..."
                     value={fundRemarks}
                     onChange={(e) => setFundRemarks(e.target.value)}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px', minHeight: '80px', resize: 'none' }}
+                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px', color: 'var(--text-h)', fontSize: '14px', minHeight: '80px', resize: 'none' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button onClick={() => setShowFundModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', fontWeight: '600', cursor: 'pointer' }}>
+                  <button onClick={() => setShowFundModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-h)', fontWeight: '600', cursor: 'pointer' }}>
                     Cancel
                   </button>
                   <button
                     onClick={handleConfirmFundRequest}
                     disabled={fundLoading || !fundAmount}
-                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: '700', cursor: 'pointer', opacity: (fundLoading || !fundAmount) ? 0.5 : 1 }}
+                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: 'var(--text-h)', fontWeight: '700', cursor: 'pointer', opacity: (fundLoading || !fundAmount) ? 0.5 : 1 }}
                   >
                     {fundLoading ? 'Requesting...' : 'Submit Request'}
                   </button>

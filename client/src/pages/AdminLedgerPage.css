@@ -82,9 +82,9 @@
 
 .ledger-filter-group select,
 .ledger-filter-group input {
-  background: rgba(15, 23, 42, 0.82);
+  background: var(--bg-input);
   color: var(--text-h);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.85rem 0.95rem;
 }
@@ -99,12 +99,12 @@
   gap: 0.35rem;
   margin-bottom: 1.5rem;
   padding: 1rem 1.25rem;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  background: rgba(127, 29, 29, 0.18);
+  border: 1px solid var(--danger-bg);
+  background: var(--danger-bg);
 }
 
 .ledger-error strong {
-  color: #fca5a5;
+  color: var(--danger);
 }
 
 .ledger-error span {
@@ -132,7 +132,7 @@
 .ledger-table th,
 .ledger-table td {
   padding: 0.9rem 0.8rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
 }
@@ -176,18 +176,18 @@
 }
 
 .ledger-type-pill {
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
+  background: var(--primary-dim);
+  color: var(--primary);
 }
 
 .ledger-role-pill {
-  background: rgba(148, 163, 184, 0.14);
-  color: #cbd5e1;
+  background: var(--bg-card-2);
+  color: var(--text-mute);
 }
 
 .ledger-status-pill {
-  background: rgba(148, 163, 184, 0.14);
-  color: #cbd5e1;
+  background: var(--bg-card-2);
+  color: var(--text-mute);
 }
 
 .ledger-status-pill.completed,

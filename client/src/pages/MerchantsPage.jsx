@@ -288,7 +288,7 @@ const MerchantsPage = () => {
                             <tr key={branch.id}>
                               <td>
                                 <div className="merchant-name-cell">
-                                  <div className="merchant-avatar" style={{ background: 'linear-gradient(135deg, #3b82f633, #1d4ed833)', color: '#60a5fa' }}>
+                                  <div className="merchant-avatar" style={{ background: 'var(--primary-dim)', color: 'var(--primary)' }}>
                                       {branch.fullName?.charAt(0) || '?'}
                                   </div>
                                   <div className="merchant-name-info">
@@ -302,7 +302,7 @@ const MerchantsPage = () => {
                               <td><span className={`status-pill ${(branch.status || 'active').toLowerCase()}`} onClick={() => handleToggleStatus(branch)} style={{cursor: 'pointer'}}>{titleCase(branch.status || 'active')}</span></td>
                               <td className="merchant-actions">
                                 {(user?.role === 'admin' || user?.role === 'staff') && (
-                                  <button title="Login as Branch" className="action-btn login-btn" onClick={() => handleLoginAsMerchant(branch.id)}>
+                                <button title="Login as Branch" className="action-btn login-btn" onClick={() => handleLoginAsMerchant(branch.id)}>
                                     Login As
                                   </button>
                                 )}
@@ -390,7 +390,7 @@ const MerchantsPage = () => {
                             <div className="merchant-name-info">
                               <div className="m-name">{merchant.fullName}</div>
                               <div className="m-email">{merchant.email}</div>
-                              {merchant.phone && <div className="m-email" style={{opacity: 0.8}}>{merchant.phone}</div>}
+                              {merchant.phone && <div className="m-email" style={{color: 'var(--text-mute)'}}>{merchant.phone}</div>}
                             </div>
                           </div>
                         </td>
@@ -413,7 +413,7 @@ const MerchantsPage = () => {
                         <td>
                           <div className="merchant-actions">
                             {!isMerchant && (
-                                <button className="action-btn" style={{background: 'var(--brand-primary)', color: 'white'}} onClick={() => handleViewBranches(merchant)}>See Branches</button>
+                                <button className="action-btn" style={{background: 'var(--primary)', color: 'white'}} onClick={() => handleViewBranches(merchant)}>See Branches</button>
                             )}
                             <button className="action-btn hold-btn" onClick={() => handleHoldAction(merchant, 'hold')}>Hold</button>
                             <button className="action-btn unhold-btn" onClick={() => handleHoldAction(merchant, 'unhold')}>Unhold</button>
@@ -486,7 +486,7 @@ const MerchantsPage = () => {
                   {!isEditing && (
                     <div className="form-group full-width">
                       <label className="callback-label" style={{marginBottom: '5px', display: 'block', fontSize: '11px', color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600}}>Upline Member</label>
-                      <select name="parentId" value={formData.parentId} onChange={handleChange} className="form-input-box" style={{background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.1)'}}>
+                      <select name="parentId" value={formData.parentId} onChange={handleChange} className="form-input-box" style={{background: 'var(--bg-input)', border: '1px solid var(--border)'}}>
                         <option value="">-- Direct Downline (Self) --</option>
                         {uplineMembers.map(member => (
                           <option key={member.id || member.profile?.id || member.profileId} value={member.profileId || member.profile?.id || member.id}>
@@ -560,7 +560,7 @@ const MerchantsPage = () => {
       {showHoldModal && (
         <div className="modal-overlay">
           <div className="modal-container" style={{ maxWidth: '450px' }}>
-            <div className="modal-header-gradient" style={{ background: holdData.type === 'hold' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #10b981, #059669)' }}>
+            <div className="modal-header-gradient" style={{ background: holdData.type === 'hold' ? 'var(--warning-bg)' : 'var(--success-bg)' }}>
               <h3>{holdData.type === 'hold' ? 'Hold Wallet Amount' : 'Release Holded Amount'}</h3>
               <button className="close-modal" onClick={() => setShowHoldModal(false)}>&times;</button>
             </div>

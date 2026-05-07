@@ -20,8 +20,8 @@
 
 /* Hero Banner */
 .admin-hero-banner {
-  background: linear-gradient(135deg, #1A1040 0%, #0F1022 100%);
-  border: 1px solid rgba(124,108,248,0.2);
+  background: linear-gradient(135deg, #7C6CF8 0%, #A78BFA 100%);
+  border: 1px solid rgba(124,108,248,0.1);
   border-radius: var(--r-lg);
   padding: 2rem;
   margin-bottom: 1.75rem;
@@ -182,15 +182,15 @@
 }
 
 .activity-icon.warning {
-  background: rgba(245, 158, 11, 0.14);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.22);
+  background: #FFFBEB;
+  color: #D97706;
+  border: 1px solid #FEF3C7;
 }
 
 .activity-icon.info {
-  background: rgba(124, 108, 248, 0.14);
-  color: #a78bfa;
-  border: 1px solid rgba(124, 108, 248, 0.22);
+  background: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #E0E7FF;
 }
 
 .activity-details {

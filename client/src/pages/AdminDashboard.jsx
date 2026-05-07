@@ -177,9 +177,9 @@ const AdminDashboard = () => {
                           padding: '4px 10px',
                           borderRadius: '6px',
                           fontSize: '11px',
-                          background: timeRange === r ? '#6366f1' : 'rgba(255,255,255,0.05)',
-                          color: '#fff',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: timeRange === r ? 'var(--primary)' : 'var(--bg-input)',
+                          color: timeRange === r ? '#fff' : 'var(--text-p)',
+                          border: `1px solid ${timeRange === r ? 'var(--primary)' : 'var(--border)'}`,
                           cursor: 'pointer'
                         }}
                       >
@@ -199,12 +199,12 @@ const AdminDashboard = () => {
                         <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                    <XAxis dataKey="name" fontSize={10} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <YAxis fontSize={10} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v}`} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                    <XAxis dataKey="name" fontSize={10} tick={{ fill: 'var(--text-mute)' }} axisLine={false} tickLine={false} />
+                    <YAxis fontSize={10} tick={{ fill: 'var(--text-mute)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v}`} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                      itemStyle={{ color: '#fff' }}
+                      contentStyle={{ backgroundColor: '#fff', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: 'var(--shadow-glass)' }}
+                      itemStyle={{ color: 'var(--text-h)' }}
                       formatter={(v) => [`₹${v.toLocaleString()}`, 'Volume']}
                     />
                     <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorTrend)" />
@@ -218,14 +218,14 @@ const AdminDashboard = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 className="section-title" style={{ margin: 0 }}>SYSTEM ALERTS & ACTION ITEMS</h3>
               {(metrics.pendingFundRequestsCount + (settlements?.filter(s => s.status === 'pending').length || 0)) > 0 && (
-                <span style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
+                <span style={{ background: 'var(--danger-bg)', color: 'var(--danger)', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
                   {metrics.pendingFundRequestsCount + (settlements?.filter(s => s.status === 'pending').length || 0)} PENDING
                 </span>
               )}
             </div>
             <div className="activity-list">
               {recentAlerts.length === 0 ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-mute)' }}>
                   <div style={{ fontSize: '32px', marginBottom: '10px' }}>✅</div>
                   <p>No new requests or alerts to process.</p>
                 </div>

@@ -9,6 +9,13 @@ import { UPLOADS_BASE } from '../config';
 import './QrCodesPage.css';
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
+const formatCompactUpi = (value) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return 'N/A';
+  if (normalized.length <= 4) return normalized;
+  return `${normalized.substring(0, 4)}••••`;
+};
+
 const formatDateTime = (value) => {
   if (!value) return 'N/A';
   const date = new Date(value);
@@ -146,7 +153,11 @@ const QrCodesPage = () => {
                     <td>{q.label || 'QR Code'}</td>
                     <td>{q.merchantName || 'Unassigned'}</td>
                     <td>{q.tid || 'N/A'}</td>
-                    <td className="qr-mono-cell">{q.upiId || 'N/A'}</td>
+                    <td>
+                      <span className="qr-compact-upi" title={q.upiId || 'N/A'}>
+                        {formatCompactUpi(q.upiId)}
+                      </span>
+                    </td>
                     <td>
                       <span className={`qr-status-badge ${q.status === 'active' ? 'active' : 'inactive'}`}>
                         {(q.status || 'unknown').toUpperCase()}
@@ -239,7 +250,7 @@ const QrCodesPage = () => {
                     <strong>{formatCurrency(qrReport?.summary?.totalAmount || 0)}</strong>
                   </div>
                   <div className="qr-report-stat-card">
-                    <span>Completed Amount</span>
+                    <span>Successful Amount</span>
                     <strong>{formatCurrency(qrReport?.summary?.completedAmount || 0)}</strong>
                   </div>
                 </div>

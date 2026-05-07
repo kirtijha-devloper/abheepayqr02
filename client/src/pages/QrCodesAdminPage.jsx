@@ -37,6 +37,7 @@ const QrCodesAdminPage = () => {
   const [selectedTids, setSelectedTids] = useState([]);
   const [selectedQrIds, setSelectedQrIds] = useState([]); // for row checkboxes
   const [showTidSuggestions, setShowTidSuggestions] = useState(false);
+  const [assignRoleFilter, setAssignRoleFilter] = useState('master');
   const [assignMerchantId, setAssignMerchantId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
 
@@ -85,6 +86,14 @@ const QrCodesAdminPage = () => {
 
   // Use downline for merchants, full merchants list for admin/master
   const assignTargets = isMerchantUser ? downline : merchants;
+  const adminAssignableRoles = ['master', 'merchant', 'branch'];
+  const filteredAssignTargets = isMerchantUser
+    ? assignTargets
+    : assignTargets.filter((item) => String(item.role || '').toLowerCase() === assignRoleFilter);
+
+  useEffect(() => {
+    setAssignMerchantId('');
+  }, [assignRoleFilter]);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -295,7 +304,7 @@ const QrCodesAdminPage = () => {
 
   const handleAssignByTid = async () => {
     if (!assignMerchantId) {
-      error('Please select a merchant first.');
+      error(`Please select a ${isMerchantUser ? 'branch' : 'user'} first.`);
       return;
     }
     if (selectedTids.length === 0 && selectedQrIds.length === 0) {
@@ -487,7 +496,7 @@ const QrCodesAdminPage = () => {
                           className="inner-input"
                           value={formData.merchantId}
                           onChange={(e) => setFormData({...formData, merchantId: e.target.value})}
-                          style={{width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '8px'}}
+                          style={{width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-h)', padding: '12px', borderRadius: '8px'}}
                         >
                           <option value="">Select Merchant</option>
                           {merchants.map(m => (
@@ -567,9 +576,9 @@ const QrCodesAdminPage = () => {
             </div>
           ) : (
             <div className="qr-manage-container card animated-fade-in">
-              <div className="assign-by-tid-bar" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="assign-by-tid-bar" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'var(--bg-card-2)', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#e0e0e0' }}>Quick Assign:</span>
+                  <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-h)' }}>Quick Assign:</span>
                   
                   <div style={{ position: 'relative', width: '220px' }}>
                     <input 
@@ -623,14 +632,31 @@ const QrCodesAdminPage = () => {
                     })()}
                   </div>
 
+                  {!isMerchantUser && (
+                    <select
+                      value={assignRoleFilter}
+                      onChange={e => setAssignRoleFilter(e.target.value)}
+                      className="inner-input"
+                      style={{ width: '160px', background: 'var(--bg-input)', color: 'var(--text-h)' }}
+                    >
+                      {adminAssignableRoles.map(role => (
+                        <option key={role} value={role}>
+                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
                   <select 
                     value={assignMerchantId} 
                     onChange={e => setAssignMerchantId(e.target.value)} 
                     className="inner-input" 
-                    style={{ width: '250px', background: 'rgba(0,0,0,0.5)', color: '#fff' }}
+                    style={{ width: '250px', background: 'var(--bg-input)', color: 'var(--text-h)' }}
                   >
-                  <option value="">{isMerchantUser ? 'Select Branch' : 'Select Merchant'}</option>
-                  {assignTargets.map(m => (
+                  <option value="">
+                    {isMerchantUser ? 'Select Branch' : `Select ${assignRoleFilter.charAt(0).toUpperCase() + assignRoleFilter.slice(1)}`}
+                  </option>
+                  {filteredAssignTargets.map(m => (
                     <option key={m.id || m.userId} value={m.userId || m.id}>{m.fullName || m.email}</option>
                   ))}
                   </select>
@@ -646,15 +672,15 @@ const QrCodesAdminPage = () => {
                 {(selectedTids.length > 0 || selectedQrIds.length > 0) && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
                     {selectedTids.map(tid => (
-                      <span key={tid} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span key={tid} style={{ background: 'var(--primary-dim)', border: '1px solid var(--primary-dim)', color: 'var(--primary)', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {tid}
-                        <button onClick={() => setSelectedTids(prev => prev.filter(t => t !== tid))} style={{ background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', padding: 0, fontSize: '16px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&times;</button>
+                        <button onClick={() => setSelectedTids(prev => prev.filter(t => t !== tid))} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0, fontSize: '16px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&times;</button>
                       </span>
                     ))}
                     {selectedQrIds.length > 0 && (
-                      <span style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ background: 'var(--primary-dim)', border: '1px solid var(--primary-dim)', color: 'var(--primary)', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         + {selectedQrIds.length} selected from table
-                        <button onClick={() => setSelectedQrIds([])} style={{ background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', padding: 0, fontSize: '16px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&times;</button>
+                        <button onClick={() => setSelectedQrIds([])} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0, fontSize: '16px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&times;</button>
                       </span>
                     )}
                   </div>
@@ -744,7 +770,7 @@ const QrCodesAdminPage = () => {
                                 }
                               }}
                               style={{ 
-                                background: selectedQrIds.includes(item.id) ? 'rgba(124,108,248,0.12)' : 'transparent',
+                                background: selectedQrIds.includes(item.id) ? 'var(--primary-dim)' : 'transparent',
                                 cursor: 'pointer',
                                 transition: 'background 0.2s'
                               }}
@@ -794,7 +820,7 @@ const QrCodesAdminPage = () => {
                                 <div className="mid-label-cell">
                                   <div className="label-text">{item.label}</div>
                                   <div className="mid-text">MID: {item.mid || 'N/A'}</div>
-                                  <div className="mid-text" style={{opacity: 0.7}}>TID: {item.tid || 'N/A'}</div>
+                                  <div className="mid-text" style={{color: 'var(--text-mute)'}}>TID: {item.tid || 'N/A'}</div>
                                 </div>
                               </td>
                               <td>
@@ -818,9 +844,9 @@ const QrCodesAdminPage = () => {
                                         fontSize: '11px', 
                                         fontWeight: '700',
                                         minWidth: '85px',
-                                        background: item.status?.toLowerCase() === 'active' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-                                        color: item.status?.toLowerCase() === 'active' ? '#ef4444' : '#10b981',
-                                        border: `1px solid ${item.status?.toLowerCase() === 'active' ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)'}`
+                                        background: item.status?.toLowerCase() === 'active' ? 'var(--danger-bg)' : 'var(--success-bg)',
+                                        color: item.status?.toLowerCase() === 'active' ? 'var(--danger)' : 'var(--success)',
+                                        border: `1px solid ${item.status?.toLowerCase() === 'active' ? 'var(--danger-bg)' : 'var(--success-bg)'}`
                                       }}
                                     >
                                       {item.status?.toLowerCase() === 'active' ? 'Deactivate' : 'Activate'}
@@ -842,13 +868,13 @@ const QrCodesAdminPage = () => {
                                           }
                                         }} 
                                         className="action-btn" 
-                                        style={{padding: '6px 10px', fontSize: '11px', background: 'rgba(99,102,241,0.1)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.2)', fontWeight: '700'}}
+                                        style={{padding: '6px 10px', fontSize: '11px', background: 'var(--primary-dim)', color: 'var(--primary)', border: '1px solid var(--primary-dim)', fontWeight: '700'}}
                                       >
                                         Unassign
                                       </button>
                                     )}
 
-                                    <button onClick={() => deleteQrCode(item.id)} className="action-btn danger-btn" style={{padding: '6px 10px', fontSize: '12px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)'}}>Delete</button>
+                                    <button onClick={() => deleteQrCode(item.id)} className="action-btn danger-btn" style={{padding: '6px 10px', fontSize: '12px', background: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid var(--danger-bg)'}}>Delete</button>
                                 </div>
                               </td>
                             </tr>
@@ -914,6 +940,23 @@ const QrCodesAdminPage = () => {
                   <span style={{ fontWeight: 700, color: '#a5b4fc', fontSize: '15px', whiteSpace: 'nowrap' }}>
                     ✓ {selectedQrIds.length} QR{selectedQrIds.length > 1 ? 's' : ''} selected
                   </span>
+                  {!isMerchantUser && (
+                    <select
+                      value={assignRoleFilter}
+                      onChange={e => setAssignRoleFilter(e.target.value)}
+                      style={{
+                        minWidth: '150px', background: 'rgba(0,0,0,0.4)',
+                        border: '1px solid rgba(124,108,248,0.4)', color: '#fff',
+                        padding: '10px 14px', borderRadius: '10px', fontSize: '14px'
+                      }}
+                    >
+                      {adminAssignableRoles.map(role => (
+                        <option key={role} value={role}>
+                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <select 
                     value={assignMerchantId} 
                     onChange={e => setAssignMerchantId(e.target.value)} 
@@ -923,9 +966,11 @@ const QrCodesAdminPage = () => {
                       padding: '10px 14px', borderRadius: '10px', fontSize: '14px' 
                     }}
                   >
-                    <option value="">— Select Merchant to Assign —</option>
-                    {merchants.map(m => (
-                      <option key={m.id} value={m.userId || m.id}>{m.fullName || m.email}</option>
+                    <option value="">
+                      {isMerchantUser ? '— Select Branch to Assign —' : `— Select ${assignRoleFilter.charAt(0).toUpperCase() + assignRoleFilter.slice(1)} to Assign —`}
+                    </option>
+                    {filteredAssignTargets.map(m => (
+                      <option key={m.id || m.userId} value={m.userId || m.id}>{m.fullName || m.email}</option>
                     ))}
                   </select>
                   <button 
@@ -938,7 +983,7 @@ const QrCodesAdminPage = () => {
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    {isAssigning ? 'Assigning...' : '🔗 Assign to Merchant'}
+                    {isAssigning ? 'Assigning...' : `🔗 Assign to ${isMerchantUser ? 'Branch' : assignRoleFilter.charAt(0).toUpperCase() + assignRoleFilter.slice(1)}`}
                   </button>
                   <button 
                     onClick={() => setSelectedQrIds([])}
