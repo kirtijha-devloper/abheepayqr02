@@ -7,7 +7,6 @@ import { assertNoRecentDuplicatePayout } from "../services/payout.service";
 const router = Router();
 const HIDDEN_LEDGER_TRANSACTION_TYPES = new Set([
   "hold",
-  "payout",
   "pg_add",
   "qr_settlement_credit",
   "refund",
@@ -434,10 +433,14 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
           ? Number(txn.fromBalanceAfter ?? txn.toBalanceAfter ?? 0)
           : Number(txn.toBalanceAfter ?? txn.fromBalanceAfter ?? 0);
 
+        let type = (txn.type || "wallet").toLowerCase();
+        // Consolidate wallet transaction types for consistency with filters
+        if (type === "branchx_payout_hold") type = "branchx_payout";
+
         return {
           id: `wallet_${txn.id}`,
           createdAt: txn.createdAt,
-          transactionType: (txn.type || "wallet").toLowerCase(),
+          transactionType: type,
           source: "wallet",
           sourceLabel: "Wallet",
           status: "success",
@@ -446,13 +449,21 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
           amount,
           direction: amount < 0 ? "debit" : "credit",
           balanceAfter,
-          walletKind: ["transfer_credit", "payout", "payout_refund"].includes((txn.type || "").toLowerCase()) ? "payout" : "main",
+          walletKind: ["transfer_credit", "payout", "payout_refund", "branchx_payout", "branchx_payout_refund"].includes((txn.type || "").toLowerCase()) ? "payout" : "main",
         };
       }),
       ...serviceTransactions.map((txn) => {
         const baseType = (txn.type || "").toLowerCase();
         const serviceType = (txn.serviceType || "service").toLowerCase();
-        const combinedType = baseType ? `${serviceType}_${baseType}` : serviceType;
+        let combinedType = baseType ? `${serviceType}_${baseType}` : serviceType;
+        
+        // Consolidate service transaction types
+        if (serviceType === "branchx_payout" && baseType === "debit") {
+            combinedType = "branchx_payout";
+        } else if (serviceType === "payout" && baseType === "debit") {
+            combinedType = "payout";
+        }
+
         const amount = Number(txn.amount || 0);
 
         return {
@@ -506,7 +517,14 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
     const availableStatuses = Array.from(new Set(ledgerRows.map((row) => row.status).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
     const filteredRows = ledgerRows
-      .filter((row) => (transactionType ? row.transactionType === transactionType : true))
+      .filter((row) => {
+          if (!transactionType) return true;
+          // Exact match or prefix match for branchx_payout
+          if (transactionType === "branchx_payout") {
+              return row.transactionType === "branchx_payout" || row.transactionType === "branchx_payout_debit";
+          }
+          return row.transactionType === transactionType;
+      })
       .filter((row) => (statusFilter ? row.status === statusFilter : true))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 

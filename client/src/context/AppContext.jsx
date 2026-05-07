@@ -461,13 +461,15 @@ export const AppProvider = ({ children }) => {
                 headers: getHeaders(),
                 body: JSON.stringify(bankData)
             });
+            const data = await res.json();
             if (res.ok) {
                 await fetchData();
                 return { success: true };
             }
-            return { success: false };
+            return { success: false, error: data.error || 'Failed to add bank account' };
         } catch (err) {
-            return { success: false };
+            console.error("Add bank account failed", err);
+            return { success: false, error: "Network error" };
         }
     }, [getHeaders, fetchData]);
 

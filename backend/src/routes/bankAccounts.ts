@@ -4,12 +4,12 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
-// GET /api/bank-accounts — Get my bank accounts
+// GET /api/bank-accounts - list my bank accounts
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const accounts = await (prisma as any).merchantBankAccount.findMany({
+    const accounts = await prisma.merchantBankAccount.findMany({
       where: { userId: req.userId! },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
     res.json(accounts);
   } catch (err: any) {
@@ -17,30 +17,32 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// POST /api/bank-accounts — Add a bank account
+// POST /api/bank-accounts - add a bank account
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   const { bankName, accountName, accountNumber, ifscCode } = req.body;
   try {
-    const account = await (prisma as any).merchantBankAccount.create({
+    const account = await prisma.merchantBankAccount.create({
       data: {
         userId: req.userId!,
         bankName,
         accountName,
         accountNumber,
         ifscCode,
-      }
+      },
     });
     res.json(account);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("[BankAccounts] Create failed:", err);
+    res.status(500).json({ error: err.message || "Failed to create bank account" });
   }
 });
 
-// DELETE /api/bank-accounts/:id — Delete a bank account
+// DELETE /api/bank-accounts/:id
 router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
+  const { id } = req.params;
   try {
-    await (prisma as any).merchantBankAccount.delete({
-      where: { id: req.params.id, userId: req.userId! }
+    await prisma.merchantBankAccount.delete({
+      where: { id, userId: req.userId! },
     });
     res.json({ success: true });
   } catch (err: any) {

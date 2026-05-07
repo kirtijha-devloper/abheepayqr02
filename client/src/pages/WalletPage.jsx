@@ -420,6 +420,7 @@ const WalletPage = () => {
                         placeholder="Enter TPIN"
                         value={branchxTpin}
                         onChange={(e) => setBranchxTpin(e.target.value)}
+                        autoComplete="off"
                         style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px' }}
                       />
                     </div>

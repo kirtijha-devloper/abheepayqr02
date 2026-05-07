@@ -98,7 +98,6 @@ const AdminSettingsPage = () => {
   };
 
   const handleAddBank = async () => {
-    // Relaxed for testing
     if (!newBank.bankName) {
         error('Bank Name is required.');
         return;
@@ -108,7 +107,7 @@ const AdminSettingsPage = () => {
         success('Bank account added.');
         setNewBank({ bankName: '', accountName: '', accountNumber: '', ifscCode: '' });
     } else {
-        error('Failed to add bank account.');
+        error(res.error || 'Failed to add bank account.');
     }
   };
 
@@ -512,6 +511,7 @@ const AdminSettingsPage = () => {
                             className="premium-input"
                             value={tpinForm.tpin}
                             onChange={e => setTpinForm({ ...tpinForm, tpin: e.target.value })}
+                            autoComplete="new-password"
                           />
                         </div>
                         <div className="form-group-v2">
@@ -522,6 +522,7 @@ const AdminSettingsPage = () => {
                             className="premium-input"
                             value={tpinForm.confirmTpin}
                             onChange={e => setTpinForm({ ...tpinForm, confirmTpin: e.target.value })}
+                            autoComplete="new-password"
                           />
                         </div>
                       </div>

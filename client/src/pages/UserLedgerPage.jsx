@@ -39,7 +39,6 @@ const DEFAULT_STATUS_OPTIONS = ['success', 'pending', 'failed'];
 
 const HIDDEN_TRANSACTION_TYPES = new Set([
   'hold',
-  'payout',
   'pg_add',
   'qr_settlement_credit',
   'refund',

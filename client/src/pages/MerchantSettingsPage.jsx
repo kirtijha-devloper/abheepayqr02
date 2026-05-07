@@ -388,6 +388,7 @@ const MerchantSettingsPage = () => {
                                                         placeholder="Minimum 4 digits"
                                                         value={tpinForm.tpin}
                                                         onChange={e => setTpinForm({ ...tpinForm, tpin: e.target.value })}
+                                                        autoComplete="new-password"
                                                     />
                                                 </div>
                                                 <div className="form-group-v2">
@@ -398,6 +399,7 @@ const MerchantSettingsPage = () => {
                                                         placeholder="Repeat TPIN"
                                                         value={tpinForm.confirmTpin}
                                                         onChange={e => setTpinForm({ ...tpinForm, confirmTpin: e.target.value })}
+                                                        autoComplete="new-password"
                                                     />
                                                 </div>
                                             </div>
