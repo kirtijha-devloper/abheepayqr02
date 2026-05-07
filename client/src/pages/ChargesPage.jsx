@@ -188,7 +188,7 @@ const ChargesPage = () => {
                     body: JSON.stringify({
                         target_role: targetRole,
                         service_key: serviceKey,
-                        service_label: serviceKey === 'payout' ? 'Downline Payout Charge' : 'Downline Collection Charge',
+                        service_label: serviceKey === 'payout' ? 'Downline Payout Charge' : serviceKey === 'branchx_payout' ? 'Downline BranchX Charge' : 'Downline Collection Charge',
                         min_amount: Number(minAmount),
                         max_amount: Number(maxAmount),
                         charge_type: chargeType,
@@ -212,7 +212,7 @@ const ChargesPage = () => {
                     body: JSON.stringify({
                         target_user_id: targetUser.userId || targetUser.id,
                         service_key: serviceKey,
-                        service_label: serviceKey === 'payout' ? 'Transfer Charge' : 'Collection Charge',
+                        service_label: serviceKey === 'payout' ? 'Transfer Charge' : serviceKey === 'branchx_payout' ? 'BranchX Payout Charge' : 'Collection Charge',
                         min_amount: Number(minAmount),
                         max_amount: Number(maxAmount),
                         charge_type: chargeType,
@@ -366,7 +366,7 @@ const ChargesPage = () => {
                                             {defaultCharges.map(slab => (
                                                 <tr key={slab.id}>
                                                     <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
-                                                    <td><span className={`status-pill ${slab.serviceKey === 'payout' ? 'active' : 'info'}`} style={{ fontSize: '10px' }}>{slab.serviceKey.toUpperCase()}</span></td>
+                                                    <td><span className={`status-pill ${['payout', 'branchx_payout'].includes(slab.serviceKey) ? 'active' : 'info'}`} style={{ fontSize: '10px' }}>{slab.serviceKey.replace('_', ' ').toUpperCase()}</span></td>
                                                     <td>
                                                         <span style={{ color: '#94a3b8', fontSize: '12px' }}>
                                                             {slab.minAmount} - {slab.maxAmount >= 9999999 ? '∞' : slab.maxAmount}
@@ -429,7 +429,7 @@ const ChargesPage = () => {
                                             ) : myDownlineDefaults.map((item) => (
                                                 <tr key={item.id}>
                                                     <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{item.target_role?.replace('_', ' ')}</strong></td>
-                                                    <td><span className={`status-pill ${item.service_key === 'payout' ? 'active' : 'info'}`} style={{ fontSize: '10px' }}>{item.service_key?.toUpperCase()}</span></td>
+                                                    <td><span className={`status-pill ${['payout', 'branchx_payout'].includes(item.service_key) ? 'active' : 'info'}`} style={{ fontSize: '10px' }}>{item.service_key?.replace('_', ' ').toUpperCase()}</span></td>
                                                     <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{item.min_amount} - {item.max_amount >= 9999999 ? '∞' : item.max_amount}</span></td>
                                                     <td>{item.charge_type === 'percent' ? 'Percent (%)' : 'Flat (INR)'}</td>
                                                     <td>{item.charge_type === 'percent' ? `${item.charge_value}%` : `₹${item.charge_value}`}</td>
@@ -547,6 +547,7 @@ const ChargesPage = () => {
                                     <label className="callback-label">Service Type</label>
                                     <select className="form-input-box" value={serviceKey} onChange={(e) => setServiceKey(e.target.value)}>
                                         <option value="payout">Settlement (Payout)</option>
+                                        <option value="branchx_payout">BranchX Payout Charge</option>
                                         <option value="collection">Fund Request (Collection)</option>
                                     </select>
                                 </div>

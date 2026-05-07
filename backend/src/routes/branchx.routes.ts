@@ -14,7 +14,7 @@ router.get("/payout/quote", requireAuth, async (req: AuthRequest, res) => {
       return res.status(400).json({ success: false, error: "Valid amount is required" });
     }
 
-    const quote = await getPayoutQuote(req.userId!, amount);
+    const quote = await getPayoutQuote(req.userId!, amount, "branchx_payout");
     res.json({ success: true, quote });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -132,6 +132,20 @@ const handleBranchXCallback = async (payload: any, req: Request, res: Response) 
         },
       })
     : null;
+
+  await prisma.providerAuditLog.create({
+    data: {
+      transactionId: matchedTxn?.id || null,
+      serviceType: "branchx_payout",
+      action: "CALLBACK",
+      requestId: requestId || opRefId || apiTxnId || null,
+      provider: "BranchX",
+      responsePayload: payload,
+      status: normalized.normalizedStatus,
+      message: normalized.message,
+      ipAddress: String(req.headers["x-forwarded-for"] || req.ip || ""),
+    },
+  });
 
   const audit = await prisma.payoutCallbackAudit.create({
     data: {

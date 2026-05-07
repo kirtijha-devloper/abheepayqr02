@@ -84,7 +84,9 @@ function getBranchXConfig() {
   };
 }
 
-async function postJson(url: string, body: any) {
+import { logApiInteraction } from "./apiLog.service";
+
+async function postJson(url: string, body: any, transactionId?: string, refId?: string) {
   const config = getBranchXConfig();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -107,6 +109,22 @@ async function postJson(url: string, body: any) {
     } catch {
       payload = { raw: text };
     }
+
+    // Determine action from URL
+    const action = url.includes("status") ? "status_check" : "payout";
+
+    await logApiInteraction({
+      transactionId,
+      refId: refId || body.requestId || body.requestid,
+      service: "BranchX",
+      action,
+      method: "POST",
+      url,
+      requestPayload: body,
+      responsePayload: payload,
+      statusCode: response.status,
+      status: response.ok ? "success" : "failed"
+    });
 
     return payload;
   } finally {

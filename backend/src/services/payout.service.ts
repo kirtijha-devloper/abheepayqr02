@@ -86,10 +86,10 @@ export async function verifyUserTpin(userId: string, tpin: string) {
     : { ok: false, message: "Invalid transaction PIN" };
 }
 
-export async function getPayoutQuote(userId: string, amount: number) {
+export async function getPayoutQuote(userId: string, amount: number, serviceKey = "payout") {
   const quote = await getChargeDistribution(prisma, {
     userId,
-    serviceKey: "payout",
+    serviceKey,
     amount,
   });
 
@@ -109,6 +109,19 @@ export async function finalizeBranchXPayout(transactionId: string, providerPaylo
 
   const normalized = normalizeBranchXResponse(providerPayload);
   const now = new Date();
+
+  await prisma.providerAuditLog.create({
+    data: {
+      transactionId,
+      serviceType: txn.serviceType,
+      action: origin === "callback" ? "CALLBACK" : origin === "poll" ? "POLL" : "SUBMIT_FINALIZE",
+      requestId: txn.bankRef,
+      provider: "BranchX",
+      responsePayload: providerPayload,
+      status: normalized.normalizedStatus,
+      message: normalized.message,
+    },
+  });
 
   if (normalized.normalizedStatus === "PENDING") {
     await prisma.transaction.update({
@@ -138,7 +151,7 @@ export async function finalizeBranchXPayout(transactionId: string, providerPaylo
     const charge = Number(txn.fee || 0);
     const { distributions } = await getChargeDistribution(prisma, {
       userId: txn.userId,
-      serviceKey: "payout",
+      serviceKey: "branchx_payout",
       amount,
     });
     const chargeReference = `branchx_payout_charge_${txn.id}`;
@@ -302,7 +315,7 @@ export async function submitPayoutToBranchX(input: {
     beneficiaryAccountId: beneficiary.id,
   });
 
-  const quote = await getPayoutQuote(userId, normalizedAmount);
+  const quote = await getPayoutQuote(userId, normalizedAmount, "branchx_payout");
   if (quote.netAmount <= 0) throw new Error("Net payout amount must be greater than zero");
 
   const role = roleRow?.role || null;
@@ -389,17 +402,32 @@ export async function submitPayoutToBranchX(input: {
       purpose,
     });
 
-    await prisma.transaction.update({
-      where: { id: createdTxn.id },
-      data: {
-        provider: "BranchX",
-        providerPayload: provider.request,
-        responsePayload: provider.payload,
-        providerResponse: provider.payload,
-        providerStatus: provider.normalizedStatus,
-        callbackStatus: provider.rawStatus || provider.normalizedStatus,
-      },
-    });
+    await prisma.$transaction([
+      prisma.transaction.update({
+        where: { id: createdTxn.id },
+        data: {
+          provider: "BranchX",
+          providerPayload: provider.request,
+          responsePayload: provider.payload,
+          providerResponse: provider.payload,
+          providerStatus: provider.normalizedStatus,
+          callbackStatus: provider.rawStatus || provider.normalizedStatus,
+        },
+      }),
+      prisma.providerAuditLog.create({
+        data: {
+          transactionId: createdTxn.id,
+          serviceType: "branchx_payout",
+          action: "SUBMIT",
+          requestId,
+          provider: "BranchX",
+          requestPayload: provider.request,
+          responsePayload: provider.payload,
+          status: provider.normalizedStatus,
+          message: provider.message,
+        },
+      }),
+    ]);
 
     if (provider.normalizedStatus === "FAILED") {
       const settlement = await finalizeBranchXPayout(createdTxn.id, provider.payload, "submit");

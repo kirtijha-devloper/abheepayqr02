@@ -362,9 +362,28 @@ model Transaction {
   createdAt         DateTime                 @default(now()) @map("created_at")
   updatedAt         DateTime                 @updatedAt @map("updated_at")
   callbackLogs      TransactionCallbackLog[]
+  providerAuditLogs ProviderAuditLog[]
   user              User                     @relation(fields: [userId], references: [id])
 
   @@map("transactions")
+}
+
+model ProviderAuditLog {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transactionId    String?  @map("transaction_id") @db.Uuid
+  serviceType      String   @map("service_type")
+  action           String
+  requestId        String?  @map("request_id")
+  provider         String?
+  requestPayload   Json?    @map("request_payload")
+  responsePayload  Json?    @map("response_payload")
+  status           String?
+  message          String?
+  ipAddress        String?  @map("ip_address")
+  createdAt        DateTime @default(now()) @map("created_at")
+  transaction      Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("provider_audit_logs")
 }
 
 model EWalletCredit {
@@ -436,6 +455,26 @@ model PayoutCallbackAudit {
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@map("payout_callback_audit")
+}
+
+model ApiInteractionLog {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transactionId   String?  @map("transaction_id") @db.Uuid
+  refId           String?  @map("ref_id")
+  service         String   // 'branchx', 'instantpay', etc.
+  action          String   // 'payout', 'status_check', 'callback', 'verification'
+  type            String   @default("outgoing") // 'outgoing', 'incoming'
+  method          String?
+  url             String?
+  requestPayload  Json?    @map("request_payload")
+  responsePayload Json?    @map("response_payload")
+  status          String?  // 'success', 'failed', 'pending'
+  statusCode      Int?     @map("status_code")
+  ipAddress       String?  @map("ip_address")
+  userAgent       String?  @map("user_agent")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("api_interaction_logs")
 }
 
 enum AppRole {
