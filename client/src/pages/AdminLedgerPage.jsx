@@ -38,7 +38,6 @@ const prettifyType = (value) =>
     .join(' ');
 
 const AdminLedgerPage = () => {
-  const today = useMemo(() => formatDateInput(new Date()), []);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ totalCount: 0, totalAmount: 0, totalCredit: 0, totalDebit: 0 });
@@ -47,7 +46,7 @@ const AdminLedgerPage = () => {
   const [roleFilter, setRoleFilter] = useState('');
   const [transactionType, setTransactionType] = useState('');
   const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState(today);
+  const [endDate, setEndDate] = useState('');
 
   const fetchLedger = useCallback(async () => {
     setLoading(true);
@@ -69,10 +68,19 @@ const AdminLedgerPage = () => {
       setRows(Array.isArray(data.rows) ? data.rows : []);
       setSummary(data.summary || { totalCount: 0, totalAmount: 0, totalCredit: 0, totalDebit: 0 });
       setRoleOptions(Array.isArray(data.filters?.roles) ? data.filters.roles : []);
-      setTypeOptions(Array.isArray(data.availableTransactionTypes) ? data.availableTransactionTypes : []);
+      setTypeOptions(
+        Array.isArray(data.filters?.transactionTypes)
+          ? data.filters.transactionTypes
+          : Array.isArray(data.availableTransactionTypes)
+            ? data.availableTransactionTypes
+            : []
+      );
     } catch (error) {
       console.error('Ledger fetch failed', error);
       setRows([]);
+      setSummary({ totalCount: 0, totalAmount: 0, totalCredit: 0, totalDebit: 0 });
+      setRoleOptions([]);
+      setTypeOptions([]);
     } finally {
       setLoading(false);
     }

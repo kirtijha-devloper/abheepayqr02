@@ -416,9 +416,12 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
       fundRequestWhere.createdAt = createdAt;
     }
 
-    const [users, walletTransactions, serviceTransactions, fundRequests] = await Promise.all([
+    const [users, roleRows, walletTransactions, serviceTransactions, fundRequests] = await Promise.all([
       prisma.user.findMany({
         include: { profile: true, roles: true, wallet: true },
+      }),
+      prisma.userRole.findMany({
+        select: { userId: true, role: true },
       }),
       prisma.walletTransaction.findMany({
         where: walletWhere,
@@ -453,6 +456,13 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
         },
       ])
     );
+    const availableRoles = Array.from(
+      new Set(
+        roleRows
+          .map((roleRow) => String(roleRow.role || "").toLowerCase())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
 
     const ledgerRows = [
       ...walletTransactions.map((txn) => {
@@ -573,7 +583,8 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
       rows: filteredRows,
       availableTransactionTypes,
       filters: {
-        roles: Array.from(new Set(users.map((user) => (user.roles[0]?.role || "").toLowerCase()).filter(Boolean))).sort(),
+        roles: availableRoles,
+        transactionTypes: availableTransactionTypes,
       },
       summary: {
         totalCount: filteredRows.length,
