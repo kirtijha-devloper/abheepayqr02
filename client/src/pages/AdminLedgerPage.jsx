@@ -37,6 +37,31 @@ const prettifyType = (value) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 
+const DEFAULT_ROLE_OPTIONS = ['admin', 'staff', 'master', 'merchant', 'branch'];
+const DEFAULT_TRANSACTION_TYPE_OPTIONS = [
+  'bank_deposit',
+  'branchx_payout',
+  'branchx_payout_debit',
+  'branchx_payout_hold',
+  'branchx_payout_refund',
+  'commission',
+  'fund_request_approved',
+  'fund_request_failed',
+  'fund_request_pending',
+  'hold',
+  'payout',
+  'pg_add',
+  'qr_settlement_credit',
+  'refund',
+  'top_up',
+  'transfer',
+  'unhold',
+  'wallet',
+];
+
+const mergeOptions = (defaults, incoming) =>
+  Array.from(new Set([...(defaults || []), ...((incoming || []).filter(Boolean))])).sort((a, b) => a.localeCompare(b));
+
 const AdminLedgerPage = () => {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
@@ -67,20 +92,23 @@ const AdminLedgerPage = () => {
       const data = await res.json();
       setRows(Array.isArray(data.rows) ? data.rows : []);
       setSummary(data.summary || { totalCount: 0, totalAmount: 0, totalCredit: 0, totalDebit: 0 });
-      setRoleOptions(Array.isArray(data.filters?.roles) ? data.filters.roles : []);
+      setRoleOptions(mergeOptions(DEFAULT_ROLE_OPTIONS, Array.isArray(data.filters?.roles) ? data.filters.roles : []));
       setTypeOptions(
-        Array.isArray(data.filters?.transactionTypes)
-          ? data.filters.transactionTypes
-          : Array.isArray(data.availableTransactionTypes)
-            ? data.availableTransactionTypes
-            : []
+        mergeOptions(
+          DEFAULT_TRANSACTION_TYPE_OPTIONS,
+          Array.isArray(data.filters?.transactionTypes)
+            ? data.filters.transactionTypes
+            : Array.isArray(data.availableTransactionTypes)
+              ? data.availableTransactionTypes
+              : []
+        )
       );
     } catch (error) {
       console.error('Ledger fetch failed', error);
       setRows([]);
       setSummary({ totalCount: 0, totalAmount: 0, totalCredit: 0, totalDebit: 0 });
-      setRoleOptions([]);
-      setTypeOptions([]);
+      setRoleOptions(DEFAULT_ROLE_OPTIONS);
+      setTypeOptions(DEFAULT_TRANSACTION_TYPE_OPTIONS);
     } finally {
       setLoading(false);
     }

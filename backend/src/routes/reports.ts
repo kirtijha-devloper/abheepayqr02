@@ -10,6 +10,27 @@ import { triggerTransactionCallback } from "../utils/callback";
 const reportLogPath = path.join(__dirname, "../mapping_trace.txt");
 
 const router = Router();
+const DEFAULT_ADMIN_LEDGER_ROLES = ["admin", "staff", "master", "merchant", "branch"];
+const DEFAULT_ADMIN_LEDGER_TRANSACTION_TYPES = [
+  "bank_deposit",
+  "branchx_payout",
+  "branchx_payout_debit",
+  "branchx_payout_hold",
+  "branchx_payout_refund",
+  "commission",
+  "fund_request_approved",
+  "fund_request_failed",
+  "fund_request_pending",
+  "hold",
+  "payout",
+  "pg_add",
+  "qr_settlement_credit",
+  "refund",
+  "top_up",
+  "transfer",
+  "unhold",
+  "wallet",
+];
 // On Vercel, we MUST use /tmp for uploads
 const uploadDest = process.env.VERCEL ? "/tmp" : "uploads/";
 const upload = multer({ dest: uploadDest });
@@ -457,11 +478,12 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
       ])
     );
     const availableRoles = Array.from(
-      new Set(
-        roleRows
+      new Set([
+        ...DEFAULT_ADMIN_LEDGER_ROLES,
+        ...roleRows
           .map((roleRow) => String(roleRow.role || "").toLowerCase())
-          .filter(Boolean)
-      )
+          .filter(Boolean),
+      ])
     ).sort((a, b) => a.localeCompare(b));
 
     const ledgerRows = [
@@ -557,11 +579,12 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
     ];
 
     const availableTransactionTypes = Array.from(
-      new Set(
-        ledgerRows
+      new Set([
+        ...DEFAULT_ADMIN_LEDGER_TRANSACTION_TYPES,
+        ...ledgerRows
           .map((row) => row.transactionType)
-          .filter(Boolean)
-      )
+          .filter(Boolean),
+      ])
     ).sort((a, b) => a.localeCompare(b));
 
     const filteredRows = ledgerRows
