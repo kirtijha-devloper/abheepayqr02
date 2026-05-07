@@ -19,7 +19,12 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     if (isAdmin || isStaff) {
       // Full stream for admin and staff users.
     } else if (isHierarchyViewer) {
-      const accessibleUserIds = await getAccessibleUserIds(prisma, req.userId!);
+      let accessibleUserIds: string[] = [];
+      try {
+        accessibleUserIds = await getAccessibleUserIds(prisma, req.userId!);
+      } catch (error) {
+        console.error(`Accessible user lookup failed for ${req.userId}:`, error);
+      }
       where.userId = { in: [req.userId!, ...accessibleUserIds] };
     } else {
       where.userId = req.userId!;

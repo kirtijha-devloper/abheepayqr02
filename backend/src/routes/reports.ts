@@ -454,7 +454,7 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
       fundRequestWhere.createdAt = createdAt;
     }
 
-    const [users, roleRows, walletTransactions, serviceTransactions, fundRequests] = await Promise.all([
+    const results = await Promise.allSettled([
       prisma.user.findMany({
         include: { profile: true, roles: true, wallet: true },
       }),
@@ -478,6 +478,12 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
         take: 1000,
       }),
     ]);
+
+    const users = results[0].status === "fulfilled" ? results[0].value : [];
+    const roleRows = results[1].status === "fulfilled" ? results[1].value : [];
+    const walletTransactions = results[2].status === "fulfilled" ? results[2].value : [];
+    const serviceTransactions = results[3].status === "fulfilled" ? results[3].value : [];
+    const fundRequests = results[4].status === "fulfilled" ? results[4].value : [];
 
     const userMap = new Map(
       users.map((user) => [

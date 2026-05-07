@@ -355,7 +355,7 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
 
     const hasDateFilter = Object.keys(createdAtFilter).length > 0;
 
-    const [wallet, profile, roles, walletTransactions, serviceTransactions, fundRequests] = await Promise.all([
+    const results = await Promise.allSettled([
       prisma.wallet.findUnique({ where: { userId: req.userId! } }),
       prisma.profile.findUnique({ where: { userId: req.userId! } }),
       prisma.userRole.findMany({ where: { userId: req.userId! } }),
@@ -385,6 +385,13 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
         take: 1000,
       }),
     ]);
+
+    const wallet = results[0].status === "fulfilled" ? results[0].value : null;
+    const profile = results[1].status === "fulfilled" ? results[1].value : null;
+    const roles = results[2].status === "fulfilled" ? results[2].value : [];
+    const walletTransactions = results[3].status === "fulfilled" ? results[3].value : [];
+    const serviceTransactions = results[4].status === "fulfilled" ? results[4].value : [];
+    const fundRequests = results[5].status === "fulfilled" ? results[5].value : [];
 
     const userRole = (roles[0]?.role || req.userRole || "").toLowerCase();
     const userName = profile?.fullName || profile?.businessName || "User";
@@ -531,40 +538,55 @@ router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
 
         const distributionUserIds = new Set<string>();
         const enriched = await Promise.all(settlements.map(async (txn) => {
-            const amount = Number(txn.amount || 0);
-            const preview = await getChargeDistribution(prisma, {
-                userId: txn.userId,
-                serviceKey: "payout",
-                amount,
-            });
+            try {
+                const amount = Number(txn.amount || 0);
+                const preview = await getChargeDistribution(prisma, {
+                    userId: txn.userId,
+                    serviceKey: "payout",
+                    amount,
+                });
 
-            const actualDistTxns = txn.status === "success"
-                ? await prisma.walletTransaction.findMany({
-                    where: { reference: `settlement_charge_${txn.id}` },
-                    orderBy: { createdAt: "asc" },
-                })
-                : [];
+                const actualDistTxns = txn.status === "success"
+                    ? await prisma.walletTransaction.findMany({
+                        where: { reference: `settlement_charge_${txn.id}` },
+                        orderBy: { createdAt: "asc" },
+                    })
+                    : [];
 
-            const distributionSource = actualDistTxns.length > 0
-                ? actualDistTxns.map((walletTxn) => ({
-                    userId: walletTxn.toUserId,
-                    amount: Number(walletTxn.amount || 0),
-                }))
-                : preview.distributions;
+                const distributionSource = actualDistTxns.length > 0
+                    ? actualDistTxns.map((walletTxn) => ({
+                        userId: walletTxn.toUserId,
+                        amount: Number(walletTxn.amount || 0),
+                    }))
+                    : preview.distributions;
 
-            distributionSource.forEach((dist) => distributionUserIds.add(dist.userId));
+                distributionSource.forEach((dist) => {
+                    if (dist?.userId) distributionUserIds.add(dist.userId);
+                });
 
-            return {
-                ...txn,
-                chargeAmount: actualDistTxns.length > 0
-                    ? roundCurrency(actualDistTxns.reduce((sum, walletTxn) => sum + Number(walletTxn.amount || 0), 0))
-                    : roundCurrency(Number(txn.fee || preview.totalCharge || 0)),
-                totalDebit: roundCurrency(Number(txn.amount || 0) + Number(txn.fee || preview.totalCharge || 0)),
-                chargeSource: preview.config.source,
-                chargeType: preview.config.chargeType,
-                chargeValue: preview.config.chargeValue,
-                _distributionSource: distributionSource,
-            };
+                return {
+                    ...txn,
+                    chargeAmount: actualDistTxns.length > 0
+                        ? roundCurrency(actualDistTxns.reduce((sum, walletTxn) => sum + Number(walletTxn.amount || 0), 0))
+                        : roundCurrency(Number(txn.fee || preview.totalCharge || 0)),
+                    totalDebit: roundCurrency(Number(txn.amount || 0) + Number(txn.fee || preview.totalCharge || 0)),
+                    chargeSource: preview.config.source,
+                    chargeType: preview.config.chargeType,
+                    chargeValue: preview.config.chargeValue,
+                    _distributionSource: distributionSource,
+                };
+            } catch (error: any) {
+                console.error(`Settlement enrichment failed for ${txn.id}:`, error);
+                return {
+                    ...txn,
+                    chargeAmount: roundCurrency(Number(txn.fee || 0)),
+                    totalDebit: roundCurrency(Number(txn.amount || 0) + Number(txn.fee || 0)),
+                    chargeSource: "none",
+                    chargeType: "flat",
+                    chargeValue: 0,
+                    _distributionSource: [],
+                };
+            }
         }));
 
         const profiles = await prisma.profile.findMany({

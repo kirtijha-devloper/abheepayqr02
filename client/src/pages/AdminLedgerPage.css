@@ -93,6 +93,24 @@
   padding: 1.25rem;
 }
 
+.ledger-error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(127, 29, 29, 0.18);
+}
+
+.ledger-error strong {
+  color: #fca5a5;
+}
+
+.ledger-error span {
+  color: var(--text-p);
+}
+
 .ledger-table-head {
   display: flex;
   align-items: center;

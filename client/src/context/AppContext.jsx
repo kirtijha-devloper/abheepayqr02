@@ -92,11 +92,15 @@ export const AppProvider = ({ children }) => {
                 setSettlements(data);
             }
 
-            // Fetch Bank Accounts for Merchant separately
-            const bankRes = await fetch(`${API_BASE}/bank-accounts`, { headers: getHeaders() });
-            if (bankRes.ok) {
-                const data = await bankRes.json();
-                setBankAccounts(data);
+            const shouldFetchBankAccounts = ['merchant', 'branch'].includes((user?.role || '').toLowerCase());
+            if (shouldFetchBankAccounts) {
+                const bankRes = await fetch(`${API_BASE}/bank-accounts`, { headers: getHeaders() });
+                if (bankRes.ok) {
+                    const data = await bankRes.json();
+                    setBankAccounts(data);
+                }
+            } else {
+                setBankAccounts([]);
             }
 
         } catch (err) {

@@ -64,6 +64,7 @@ const mergeOptions = (defaults, incoming) =>
 
 const AdminLedgerPage = () => {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ totalCount: 0, totalAmount: 0, totalCredit: 0, totalDebit: 0 });
   const [roleOptions, setRoleOptions] = useState([]);
@@ -75,6 +76,7 @@ const AdminLedgerPage = () => {
 
   const fetchLedger = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const token = sessionStorage.getItem('authToken');
       const params = new URLSearchParams();
@@ -105,6 +107,7 @@ const AdminLedgerPage = () => {
       );
     } catch (error) {
       console.error('Ledger fetch failed', error);
+      setError('Unable to load ledger data from the backend right now.');
       setRows([]);
       setSummary({ totalCount: 0, totalAmount: 0, totalCredit: 0, totalDebit: 0 });
       setRoleOptions(DEFAULT_ROLE_OPTIONS);
@@ -204,6 +207,13 @@ const AdminLedgerPage = () => {
               <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </section>
+
+          {error ? (
+            <section className="ledger-error card">
+              <strong>Ledger load failed</strong>
+              <span>{error}</span>
+            </section>
+          ) : null}
 
           <section className="ledger-table-card card">
             <div className="ledger-table-head">
