@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { API_BASE } from '../config';
-import { useAuth } from '../context/AuthContext';
 import './UserLedgerPage.css';
 
 const formatCurrency = (value) =>
@@ -58,11 +57,7 @@ const toExcel = (rows, headers) =>
   [headers.join('\t'), ...rows.map((row) => headers.map((header) => String(row[header] ?? '')).join('\t'))].join('\n');
 
 const UserLedgerPage = () => {
-  const { user } = useAuth();
-  const todayLabel = useMemo(() => new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }), []);
-
   const [loading, setLoading] = useState(true);
-  const [ledgerUser, setLedgerUser] = useState(null);
   const [balances, setBalances] = useState({ totalBalance: 0, availableBalance: 0, holdBalance: 0 });
   const [rows, setRows] = useState([]);
   const [transactionTypes, setTransactionTypes] = useState([]);
@@ -97,7 +92,6 @@ const UserLedgerPage = () => {
       if (!res.ok) throw new Error('Failed to load user ledger');
       const data = await res.json();
 
-      setLedgerUser(data.user || null);
       setBalances(data.balances || { totalBalance: 0, availableBalance: 0, holdBalance: 0 });
       setRows(Array.isArray(data.rows) ? data.rows : []);
       setTransactionTypes(mergeOptions(DEFAULT_TRANSACTION_TYPES, Array.isArray(data.filters?.availableTransactionTypes) ? data.filters.availableTransactionTypes : []));
@@ -107,7 +101,6 @@ const UserLedgerPage = () => {
     } catch (error) {
       console.error('User ledger fetch failed', error);
       setRows([]);
-      setLedgerUser(null);
       setBalances({ totalBalance: 0, availableBalance: 0, holdBalance: 0 });
       setTransactionTypes(DEFAULT_TRANSACTION_TYPES);
       setStatusOptions(DEFAULT_STATUS_OPTIONS);
@@ -163,34 +156,19 @@ const UserLedgerPage = () => {
       <div className="main-content">
         <Header />
         <main className="dashboard-body animated">
-          <section className="user-ledger-hero card">
-            <div>
-              <h2>Hello, {ledgerUser?.name || user?.name || 'User'}!</h2>
-              <div className="user-ledger-meta">
-                <span>{todayLabel}</span>
-                <span>Role: {prettifyType(ledgerUser?.role || user?.role || '')}</span>
-                <span>ID: {(user?.partnerId || user?.id || '').toString()}</span>
-              </div>
-              <div className="user-ledger-badge-row">
-                <div className="user-ledger-badge">
-                  <span>Total Balance</span>
-                  <strong>{formatCurrency(balances.totalBalance)}</strong>
-                </div>
-                <div className="user-ledger-badge success">
-                  <span>Available</span>
-                  <strong>{formatCurrency(balances.availableBalance)}</strong>
-                </div>
-              </div>
-            </div>
-          </section>
-
           <section className="user-ledger-title-row">
             <div>
               <h2>Passbook / Ledger</h2>
             </div>
-            <div className="user-ledger-balance-box card">
-              <span>Current Balance</span>
-              <strong>{formatCurrency(balances.totalBalance)}</strong>
+            <div className="user-ledger-balance-grid">
+              <div className="user-ledger-balance-box card">
+                <span>Main Balance</span>
+                <strong>{formatCurrency(balances.totalBalance)}</strong>
+              </div>
+              <div className="user-ledger-balance-box payout card">
+                <span>Payout Balance</span>
+                <strong>{formatCurrency(balances.availableBalance)}</strong>
+              </div>
             </div>
           </section>
 

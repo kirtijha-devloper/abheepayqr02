@@ -1,42 +1,8 @@
-.user-ledger-hero {
-  padding: 1.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.user-ledger-hero h2,
 .user-ledger-title-row h2 {
   margin: 0;
   color: var(--text-h);
 }
 
-.user-ledger-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: 0.85rem;
-  color: var(--text-p);
-}
-
-.user-ledger-badge-row {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-top: 1.25rem;
-}
-
-.user-ledger-badge {
-  min-width: 180px;
-  padding: 0.95rem 1rem;
-  border-radius: 16px;
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.user-ledger-badge.success {
-  border-color: rgba(34, 197, 94, 0.22);
-}
-
-.user-ledger-badge span,
 .user-ledger-balance-box span {
   display: block;
   color: var(--text-mute);
@@ -45,7 +11,6 @@
   letter-spacing: 0.06em;
 }
 
-.user-ledger-badge strong,
 .user-ledger-balance-box strong {
   display: block;
   margin-top: 0.35rem;
@@ -61,10 +26,20 @@
   margin-bottom: 1.5rem;
 }
 
+.user-ledger-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
 .user-ledger-balance-box {
   min-width: 180px;
   padding: 1rem 1.2rem;
   border-left: 4px solid #6366f1;
+}
+
+.user-ledger-balance-box.payout {
+  border-left-color: #10b981;
 }
 
 .user-ledger-filters,
@@ -271,5 +246,10 @@
   .user-ledger-buttons button,
   .user-ledger-pagination-controls button {
     flex: 1;
+  }
+
+  .user-ledger-balance-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 }
