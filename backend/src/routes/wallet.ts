@@ -325,6 +325,183 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /api/wallet/ledger - unified self ledger for merchant/branch/master users
+router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const transactionType = typeof req.query.transactionType === "string" ? req.query.transactionType.trim().toLowerCase() : "";
+    const statusFilter = typeof req.query.status === "string" ? req.query.status.trim().toLowerCase() : "";
+    const startDateRaw = typeof req.query.startDate === "string" ? req.query.startDate.trim() : "";
+    const endDateRaw = typeof req.query.endDate === "string" ? req.query.endDate.trim() : "";
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const pageSize = Math.min(200, Math.max(10, Number(req.query.pageSize) || 50));
+
+    const startDate = startDateRaw ? new Date(startDateRaw) : null;
+    const endDate = endDateRaw ? new Date(endDateRaw) : null;
+
+    if (startDate && Number.isNaN(startDate.getTime())) {
+      return res.status(400).json({ error: "Invalid startDate" });
+    }
+    if (endDate && Number.isNaN(endDate.getTime())) {
+      return res.status(400).json({ error: "Invalid endDate" });
+    }
+
+    const createdAtFilter: any = {};
+    if (startDate) createdAtFilter.gte = startDate;
+    if (endDate) {
+      const inclusiveEndDate = new Date(endDate);
+      inclusiveEndDate.setHours(23, 59, 59, 999);
+      createdAtFilter.lte = inclusiveEndDate;
+    }
+
+    const hasDateFilter = Object.keys(createdAtFilter).length > 0;
+
+    const [wallet, profile, roles, walletTransactions, serviceTransactions, fundRequests] = await Promise.all([
+      prisma.wallet.findUnique({ where: { userId: req.userId! } }),
+      prisma.profile.findUnique({ where: { userId: req.userId! } }),
+      prisma.userRole.findMany({ where: { userId: req.userId! } }),
+      prisma.walletTransaction.findMany({
+        where: {
+          OR: [{ fromUserId: req.userId! }, { toUserId: req.userId! }],
+          ...(hasDateFilter ? { createdAt: createdAtFilter } : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: 2000,
+      }),
+      prisma.transaction.findMany({
+        where: {
+          userId: req.userId!,
+          ...(hasDateFilter ? { createdAt: createdAtFilter } : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: 2000,
+      }),
+      prisma.fundRequest.findMany({
+        where: {
+          requesterId: req.userId!,
+          ...(hasDateFilter ? { createdAt: createdAtFilter } : {}),
+        },
+        include: { bankAccount: true },
+        orderBy: { createdAt: "desc" },
+        take: 1000,
+      }),
+    ]);
+
+    const userRole = (roles[0]?.role || req.userRole || "").toLowerCase();
+    const userName = profile?.fullName || profile?.businessName || "User";
+    const userPhone = profile?.phone || "";
+
+    const ledgerRows = [
+      ...walletTransactions.map((txn) => {
+        const belongsToSender = txn.fromUserId && txn.fromUserId === req.userId!;
+        const amount = Number(txn.amount || 0);
+        const balanceAfter = belongsToSender
+          ? Number(txn.fromBalanceAfter ?? txn.toBalanceAfter ?? 0)
+          : Number(txn.toBalanceAfter ?? txn.fromBalanceAfter ?? 0);
+
+        return {
+          id: `wallet_${txn.id}`,
+          createdAt: txn.createdAt,
+          transactionType: (txn.type || "wallet").toLowerCase(),
+          source: "wallet",
+          sourceLabel: "Wallet",
+          status: "success",
+          description: txn.description || "Wallet transaction",
+          reference: txn.reference || txn.id,
+          amount,
+          direction: amount < 0 ? "debit" : "credit",
+          balanceAfter,
+          walletKind: ["transfer_credit", "payout", "payout_refund"].includes((txn.type || "").toLowerCase()) ? "payout" : "main",
+        };
+      }),
+      ...serviceTransactions.map((txn) => {
+        const baseType = (txn.type || "").toLowerCase();
+        const serviceType = (txn.serviceType || "service").toLowerCase();
+        const combinedType = baseType ? `${serviceType}_${baseType}` : serviceType;
+        const amount = Number(txn.amount || 0);
+
+        return {
+          id: `service_${txn.id}`,
+          createdAt: txn.createdAt,
+          transactionType: combinedType,
+          source: "service",
+          sourceLabel: "Service",
+          status: (txn.status || "pending").toLowerCase(),
+          description: txn.description || txn.category || txn.serviceType || "Service transaction",
+          reference: txn.refId || txn.clientRefId || txn.id,
+          amount,
+          direction: baseType === "debit" || amount < 0 ? "debit" : "credit",
+          balanceAfter: null,
+          walletKind: "service",
+        };
+      }),
+      ...fundRequests.map((request) => {
+        const fundType = `fund_request_${(request.status || "pending").toLowerCase()}`;
+        const detailParts = [
+          request.remarks,
+          request.paymentMode ? `Mode: ${request.paymentMode}` : "",
+          request.paymentReference ? `Ref: ${request.paymentReference}` : "",
+          request.bankAccount?.bankName ? `Bank: ${request.bankAccount.bankName}` : "",
+        ].filter(Boolean);
+
+        return {
+          id: `fund_${request.id}`,
+          createdAt: request.createdAt,
+          transactionType: fundType,
+          source: "fund_request",
+          sourceLabel: "Fund Request",
+          status: (request.status || "pending").toLowerCase(),
+          description: detailParts.join(" | ") || "Fund request",
+          reference: request.paymentReference || request.id,
+          amount: Number(request.amount || 0),
+          direction: "credit",
+          balanceAfter: null,
+          walletKind: "request",
+        };
+      }),
+    ];
+
+    const availableTransactionTypes = Array.from(new Set(ledgerRows.map((row) => row.transactionType).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    const availableStatuses = Array.from(new Set(ledgerRows.map((row) => row.status).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+
+    const filteredRows = ledgerRows
+      .filter((row) => (transactionType ? row.transactionType === transactionType : true))
+      .filter((row) => (statusFilter ? row.status === statusFilter : true))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const totalRecords = filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const paginatedRows = filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    res.json({
+      user: {
+        name: userName,
+        phone: userPhone,
+        role: userRole,
+      },
+      balances: {
+        totalBalance: Number(wallet?.balance ?? 0),
+        availableBalance: Number(wallet?.eWalletBalance ?? wallet?.balance ?? 0),
+        holdBalance: Number(wallet?.holdBalance ?? 0),
+      },
+      rows: paginatedRows,
+      pagination: {
+        page: safePage,
+        pageSize,
+        totalRecords,
+        totalPages,
+      },
+      filters: {
+        availableTransactionTypes,
+        availableStatuses,
+      },
+    });
+  } catch (err: any) {
+    console.error("Wallet ledger fetch failed:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/wallet/settlements — Admin/Merchant lists payout requests
 router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
     try {

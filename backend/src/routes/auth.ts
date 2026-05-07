@@ -56,6 +56,45 @@ router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// POST /api/auth/tpin - create or reset transaction pin
+router.post("/tpin", requireAuth, async (req: AuthRequest, res) => {
+  const { tpin, currentPassword } = req.body;
+
+  if (!tpin || String(tpin).trim().length < 4) {
+    return res.status(400).json({ error: "Transaction PIN must be at least 4 digits" });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { id: true, passwordHash: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!currentPassword) {
+      return res.status(400).json({ error: "Current password is required" });
+    }
+
+    const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!matches) {
+      return res.status(400).json({ error: "Current password is incorrect" });
+    }
+
+    const tpinHash = await bcrypt.hash(String(tpin), 10);
+    await prisma.profile.update({
+      where: { userId: req.userId! },
+      data: { tpinHash },
+    });
+
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // POST /api/auth/login-as/:id — Admin login-as feature
 router.post("/login-as/:id", requireAuth, asyncAuthHandler(loginAsUser));
 

@@ -340,7 +340,15 @@ model Transaction {
   status            String                   @default("pending")
   refId             String?                  @map("ref_id")
   clientRefId       String?                  @map("client_ref_id")
+  bankRef           String?                  @map("bank_ref")
   payoutBankDetails String?                  @map("payout_bank_details")
+  callbackStatus    String?                  @map("callback_status")
+  callbackData      Json?                    @map("callback_data")
+  callbackReceivedAt DateTime?               @map("callback_received_at")
+  callbackRequestId String?                  @map("callback_request_id")
+  callbackOpRefId   String?                  @map("callback_op_ref_id")
+  callbackApiTxnId  String?                  @map("callback_api_txn_id")
+  providerResponse  Json?                    @map("provider_response")
   createdAt         DateTime                 @default(now()) @map("created_at")
   updatedAt         DateTime                 @updatedAt @map("updated_at")
   callbackLogs      TransactionCallbackLog[]
@@ -369,6 +377,10 @@ model MerchantBankAccount {
   accountNumber String   @map("account_number")
   ifscCode      String   @map("ifsc_code")
   isVerified    Boolean  @default(false) @map("is_verified")
+  verifiedAt    DateTime? @map("verified_at")
+  providerRef   String?  @map("provider_ref")
+  providerStatusCode String? @map("provider_status_code")
+  providerResponse Json? @map("provider_response")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -396,6 +408,24 @@ model TransactionCallbackLog {
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@map("transaction_callback_logs")
+}
+
+model PayoutCallbackAudit {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId        String?  @map("request_id")
+  opRefId          String?  @map("op_ref_id")
+  apiTxnId         String?  @map("api_txn_id")
+  method           String?
+  sourceIp         String?  @map("source_ip")
+  forwardedFor     String?  @map("forwarded_for")
+  userAgent        String?  @map("user_agent")
+  rawStatus        String?  @map("raw_status")
+  normalizedStatus String?  @map("normalized_status")
+  payload          Json?
+  matchedTxnId     String?  @map("matched_txn_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("payout_callback_audit")
 }
 
 enum AppRole {

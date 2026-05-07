@@ -25,6 +25,8 @@ import settingsRoutes from "./routes/settings";
 import bankAccountsRoutes from "./routes/bankAccounts";
 import callbackLogsRoutes from "./routes/callbackLogs";
 import staffRoutes from "./routes/staff";
+import branchxRoutes, { callbackRouter as branchxCallbackRouter } from "./routes/branchx.routes";
+import { startBranchXPayoutSyncJob } from "./jobs/branchxPayoutSync";
 import { errorHandler } from "./middleware/errorHandler";
 import { getJwtSecret, validateEnv } from "./utils/env";
 
@@ -104,11 +106,14 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/bank-accounts", bankAccountsRoutes);
 app.use("/api/callback-logs", callbackLogsRoutes);
 app.use("/api/staff", staffRoutes);
+app.use("/api/services", branchxRoutes);
+app.use("/api", branchxCallbackRouter);
 
 app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`AbheePay backend listening on port ${PORT}`);
+  startBranchXPayoutSyncJob();
 });
 
 export default app;

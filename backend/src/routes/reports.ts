@@ -377,4 +377,215 @@ router.get("/admin/settlements", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /api/reports/admin/ledger - unified admin ledger across all transaction sources
+router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
+  if (req.userRole !== "admin" && !req.permissions?.canViewReports) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  try {
+    const roleFilter = typeof req.query.role === "string" ? req.query.role.trim().toLowerCase() : "";
+    const typeFilter = typeof req.query.transactionType === "string" ? req.query.transactionType.trim().toLowerCase() : "";
+    const startDateRaw = typeof req.query.startDate === "string" ? req.query.startDate.trim() : "";
+    const endDateRaw = typeof req.query.endDate === "string" ? req.query.endDate.trim() : "";
+
+    const startDate = startDateRaw ? new Date(startDateRaw) : null;
+    const endDate = endDateRaw ? new Date(endDateRaw) : null;
+
+    if (startDate && Number.isNaN(startDate.getTime())) {
+      return res.status(400).json({ error: "Invalid startDate" });
+    }
+    if (endDate && Number.isNaN(endDate.getTime())) {
+      return res.status(400).json({ error: "Invalid endDate" });
+    }
+
+    const walletWhere: any = {};
+    const transactionWhere: any = {};
+    const fundRequestWhere: any = {};
+
+    if (startDate || endDate) {
+      const createdAt: any = {};
+      if (startDate) createdAt.gte = startDate;
+      if (endDate) {
+        const inclusiveEndDate = new Date(endDate);
+        inclusiveEndDate.setHours(23, 59, 59, 999);
+        createdAt.lte = inclusiveEndDate;
+      }
+      walletWhere.createdAt = createdAt;
+      transactionWhere.createdAt = createdAt;
+      fundRequestWhere.createdAt = createdAt;
+    }
+
+    const [users, walletTransactions, serviceTransactions, fundRequests] = await Promise.all([
+      prisma.user.findMany({
+        include: { profile: true, roles: true, wallet: true },
+      }),
+      prisma.walletTransaction.findMany({
+        where: walletWhere,
+        orderBy: { createdAt: "desc" },
+        take: 2000,
+      }),
+      prisma.transaction.findMany({
+        where: transactionWhere,
+        orderBy: { createdAt: "desc" },
+        take: 2000,
+      }),
+      prisma.fundRequest.findMany({
+        where: fundRequestWhere,
+        include: { bankAccount: true },
+        orderBy: { createdAt: "desc" },
+        take: 1000,
+      }),
+    ]);
+
+    const userMap = new Map(
+      users.map((user) => [
+        user.id,
+        {
+          id: user.id,
+          role: (user.roles[0]?.role || "").toLowerCase(),
+          name: user.profile?.fullName || user.profile?.businessName || user.email,
+          phone: user.profile?.phone || "",
+          email: user.email,
+          walletBalance: Number(user.wallet?.balance ?? 0),
+          eWalletBalance: Number(user.wallet?.eWalletBalance ?? 0),
+          holdBalance: Number(user.wallet?.holdBalance ?? 0),
+        },
+      ])
+    );
+
+    const ledgerRows = [
+      ...walletTransactions.map((txn) => {
+        const primaryUserId = txn.toUserId || txn.fromUserId || "";
+        const primaryUser = userMap.get(primaryUserId);
+        const amount = Number(txn.amount || 0);
+        const balanceAfter =
+          txn.fromUserId && txn.fromUserId === primaryUserId
+            ? Number(txn.fromBalanceAfter ?? txn.toBalanceAfter ?? 0)
+            : Number(txn.toBalanceAfter ?? txn.fromBalanceAfter ?? 0);
+
+        return {
+          id: `wallet_${txn.id}`,
+          source: "wallet",
+          sourceLabel: "Wallet",
+          createdAt: txn.createdAt,
+          userId: primaryUserId,
+          userName: primaryUser?.name || "Unknown User",
+          userPhone: primaryUser?.phone || "",
+          userEmail: primaryUser?.email || "",
+          role: primaryUser?.role || "unknown",
+          transactionType: (txn.type || "wallet").toLowerCase(),
+          rawTransactionType: txn.type || "wallet",
+          amount,
+          direction: amount < 0 ? "debit" : "credit",
+          description: txn.description || "Wallet ledger entry",
+          reference: txn.reference || txn.id,
+          status: "success",
+          balanceAfter,
+        };
+      }),
+      ...serviceTransactions.map((txn) => {
+        const user = userMap.get(txn.userId);
+        const serviceKey = (txn.serviceType || "service").toLowerCase();
+        const entryType = (txn.type || "").toLowerCase();
+        const combinedType = entryType ? `${serviceKey}_${entryType}` : serviceKey;
+        const amount = Number(txn.amount || 0);
+
+        return {
+          id: `service_${txn.id}`,
+          source: "service",
+          sourceLabel: "Service",
+          createdAt: txn.createdAt,
+          userId: txn.userId,
+          userName: user?.name || txn.sender || "Unknown User",
+          userPhone: user?.phone || txn.consumer || "",
+          userEmail: user?.email || "",
+          role: user?.role || "unknown",
+          transactionType: combinedType,
+          rawTransactionType: combinedType,
+          amount,
+          direction: entryType === "debit" || amount < 0 ? "debit" : "credit",
+          description: txn.description || txn.category || txn.serviceType || "Service transaction",
+          reference: txn.refId || txn.clientRefId || txn.id,
+          status: txn.status || "pending",
+          balanceAfter: null,
+        };
+      }),
+      ...fundRequests.map((request) => {
+        const user = userMap.get(request.requesterId);
+        const transactionType = `fund_request_${(request.status || "pending").toLowerCase()}`;
+        const amount = Number(request.amount || 0);
+        const details = [
+          request.remarks,
+          request.paymentMode ? `Mode: ${request.paymentMode}` : "",
+          request.paymentReference ? `Ref: ${request.paymentReference}` : "",
+          request.bankAccount?.bankName ? `Bank: ${request.bankAccount.bankName}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | ");
+
+        return {
+          id: `fund_${request.id}`,
+          source: "fund_request",
+          sourceLabel: "Fund Request",
+          createdAt: request.createdAt,
+          userId: request.requesterId,
+          userName: user?.name || "Unknown User",
+          userPhone: user?.phone || "",
+          userEmail: user?.email || "",
+          role: user?.role || "unknown",
+          transactionType,
+          rawTransactionType: transactionType,
+          amount,
+          direction: "credit",
+          description: details || "Fund request",
+          reference: request.paymentReference || request.id,
+          status: request.status || "pending",
+          balanceAfter: null,
+        };
+      }),
+    ];
+
+    const availableTransactionTypes = Array.from(
+      new Set(
+        ledgerRows
+          .map((row) => row.transactionType)
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+
+    const filteredRows = ledgerRows
+      .filter((row) => (roleFilter ? row.role === roleFilter : true))
+      .filter((row) => (typeFilter ? row.transactionType === typeFilter : true))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const totalAmount = filteredRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const totalCredit = filteredRows.reduce(
+      (sum, row) => sum + (row.direction === "credit" ? Math.abs(Number(row.amount) || 0) : 0),
+      0
+    );
+    const totalDebit = filteredRows.reduce(
+      (sum, row) => sum + (row.direction === "debit" ? Math.abs(Number(row.amount) || 0) : 0),
+      0
+    );
+
+    res.json({
+      rows: filteredRows,
+      availableTransactionTypes,
+      filters: {
+        roles: Array.from(new Set(users.map((user) => (user.roles[0]?.role || "").toLowerCase()).filter(Boolean))).sort(),
+      },
+      summary: {
+        totalCount: filteredRows.length,
+        totalAmount: Number(totalAmount.toFixed(2)),
+        totalCredit: Number(totalCredit.toFixed(2)),
+        totalDebit: Number(totalDebit.toFixed(2)),
+      },
+    });
+  } catch (e: any) {
+    console.error("Admin ledger fetch failed:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;

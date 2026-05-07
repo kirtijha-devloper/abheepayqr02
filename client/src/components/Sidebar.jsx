@@ -42,7 +42,7 @@ const Sidebar = () => {
     document.body.classList.toggle('sidebar-open', isMobileOpen);
     return () => document.body.classList.remove('sidebar-open');
   }, [isMobileOpen]);
-  
+
   const navRef = useRef(null);
 
   // Restore scroll position
@@ -71,6 +71,7 @@ const Sidebar = () => {
     { name: 'Fund Requests', icon: '📥', path: '/fund-requests' },
     { name: 'Reconciliation', icon: '⚖', path: '/reconciliation' },
     { name: 'Wallet', icon: '💳', path: '/wallet' },
+    { name: 'Ledger', icon: '≡', path: '/ledger' },
     { name: 'Callbacks', icon: '⚡', path: '/callbacks' },
     { name: 'Support', icon: '🎧', path: '/support' },
     { name: 'Charges', icon: '％', path: '/charges' },
@@ -82,6 +83,7 @@ const Sidebar = () => {
     { name: 'Transactions', icon: '⇄', path: '/transactions' },
     { name: 'QR Codes', icon: '🔳', path: '/qr-codes' },
     { name: 'Wallet', icon: '💳', path: '/wallet' },
+    { name: 'Ledger', icon: '≡', path: '/ledger' },
     { name: 'Support', icon: '🎧', path: '/support' },
     { name: 'Settings', icon: '⚙', path: '/settings' },
   ];
@@ -97,6 +99,7 @@ const Sidebar = () => {
     { name: 'QR Codes', icon: '🔳', path: '/admin/qr-codes' },
     { name: 'Settlements', icon: '💸', path: '/admin/settlements' },
     { name: 'Fund Requests', icon: '📥', path: '/admin/fund-requests' },
+    { name: 'Ledger', icon: '≡', path: '/admin/ledger' },
     { name: 'Reports', icon: '📊', path: '/admin/reports' },
     { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks' },
     { name: 'Support', icon: '🎧', path: '/admin/support' },
@@ -110,6 +113,7 @@ const Sidebar = () => {
     { name: 'Merchants', icon: '👥', path: '/master/merchants' },
     { name: 'User List', icon: '👥', path: '/admin/users' },
     { name: 'Wallet', icon: '💳', path: '/master/wallet' },
+    { name: 'Ledger', icon: '≡', path: '/master/ledger' },
     { name: 'QR Codes', icon: '🔳', path: '/master/qr-codes' },
     { name: 'Fund Requests', icon: '📥', path: '/master/fund-requests' },
     { name: 'Settlements', icon: '💸', path: '/master/settlements' },

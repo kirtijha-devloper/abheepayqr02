@@ -31,6 +31,8 @@ const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
 const ChargesPage = lazy(() => import('./pages/ChargesPage'));
 const HierarchyUsersPage = lazy(() => import('./pages/HierarchyUsersPage'));
 const StaffManagementPage = lazy(() => import('./pages/StaffManagementPage'));
+const AdminLedgerPage = lazy(() => import('./pages/AdminLedgerPage'));
+const UserLedgerPage = lazy(() => import('./pages/UserLedgerPage'));
 
 const RouteLoader = () => (
   <div className="route-loader-shell">
@@ -59,6 +61,7 @@ function App() {
                   <Route path="/qr-codes" element={<ProtectedRoute requiredRole={["branch"]}><QrCodesPage /></ProtectedRoute>} />
                   <Route path="/merchant/qr-codes" element={<ProtectedRoute requiredRole={["merchant"]}><QrCodesAdminPage /></ProtectedRoute>} />
                   <Route path="/wallet" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><WalletPage /></ProtectedRoute>} />
+                  <Route path="/ledger" element={<ProtectedRoute requiredRole={["merchant", "branch"]}><UserLedgerPage /></ProtectedRoute>} />
                   <Route path="/api-services" element={<ProtectedRoute requiredRole="merchant"><ApiServicesPage /></ProtectedRoute>} />
                   <Route path="/branches" element={<ProtectedRoute requiredRole="merchant"><MerchantsPage /></ProtectedRoute>} />
                   <Route path="/callbacks" element={<ProtectedRoute requiredRole="merchant"><CallbacksPage /></ProtectedRoute>} />
@@ -81,6 +84,7 @@ function App() {
                   <Route path="/admin/support" element={<ProtectedRoute requiredRole={["admin", "staff"]}><SupportAdminPage /></ProtectedRoute>} />
                   <Route path="/admin/settings" element={<ProtectedRoute requiredRole={["admin", "staff"]}><AdminSettingsPage /></ProtectedRoute>} />
                   <Route path="/admin/reports" element={<ProtectedRoute requiredRole={["admin", "staff"]}><AdminReportsPage /></ProtectedRoute>} />
+                  <Route path="/admin/ledger" element={<ProtectedRoute requiredRole={["admin", "staff"]}><AdminLedgerPage /></ProtectedRoute>} />
                   <Route path="/admin/charges" element={<ProtectedRoute requiredRole={["admin", "master", "staff"]}><ChargesPage /></ProtectedRoute>} />
                   <Route path="/admin/users" element={<ProtectedRoute requiredRole={["admin", "master", "staff"]}><HierarchyUsersPage /></ProtectedRoute>} />
                   <Route path="/admin/staff" element={<ProtectedRoute requiredRole="admin"><StaffManagementPage /></ProtectedRoute>} />
@@ -90,6 +94,7 @@ function App() {
                   <Route path="/master/transactions" element={<ProtectedRoute requiredRole="master"><TransactionsPage /></ProtectedRoute>} />
                   <Route path="/master/merchants" element={<ProtectedRoute requiredRole="master"><MerchantsPage /></ProtectedRoute>} />
                   <Route path="/master/wallet" element={<ProtectedRoute requiredRole="master"><WalletPage /></ProtectedRoute>} />
+                  <Route path="/master/ledger" element={<ProtectedRoute requiredRole="master"><UserLedgerPage /></ProtectedRoute>} />
                   <Route path="/master/reconciliation" element={<ProtectedRoute requiredRole="master"><ReconciliationPage /></ProtectedRoute>} />
                   <Route path="/master/settlements" element={<ProtectedRoute requiredRole="master"><SettlementsAdminPage /></ProtectedRoute>} />
                   <Route path="/master/fund-requests" element={<ProtectedRoute requiredRole="master"><FundRequestsAdminPage /></ProtectedRoute>} />
