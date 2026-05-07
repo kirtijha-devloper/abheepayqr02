@@ -21,12 +21,76 @@ const defaultLocalSettings = {
   notifications: { txnAlerts: true, securityAlerts: true, monthlyReports: false },
 };
 
+const featureOptionsByRole = {
+  staff: [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'transactions', label: 'Transactions' },
+    { key: 'masters', label: 'Masters' },
+    { key: 'users', label: 'User List' },
+    { key: 'wallet', label: 'Wallet' },
+    { key: 'reconciliation', label: 'Reconciliation' },
+    { key: 'qr_codes', label: 'QR Codes' },
+    { key: 'settlements', label: 'Settlements' },
+    { key: 'fund_requests', label: 'Fund Requests' },
+    { key: 'ledger', label: 'Ledger' },
+    { key: 'reports', label: 'Reports' },
+    { key: 'callbacks', label: 'Callbacks' },
+    { key: 'support', label: 'Support' },
+    { key: 'charges', label: 'Charges' },
+    { key: 'settings', label: 'Settings' },
+  ],
+  master: [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'transactions', label: 'Transactions' },
+    { key: 'merchants', label: 'Merchants' },
+    { key: 'wallet', label: 'Wallet' },
+    { key: 'ledger', label: 'Ledger' },
+    { key: 'qr_codes', label: 'QR Codes' },
+    { key: 'fund_requests', label: 'Fund Requests' },
+    { key: 'settlements', label: 'Settlements' },
+    { key: 'reconciliation', label: 'Reconciliation' },
+    { key: 'reports', label: 'Reports' },
+    { key: 'callbacks', label: 'Callbacks' },
+    { key: 'support', label: 'Support' },
+    { key: 'charges', label: 'Charges' },
+    { key: 'settings', label: 'Settings' },
+  ],
+  merchant: [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'transactions', label: 'Transactions' },
+    { key: 'branches', label: 'Branches' },
+    { key: 'qr_codes', label: 'QR Codes' },
+    { key: 'settlements', label: 'Settlements' },
+    { key: 'fund_requests', label: 'Fund Requests' },
+    { key: 'reconciliation', label: 'Reconciliation' },
+    { key: 'wallet', label: 'Wallet' },
+    { key: 'ledger', label: 'Ledger' },
+    { key: 'callbacks', label: 'Callbacks' },
+    { key: 'support', label: 'Support' },
+    { key: 'charges', label: 'Charges' },
+    { key: 'settings', label: 'Settings' },
+    { key: 'reports', label: 'Reports' },
+  ],
+  branch: [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'transactions', label: 'Transactions' },
+    { key: 'qr_codes', label: 'QR Codes' },
+    { key: 'wallet', label: 'Wallet' },
+    { key: 'ledger', label: 'Ledger' },
+    { key: 'support', label: 'Support' },
+    { key: 'settings', label: 'Settings' },
+  ],
+};
+
 const AdminSettingsPage = () => {
   const navigate = useNavigate();
   const { success, error } = useToast();
   const { user } = useAuth();
   const { bankAccounts, addBankAccount, deleteBankAccount } = useAppContext();
   const [activeTab, setActiveTab] = useState('profile');
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedFeatureUserId, setSelectedFeatureUserId] = useState('');
+  const [featureAccessMap, setFeatureAccessMap] = useState({});
   const [newBank, setNewBank] = useState({
     bankName: '',
     accountName: '',
@@ -65,6 +129,17 @@ const AdminSettingsPage = () => {
           setDbSettings({
             payout_config: data.payout_config || JSON.stringify(defaultPayoutConfig),
           });
+          const featureKeys = Object.keys(data).filter((key) => key.startsWith('feature_access_'));
+          const featureMap = {};
+          featureKeys.forEach((key) => {
+            const userId = key.replace('feature_access_', '');
+            try {
+              featureMap[userId] = JSON.parse(data[key]);
+            } catch {
+              featureMap[userId] = [];
+            }
+          });
+          setFeatureAccessMap(featureMap);
         }
       } catch (err) {
         console.error('Failed to load DB settings', err);
@@ -74,17 +149,48 @@ const AdminSettingsPage = () => {
     fetchSettings();
   }, []);
 
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const authToken = sessionStorage.getItem('authToken');
+      try {
+        const res = await fetch(`${API_BASE}/users/all`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const eligibleUsers = Array.isArray(data)
+            ? data.filter((item) => item.role !== 'admin')
+            : [];
+          setAllUsers(eligibleUsers);
+          if (!selectedFeatureUserId && eligibleUsers.length > 0) {
+            setSelectedFeatureUserId(eligibleUsers[0].userId || eligibleUsers[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load users for feature access', err);
+      }
+    };
+
+    if (user?.role === 'admin') {
+      fetchUsers();
+    }
+  }, [user?.role, selectedFeatureUserId]);
+
   const handleSave = async () => {
     localStorage.setItem('leopayAdminSettings', JSON.stringify(settings));
     const authToken = sessionStorage.getItem('authToken');
     try {
+      const featureSettingsPayload = Object.entries(featureAccessMap).reduce((acc, [userId, features]) => {
+        acc[`feature_access_${userId}`] = JSON.stringify(features);
+        return acc;
+      }, {});
       const res = await fetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify(dbSettings),
+        body: JSON.stringify({ ...dbSettings, ...featureSettingsPayload }),
       });
       if (res.ok) {
         success('Settings saved successfully.');
@@ -126,6 +232,10 @@ const AdminSettingsPage = () => {
   const [tpinForm, setTpinForm] = useState({
     tpin: '',
     confirmTpin: ''
+  });
+  const [tpinEditable, setTpinEditable] = useState({
+    tpin: false,
+    confirmTpin: false
   });
 
   // Profile state
@@ -209,6 +319,7 @@ const AdminSettingsPage = () => {
       if (res.ok) {
         success('Transaction PIN updated successfully.');
         setTpinForm({ tpin: '', confirmTpin: '' });
+        setTpinEditable({ tpin: false, confirmTpin: false });
       } else {
         const data = await res.json();
         error(data.error || 'Failed to update transaction PIN.');
@@ -223,11 +334,38 @@ const AdminSettingsPage = () => {
     setDbSettings({ payout_config: JSON.stringify(defaultPayoutConfig) });
   };
 
+  const selectedFeatureUser = allUsers.find((item) => (item.userId || item.id) === selectedFeatureUserId) || null;
+  const selectedFeatureOptions = featureOptionsByRole[selectedFeatureUser?.role] || [];
+  const selectedFeatureValues = featureAccessMap[selectedFeatureUserId] || selectedFeatureOptions.map((item) => item.key);
+
+  const toggleFeatureAccess = (featureKey, enabled) => {
+    if (!selectedFeatureUserId) return;
+    setFeatureAccessMap((prev) => {
+      const current = prev[selectedFeatureUserId] || selectedFeatureOptions.map((item) => item.key);
+      const next = enabled
+        ? Array.from(new Set([...current, featureKey]))
+        : current.filter((item) => item !== featureKey);
+      return {
+        ...prev,
+        [selectedFeatureUserId]: next,
+      };
+    });
+  };
+
+  const setAllFeatureAccess = (enabled) => {
+    if (!selectedFeatureUserId) return;
+    setFeatureAccessMap((prev) => ({
+      ...prev,
+      [selectedFeatureUserId]: enabled ? selectedFeatureOptions.map((item) => item.key) : [],
+    }));
+  };
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: 'PR' },
     { id: 'banks', label: 'Bank Accounts', icon: 'BA' },
     { id: 'notifications', label: 'Notifications', icon: 'NT' },
     { id: 'security', label: 'Security', icon: 'SC' },
+    ...(user?.role === 'admin' ? [{ id: 'features', label: 'Feature Access', icon: 'FA' }] : []),
   ];
 
   return (
@@ -511,7 +649,12 @@ const AdminSettingsPage = () => {
                             className="premium-input"
                             value={tpinForm.tpin}
                             onChange={e => setTpinForm({ ...tpinForm, tpin: e.target.value })}
+                            onFocus={() => setTpinEditable((prev) => ({ ...prev, tpin: true }))}
                             autoComplete="new-password"
+                            name="new_tpin_manual"
+                            readOnly={!tpinEditable.tpin}
+                            data-lpignore="true"
+                            data-1p-ignore="true"
                           />
                         </div>
                         <div className="form-group-v2">
@@ -522,7 +665,12 @@ const AdminSettingsPage = () => {
                             className="premium-input"
                             value={tpinForm.confirmTpin}
                             onChange={e => setTpinForm({ ...tpinForm, confirmTpin: e.target.value })}
+                            onFocus={() => setTpinEditable((prev) => ({ ...prev, confirmTpin: true }))}
                             autoComplete="new-password"
+                            name="confirm_tpin_manual"
+                            readOnly={!tpinEditable.confirmTpin}
+                            data-lpignore="true"
+                            data-1p-ignore="true"
                           />
                         </div>
                       </div>
@@ -543,6 +691,69 @@ const AdminSettingsPage = () => {
                         <span className="switch-slider"></span>
                       </label>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'features' && (
+                <div className="portal-card card animated-fade-in">
+                  <div className="portal-header">
+                    <h3>User Feature Access</h3>
+                    <p>Pause or restore sidebar features for individual users. Disabled features disappear from their sidebar and route access.</p>
+                  </div>
+                  <div className="portal-content">
+                    <div className="form-group-v2 full-width" style={{ marginBottom: '20px' }}>
+                      <label>Select User</label>
+                      <select
+                        className="premium-input"
+                        value={selectedFeatureUserId}
+                        onChange={(e) => setSelectedFeatureUserId(e.target.value)}
+                      >
+                        {allUsers.map((item) => (
+                          <option key={item.userId || item.id} value={item.userId || item.id}>
+                            {(item.fullName || item.email)} ({String(item.role || '').toUpperCase()})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {selectedFeatureUser ? (
+                      <>
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                          <button className="settings-save-btn" onClick={() => setAllFeatureAccess(true)}>
+                            Enable All
+                          </button>
+                          <button className="settings-cancel-btn" onClick={() => setAllFeatureAccess(false)}>
+                            Pause All
+                          </button>
+                        </div>
+
+                        <div className="option-list">
+                          {selectedFeatureOptions.map((item) => (
+                            <div className="option-item" key={item.key}>
+                              <div className="option-info">
+                                <div className="option-label">{item.label}</div>
+                                <div className="option-desc">
+                                  {selectedFeatureValues.includes(item.key)
+                                    ? 'Active: this feature is visible and accessible.'
+                                    : 'Paused: this feature is hidden and blocked for the selected user.'}
+                                </div>
+                              </div>
+                              <label className="premium-switch">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedFeatureValues.includes(item.key)}
+                                  onChange={(e) => toggleFeatureAccess(item.key, e.target.checked)}
+                                />
+                                <span className="switch-slider"></span>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="settings-helper-text">No eligible users available.</p>
+                    )}
                   </div>
                 </div>
               )}

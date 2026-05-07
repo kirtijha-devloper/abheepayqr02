@@ -5,6 +5,7 @@ import { getJwtSecret } from "../utils/env";
 export interface AuthRequest extends Request {
   userId?: string;
   userRole?: string;
+  allowedPages?: string[];
   permissions?: {
     canManageUsers: boolean;
     canManageFinances: boolean;
@@ -45,6 +46,15 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
 
     req.userRole = user.roles[0]?.role;
     if (req.userRole === "staff") {
+      const pageAccessSetting = await prisma.appSetting.findUnique({
+        where: { key: `staff_page_access_${req.userId}` },
+        select: { value: true },
+      });
+      try {
+        req.allowedPages = pageAccessSetting?.value ? JSON.parse(pageAccessSetting.value) : [];
+      } catch {
+        req.allowedPages = [];
+      }
       req.permissions = user.staffPermission ? {
         canManageUsers: user.staffPermission.canManageUsers,
         canManageFinances: user.staffPermission.canManageFinances,
@@ -60,8 +70,9 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
         canManageServices: false,
         canManageSettings: false,
         canManageSecurity: false,
-        canViewReports: true, // Allow viewing reports by default if staff
+        canViewReports: false,
       };
+      req.allowedPages = [];
     }
 
     next();

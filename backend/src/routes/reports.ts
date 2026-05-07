@@ -317,7 +317,18 @@ router.post("/upload", requireAuth, upload.single("report"), async (req: AuthReq
             type: "credit",
             description: rawDesc ? rawDesc.toString().trim() : null,
             sender: rawPayer ? rawPayer.toString().trim() : null,
-            consumer: rawMobile ? rawMobile.toString().trim() : null
+            consumer: rawMobile ? rawMobile.toString().trim() : null,
+            requestPayload: {
+              source: "bank_report_upload",
+              qrTid: tid,
+              qrUpiId: matchedQr?.upiId || null,
+              matchedQrId: matchedQr?.id || null,
+            },
+            providerPayload: {
+              source: "bank_report_upload",
+              qrTid: tid,
+              row,
+            }
           }
         });
 

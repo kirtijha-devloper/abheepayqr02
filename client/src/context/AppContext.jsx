@@ -59,7 +59,7 @@ export const AppProvider = ({ children }) => {
                 }
             }
 
-            if (user?.role === 'admin') {
+            if (user?.role === 'admin' || (user?.role === 'staff' && user?.permissions?.canManageSecurity)) {
                 const staffRes = await fetch(`${API_BASE}/staff`, { headers: getHeaders() });
                 if (staffRes.ok) {
                     const staffData = await staffRes.json();
@@ -612,9 +612,15 @@ export const AppProvider = ({ children }) => {
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
-            if (res.ok) await fetchData();
+            const data = await res.json();
+            if (res.ok) {
+                await fetchData();
+                return { success: true, data };
+            }
+            return { success: false, error: data?.error || 'Failed to add QR code', data };
         } catch (err) {
             console.error("Add QR code failed", err);
+            return { success: false, error: "Server error" };
         }
     }, [fetchData]);
 
@@ -723,6 +729,26 @@ export const AppProvider = ({ children }) => {
         }
     }, [getHeaders, fetchData]);
 
+    const fetchQrReport = useCallback(async (id, filters = {}) => {
+        try {
+            const params = new URLSearchParams();
+            if (filters.startDate) params.set('startDate', filters.startDate);
+            if (filters.endDate) params.set('endDate', filters.endDate);
+            const queryString = params.toString() ? `?${params.toString()}` : '';
+            const res = await fetch(`${API_BASE}/qrcodes/${id}/report${queryString}`, {
+                headers: getHeaders()
+            });
+            const data = await res.json();
+            if (res.ok) {
+                return { success: true, data };
+            }
+            return { success: false, error: data?.error || 'Failed to load QR report' };
+        } catch (err) {
+            console.error("Fetch QR report failed", err);
+            return { success: false, error: "Network error" };
+        }
+    }, [getHeaders]);
+
 
     const uploadReport = useCallback(async (file) => {
         const formData = new FormData();
@@ -785,6 +811,7 @@ export const AppProvider = ({ children }) => {
         approveFundRequest, rejectFundRequest, fundRequests, fetchFundRequests,
         bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,
         unassignQrCode,
+        fetchQrReport,
         updateQrCode,
         deleteQrCode,
         uploadReport,
@@ -811,7 +838,7 @@ export const AppProvider = ({ children }) => {
         verifyBranchXBeneficiary, requestBranchXPayout, approveSettlement,
         rejectSettlement, approveFundRequest, rejectFundRequest, fundRequests,
         fetchFundRequests, bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,
-        unassignQrCode, updateQrCode, deleteQrCode, uploadReport, reports,
+        unassignQrCode, fetchQrReport, updateQrCode, deleteQrCode, uploadReport, reports,
         fetchReports, mappingTrace, fetchMappingTrace, staffMembers,
         fetchStaffMembers, addStaffMember, updateStaffMember, deleteStaffMember,
         loginAs, holdWallet, unholdWallet, generateApiKey, getSystemSetting, fetchData

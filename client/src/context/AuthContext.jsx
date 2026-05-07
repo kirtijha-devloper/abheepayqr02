@@ -37,7 +37,10 @@ export const AuthProvider = ({ children }) => {
                         email: data.email,
                         role: data.role,
                         name: data.profile?.fullName,
-                        partnerId: data.profile?.id?.slice(0, 8) // Fallback MID
+                        partnerId: data.profile?.id?.slice(0, 8), // Fallback MID
+                        permissions: data.permissions || null,
+                        allowedPages: data.allowedPages || [],
+                        enabledFeatures: data.enabledFeatures || [],
                     });
                 } else {
                     sessionStorage.removeItem('authToken');

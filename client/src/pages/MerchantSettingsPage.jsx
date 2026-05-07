@@ -30,6 +30,10 @@ const MerchantSettingsPage = () => {
         tpin: '',
         confirmTpin: ''
     });
+    const [tpinEditable, setTpinEditable] = useState({
+        tpin: false,
+        confirmTpin: false
+    });
     const [message, setMessage] = useState({ type: '', text: '' });
 
     const showMessage = (type, text) => {
@@ -138,6 +142,7 @@ const MerchantSettingsPage = () => {
             if (res.ok) {
                 showMessage('success', 'Transaction PIN updated successfully.');
                 setTpinForm({ tpin: '', confirmTpin: '' });
+                setTpinEditable({ tpin: false, confirmTpin: false });
             } else {
                 const data = await res.json();
                 showMessage('error', data.error || 'Failed to update transaction PIN.');
@@ -388,7 +393,12 @@ const MerchantSettingsPage = () => {
                                                         placeholder="Minimum 4 digits"
                                                         value={tpinForm.tpin}
                                                         onChange={e => setTpinForm({ ...tpinForm, tpin: e.target.value })}
+                                                        onFocus={() => setTpinEditable((prev) => ({ ...prev, tpin: true }))}
                                                         autoComplete="new-password"
+                                                        name="new_tpin_manual"
+                                                        readOnly={!tpinEditable.tpin}
+                                                        data-lpignore="true"
+                                                        data-1p-ignore="true"
                                                     />
                                                 </div>
                                                 <div className="form-group-v2">
@@ -399,7 +409,12 @@ const MerchantSettingsPage = () => {
                                                         placeholder="Repeat TPIN"
                                                         value={tpinForm.confirmTpin}
                                                         onChange={e => setTpinForm({ ...tpinForm, confirmTpin: e.target.value })}
+                                                        onFocus={() => setTpinEditable((prev) => ({ ...prev, confirmTpin: true }))}
                                                         autoComplete="new-password"
+                                                        name="confirm_tpin_manual"
+                                                        readOnly={!tpinEditable.confirmTpin}
+                                                        data-lpignore="true"
+                                                        data-1p-ignore="true"
                                                     />
                                                 </div>
                                             </div>

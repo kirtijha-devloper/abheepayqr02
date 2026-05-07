@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requirePermission, AuthRequest } from "../middleware/auth";
 import { decodeWithAI } from "../utils/aiDecoder";
+import { getAccessibleUserIds } from "../utils/commission";
 import multer from "multer";
 import path from "path";
 
@@ -21,6 +22,56 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage });
+
+const normalizeQrValue = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+const getQrNumericTokens = (value: string) => {
+  const normalized = normalizeQrValue(value);
+  return normalized.match(/\d{6,16}/g) || [];
+};
+
+const getTransactionSearchBlob = (txn: any) => {
+  const blobParts = [
+    txn.refId,
+    txn.clientRefId,
+    txn.bankRef,
+    txn.description,
+    txn.sender,
+    txn.consumer,
+    txn.beneficiary,
+    txn.category,
+    txn.provider,
+    txn.requestPayload ? JSON.stringify(txn.requestPayload) : "",
+    txn.providerPayload ? JSON.stringify(txn.providerPayload) : "",
+    txn.responsePayload ? JSON.stringify(txn.responsePayload) : "",
+    txn.callbackPayload ? JSON.stringify(txn.callbackPayload) : "",
+    txn.providerResponse ? JSON.stringify(txn.providerResponse) : "",
+  ];
+
+  return normalizeQrValue(blobParts.filter(Boolean).join(" "));
+};
+
+const transactionMatchesQr = (txn: any, qr: any) => {
+  const blob = getTransactionSearchBlob(txn);
+  const normalizedTid = normalizeQrValue(qr.tid);
+  const normalizedUpi = normalizeQrValue(qr.upiId);
+  const payloadQrId = normalizeQrValue(txn.requestPayload?.matchedQrId);
+  const payloadTid = normalizeQrValue(txn.requestPayload?.qrTid || txn.providerPayload?.qrTid);
+  const payloadUpi = normalizeQrValue(txn.requestPayload?.qrUpiId || txn.providerPayload?.qrUpiId);
+
+  if (payloadQrId && payloadQrId === normalizeQrValue(qr.id)) return true;
+  if (normalizedTid && payloadTid && payloadTid === normalizedTid) return true;
+  if (normalizedUpi && payloadUpi && payloadUpi === normalizedUpi) return true;
+  if (normalizedTid && blob.includes(normalizedTid)) return true;
+  if (normalizedUpi && blob.includes(normalizedUpi)) return true;
+
+  const numericTokens = [
+    ...getQrNumericTokens(qr.tid),
+    ...getQrNumericTokens(qr.upiId),
+  ];
+
+  return numericTokens.some((token) => blob.includes(token));
+};
 
 // GET /api/qrcodes — list all QR codes (admin sees all, merchant sees assigned to them or their branches)
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
@@ -63,20 +114,166 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /api/qrcodes/:id/report — QR-level report for visible inventory QR codes
+router.get("/:id/report", requireAuth, async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  const { startDate, endDate } = req.query;
+
+  try {
+    const callerId = req.userId!;
+    const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
+    const role = roleRow?.role || null;
+    const isServiceAdmin = role === "admin" || (role === "staff" && req.permissions?.canManageServices);
+
+    const qr = await prisma.qrCode.findUnique({ where: { id } });
+    if (!qr) {
+      return res.status(404).json({ error: "QR code not found" });
+    }
+
+    let accessibleUserIds: string[] = [];
+    if (!isServiceAdmin && (role === "master" || role === "merchant")) {
+      accessibleUserIds = await getAccessibleUserIds(prisma, callerId);
+    }
+
+    const canAccessQr =
+      isServiceAdmin ||
+      (qr.merchantId &&
+        [callerId, ...accessibleUserIds].includes(qr.merchantId));
+
+    if (!canAccessQr) {
+      return res.status(403).json({ error: "You are not allowed to view this QR report." });
+    }
+
+    const where: any = {
+      serviceType: "qr_settlement",
+    };
+
+    if (!isServiceAdmin) {
+      where.userId = { in: [callerId, ...accessibleUserIds] };
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(`${startDate}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(`${endDate}T23:59:59.999Z`);
+      }
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        refId: true,
+        clientRefId: true,
+        sender: true,
+        consumer: true,
+        description: true,
+        createdAt: true,
+        requestPayload: true,
+        providerPayload: true,
+        responsePayload: true,
+        callbackPayload: true,
+        providerResponse: true,
+        userId: true,
+      },
+    });
+
+    const matchedTransactions = transactions.filter((txn) => transactionMatchesQr(txn, qr));
+
+    const dailyTotalsMap = new Map<string, { date: string; count: number; totalAmount: number }>();
+    let totalAmount = 0;
+    let completedAmount = 0;
+
+    const rows = matchedTransactions.map((txn) => {
+      const amount = Number(txn.amount || 0);
+      const dateKey = txn.createdAt.toISOString().slice(0, 10);
+      const existingDay = dailyTotalsMap.get(dateKey) || { date: dateKey, count: 0, totalAmount: 0 };
+      existingDay.count += 1;
+      existingDay.totalAmount += amount;
+      dailyTotalsMap.set(dateKey, existingDay);
+
+      totalAmount += amount;
+      if (normalizeQrValue(txn.status) === "completed") {
+        completedAmount += amount;
+      }
+
+      return {
+        id: txn.id,
+        amount,
+        status: txn.status,
+        refId: txn.refId,
+        clientRefId: txn.clientRefId,
+        sender: txn.sender,
+        consumer: txn.consumer,
+        description: txn.description,
+        createdAt: txn.createdAt,
+        reportDate: dateKey,
+      };
+    });
+
+    res.json({
+      qr: {
+        id: qr.id,
+        label: qr.label,
+        tid: qr.tid,
+        upiId: qr.upiId,
+        merchantName: qr.merchantName,
+        merchantId: qr.merchantId,
+        status: qr.status,
+      },
+      summary: {
+        totalTransactions: rows.length,
+        totalAmount: Number(totalAmount.toFixed(2)),
+        completedAmount: Number(completedAmount.toFixed(2)),
+      },
+      dailyTotals: Array.from(dailyTotalsMap.values())
+        .map((item) => ({
+          ...item,
+          totalAmount: Number(item.totalAmount.toFixed(2)),
+        }))
+        .sort((a, b) => b.date.localeCompare(a.date)),
+      transactions: rows,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // POST /api/qrcodes — create a new QR code (admin only)
 router.post("/", requireAuth, requirePermission("canManageServices"), upload.single("qrImage"), async (req: AuthRequest, res) => {
   const { label, upiId, mid, tid, merchantName, merchantId, type } = req.body;
   const imagePath = req.file ? `/uploads/qrcodes/${req.file.filename}` : null;
   
   try {
+    const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
+    const callerProfile = await prisma.profile.findUnique({ where: { userId: req.userId! } });
+    const normalizedMerchantId = typeof merchantId === "string" && merchantId.trim() ? merchantId.trim() : null;
+
+    const defaultOwnerId =
+      roleRow?.role === "master" || roleRow?.role === "merchant"
+        ? req.userId!
+        : null;
+    const finalMerchantId = normalizedMerchantId ?? defaultOwnerId;
+    const finalMerchantName = finalMerchantId
+      ? (finalMerchantId === req.userId!
+          ? callerProfile?.fullName || "Assigned"
+          : merchantName || "Assigned")
+      : "Unassigned";
+
     const qr = await prisma.qrCode.create({
       data: {
         label,
         upiId,
-        mid,
-        tid,
-        merchantName: merchantName || "Unassigned",
-        merchantId,
+        mid: mid || null,
+        tid: tid || null,
+        merchantName: finalMerchantName,
+        merchantId: finalMerchantId,
         type: type || "single",
         status: "active",
         imagePath
@@ -93,9 +290,18 @@ router.patch("/:id", requireAuth, requirePermission("canManageServices"), async 
   const { id } = req.params;
   const { label, upiId, mid, tid, merchantName, merchantId, status } = req.body;
   try {
+    const normalizedMerchantId = typeof merchantId === "string" && merchantId.trim() ? merchantId.trim() : undefined;
     const qr = await prisma.qrCode.update({
       where: { id },
-      data: { label, upiId, mid, tid, merchantName, merchantId, status },
+      data: {
+        label,
+        upiId,
+        mid: mid || null,
+        tid: tid || null,
+        merchantName,
+        merchantId: merchantId !== undefined ? normalizedMerchantId ?? null : undefined,
+        status
+      },
     });
     res.json(qr);
   } catch (e: any) {
@@ -240,7 +446,7 @@ router.post("/assign-by-tid", requireAuth, requirePermission("canManageServices"
 });
 
 // POST /api/qrcodes/assign-by-ids — Any upline can assign their inventory QRs to their direct downline
-router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
+router.post("/assign-by-ids", requireAuth, requirePermission("canManageServices"), async (req: AuthRequest, res) => {
   const { ids, merchantId } = req.body;
   if (!Array.isArray(ids) || ids.length === 0 || !merchantId) {
     return res.status(400).json({ error: "Missing ids array or merchantId" });
@@ -249,7 +455,7 @@ router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerId = req.userId!;
     const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
-    const isAdmin = roleRow?.role === "admin" || roleRow?.role === "master" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
+    const isAdmin = roleRow?.role === "admin" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
 
     const targetUser = await prisma.user.findUnique({
       where: { id: merchantId },
@@ -259,29 +465,12 @@ router.post("/assign-by-ids", requireAuth, async (req: AuthRequest, res) => {
     if (!targetUser) return res.status(404).json({ error: "Target user not found" });
 
     if (!isAdmin) {
-      // Non-admins: target must be their direct downline
-      const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
-      if (!myProfile) return res.status(403).json({ error: "Profile not found" });
-      
-      if (targetUser.profile?.parentId !== myProfile.id) {
-        return res.status(403).json({ error: "You can only assign QRs to your direct downline members." });
-      }
+      return res.status(403).json({ error: "Only admin can assign QR codes." });
+    }
 
-      // QRs must currently be in caller's inventory
-      const qrsToAssign = await prisma.qrCode.findMany({ where: { id: { in: ids } } });
-      if (qrsToAssign.length !== ids.length) {
-        return res.status(400).json({ error: "Some QR codes not found." });
-      }
-      const notOwned = qrsToAssign.filter(qr => qr.merchantId !== callerId);
-      if (notOwned.length > 0) {
-        return res.status(403).json({ error: `${notOwned.length} QR code(s) are not in your inventory.` });
-      }
-    } else {
-      // Admin: just verify QRs exist
-      const qrsToAssign = await prisma.qrCode.findMany({ where: { id: { in: ids } } });
-      if (qrsToAssign.length !== ids.length) {
-        return res.status(400).json({ error: "Some QR codes not found." });
-      }
+    const qrsToAssign = await prisma.qrCode.findMany({ where: { id: { in: ids } } });
+    if (qrsToAssign.length !== ids.length) {
+      return res.status(400).json({ error: "Some QR codes not found." });
     }
 
     const updated = await prisma.qrCode.updateMany({
@@ -355,13 +544,13 @@ router.post("/:id/unassign", requireAuth, async (req: AuthRequest, res) => {
   const { id } = req.params;
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const isAdmin = roleRow?.role === "admin" || roleRow?.role === "master" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
+    const isAdmin = roleRow?.role === "admin" || (roleRow?.role === "staff" && req.permissions?.canManageServices);
 
     const qr = await prisma.qrCode.findUnique({ where: { id } });
     if (!qr) return res.status(404).json({ error: "QR Code not found" });
 
-    if (!isAdmin && qr.merchantId !== req.userId) {
-        return res.status(403).json({ error: "You are not authorized to unassign this QR code." });
+    if (!isAdmin) {
+        return res.status(403).json({ error: "Only admin can unassign this QR code." });
     }
 
     const updated = await prisma.qrCode.update({

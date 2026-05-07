@@ -5,11 +5,18 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { UPLOADS_BASE, API_BASE } from '../config';
+import { UPLOADS_BASE } from '../config';
 import './QrCodesPage.css';
 
+const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
+const formatDateTime = (value) => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleString();
+};
+
 const QrCodesPage = () => {
-  const { qrCodes, updateQrCode, unassignQrCode, assignQrByIds, fetchData } = useAppContext();
+  const { qrCodes, updateQrCode, fetchQrReport } = useAppContext();
   const { user } = useAuth();
   const { success, error } = useToast();
   const [activeTab, setActiveTab] = useState('My QR');
@@ -18,51 +25,27 @@ const QrCodesPage = () => {
   const [manualUpi, setManualUpi] = useState('');
   const [isFixing, setIsFixing] = useState(false);
   const [selectedQrId, setSelectedQrId] = useState(null);
+  const [reportQr, setReportQr] = useState(null);
+  const [qrReport, setQrReport] = useState(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [reportFilters, setReportFilters] = useState({ startDate: '', endDate: '' });
 
-  // Downline assign state
-  const [downline, setDownline] = useState([]);
-  const [selectedQrIds, setSelectedQrIds] = useState([]);
-  const [assignTargetId, setAssignTargetId] = useState('');
-  const [isAssigning, setIsAssigning] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  // Fetch downline members
-  useEffect(() => {
-    const fetchDownline = async () => {
-      const token = sessionStorage.getItem('authToken');
-      try {
-        const res = await fetch(`${API_BASE}/qrcodes/my-downline`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) setDownline(await res.json());
-      } catch (e) {
-        console.error('Failed to fetch downline', e);
-      }
-    };
-    fetchDownline();
-  }, []);
-
-  // My inventory QRs (assigned to me)
   const myInventoryQrs = useMemo(() => {
-    return (qrCodes || []).filter(q => q.merchantId === user?.id);
+    return (qrCodes || []).filter((q) => q.merchantId === user?.id);
   }, [qrCodes, user]);
 
-  // QRs I've assigned to my downline (visible to me as branches)
-  const assignedDownlineQrs = useMemo(() => {
-    return (qrCodes || []).filter(q => q.merchantId !== user?.id && q.status === 'active');
-  }, [qrCodes, user]);
-
-  // Active QR for display
-  const myDirectQrs = useMemo(() => myInventoryQrs.filter(q => q.status === 'active'), [myInventoryQrs]);
+  const myDirectQrs = useMemo(() => myInventoryQrs.filter((q) => q.status === 'active'), [myInventoryQrs]);
 
   const activeQr = useMemo(() => {
     if (myDirectQrs.length === 0) return null;
     if (selectedQrId) {
-      const found = myDirectQrs.find(q => q.id === selectedQrId);
+      const found = myDirectQrs.find((q) => q.id === selectedQrId);
       if (found) return found;
     }
     const sorted = [...myDirectQrs].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const verified = sorted.filter(q => {
+    const verified = sorted.filter((q) => {
       const upi = (q.upiId || '').trim();
       return upi && !upi.startsWith('MANUAL-UPI');
     });
@@ -85,7 +68,7 @@ const QrCodesPage = () => {
       if (amount > 0) {
         if (uri.match(/[?&]am=/i)) uri = uri.replace(/([?&])am=[0-9.]+/i, `$1am=${reqAmount}`);
         else uri += `&am=${reqAmount}`;
-        if (!uri.match(/[?&]cu=/i)) uri += `&cu=INR`;
+        if (!uri.match(/[?&]cu=/i)) uri += '&cu=INR';
       }
       return uri;
     }
@@ -114,51 +97,214 @@ const QrCodesPage = () => {
     }
   };
 
-  const toggleSelectQr = (id) => {
-    setSelectedQrIds(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
+  const loadQrReport = async (qr, filters = reportFilters) => {
+    setReportQr(qr);
+    setIsLoadingReport(true);
+    const result = await fetchQrReport(qr.id, filters);
+    if (result.success) {
+      setQrReport(result.data);
+    } else {
+      setQrReport(null);
+      error(result.error || 'Failed to load QR report.');
+    }
+    setIsLoadingReport(false);
   };
 
-  const handleAssignToDownline = async () => {
-    if (selectedQrIds.length === 0) return error('Select at least one QR code.');
-    if (!assignTargetId) return error('Select a downline member to assign to.');
-    setIsAssigning(true);
-    const res = await assignQrByIds(selectedQrIds, assignTargetId);
-    setIsAssigning(false);
-    if (res.success) {
-      success(`${selectedQrIds.length} QR(s) assigned successfully.`);
-      setSelectedQrIds([]);
-      setAssignTargetId('');
-      fetchData();
-    } else {
-      error(res.error || 'Failed to assign QRs.');
-    }
+  const handleApplyReportFilters = async () => {
+    if (!reportQr) return;
+    await loadQrReport(reportQr, reportFilters);
   };
+
+  const closeReportModal = () => {
+    setReportQr(null);
+    setQrReport(null);
+    setReportFilters({ startDate: '', endDate: '' });
+  };
+
+  const renderInventoryTable = (rows, { title, emptyMessage }) => (
+    <div className="qr-inventory-block">
+      <h4 className="qr-inventory-title">{title}</h4>
+      {rows.length === 0 ? (
+        <div className="qr-empty-state">{emptyMessage}</div>
+      ) : (
+        <div className="qr-table-wrap">
+          <table className="qr-inventory-table">
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>Owner</th>
+                <th>TID</th>
+                <th>UPI ID</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((q) => {
+                return (
+                  <tr key={q.id} onClick={() => loadQrReport(q)} className="qr-table-row">
+                    <td>{q.label || 'QR Code'}</td>
+                    <td>{q.merchantName || 'Unassigned'}</td>
+                    <td>{q.tid || 'N/A'}</td>
+                    <td className="qr-mono-cell">{q.upiId || 'N/A'}</td>
+                    <td>
+                      <span className={`qr-status-badge ${q.status === 'active' ? 'active' : 'inactive'}`}>
+                        {(q.status || 'unknown').toUpperCase()}
+                      </span>
+                    </td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div className="qr-action-row">
+                        <button
+                          className="qr-action-button report"
+                          onClick={() => loadQrReport(q)}
+                        >
+                          View Report
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="dashboard-layout">
-      {/* Fullscreen preview modal */}
       {showPreview && activeQr?.imagePath && (
         <div className="fullscreen-modal" onClick={() => setShowPreview(false)}>
-          <div className="modal-content large-preview" onClick={e => e.stopPropagation()}>
-            <button className="qr-close-modal" onClick={() => setShowPreview(false)}>×</button>
+          <div className="modal-content large-preview" onClick={(e) => e.stopPropagation()}>
+            <button className="qr-close-modal" onClick={() => setShowPreview(false)}>x</button>
             <div className="preview-label">Original Uploaded QR Image</div>
             <img src={`${UPLOADS_BASE}${activeQr.imagePath}`} alt="Original QR" className="full-image" />
           </div>
         </div>
       )}
 
-      {/* Fix UPI modal */}
       {fixingQr && (
         <div className="fullscreen-modal" style={{ background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
           <div style={{ background: 'white', padding: '30px', borderRadius: '24px', width: '90%', maxWidth: '400px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>Fix Invalid QR</h2>
-            <input type="text" placeholder="example@paytm" value={manualUpi} onChange={e => setManualUpi(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #e2e8f0', marginBottom: '20px' }} />
+            <input type="text" placeholder="example@paytm" value={manualUpi} onChange={(e) => setManualUpi(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #e2e8f0', marginBottom: '20px' }} />
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={() => setFixingQr(null)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#f1f5f9', border: 'none' }}>Cancel</button>
-              <button onClick={() => updateUpiId(fixingQr.id, manualUpi)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#8b5cf6', color: 'white', border: 'none' }}>Save</button>
+              <button onClick={() => updateUpiId(fixingQr.id, manualUpi)} disabled={isFixing} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#8b5cf6', color: 'white', border: 'none' }}>{isFixing ? 'Saving...' : 'Save'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {reportQr && (
+        <div className="fullscreen-modal" onClick={closeReportModal}>
+          <div className="qr-report-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="qr-report-header">
+              <div>
+                <div className="preview-label">QR Performance Report</div>
+                <h2>{reportQr.label || 'QR Code'}</h2>
+                <p>{reportQr.tid ? `TID: ${reportQr.tid}` : reportQr.upiId || 'No identifier available'}</p>
+              </div>
+              <button className="qr-close-modal qr-report-close" onClick={closeReportModal}>x</button>
+            </div>
+
+            <div className="qr-report-filter-bar">
+              <input
+                type="date"
+                value={reportFilters.startDate}
+                onChange={(e) => setReportFilters((prev) => ({ ...prev, startDate: e.target.value }))}
+              />
+              <input
+                type="date"
+                value={reportFilters.endDate}
+                onChange={(e) => setReportFilters((prev) => ({ ...prev, endDate: e.target.value }))}
+              />
+              <button className="qr-action-button report" onClick={handleApplyReportFilters} disabled={isLoadingReport}>
+                {isLoadingReport ? 'Loading...' : 'Apply Filter'}
+              </button>
+            </div>
+
+            {isLoadingReport ? (
+              <div className="qr-empty-state">Loading QR report...</div>
+            ) : (
+              <>
+                <div className="qr-report-stats">
+                  <div className="qr-report-stat-card">
+                    <span>Total Transactions</span>
+                    <strong>{qrReport?.summary?.totalTransactions || 0}</strong>
+                  </div>
+                  <div className="qr-report-stat-card">
+                    <span>Total Amount</span>
+                    <strong>{formatCurrency(qrReport?.summary?.totalAmount || 0)}</strong>
+                  </div>
+                  <div className="qr-report-stat-card">
+                    <span>Completed Amount</span>
+                    <strong>{formatCurrency(qrReport?.summary?.completedAmount || 0)}</strong>
+                  </div>
+                </div>
+
+                <div className="qr-report-section">
+                  <h3>Datewise Summary</h3>
+                  {qrReport?.dailyTotals?.length ? (
+                    <div className="qr-table-wrap">
+                      <table className="qr-inventory-table">
+                        <thead>
+                          <tr>
+                            <th>Date</th>
+                            <th>Transactions</th>
+                            <th>Total Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {qrReport.dailyTotals.map((item) => (
+                            <tr key={item.date}>
+                              <td>{item.date}</td>
+                              <td>{item.count}</td>
+                              <td>{formatCurrency(item.totalAmount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="qr-empty-state">No transactions found for this date range.</div>
+                  )}
+                </div>
+
+                <div className="qr-report-section">
+                  <h3>Transactions</h3>
+                  {qrReport?.transactions?.length ? (
+                    <div className="qr-table-wrap">
+                      <table className="qr-inventory-table">
+                        <thead>
+                          <tr>
+                            <th>Date & Time</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Reference</th>
+                            <th>Sender</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {qrReport.transactions.map((txn) => (
+                            <tr key={txn.id}>
+                              <td>{formatDateTime(txn.createdAt)}</td>
+                              <td>{formatCurrency(txn.amount)}</td>
+                              <td>{txn.status || 'N/A'}</td>
+                              <td>{txn.refId || txn.clientRefId || txn.id}</td>
+                              <td>{txn.sender || txn.consumer || txn.description || 'N/A'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="qr-empty-state">No matched transactions available for this QR yet.</div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -175,7 +321,6 @@ const QrCodesPage = () => {
             </button>
           </div>
 
-          {/* My QR Tab */}
           {activeTab === 'My QR' && (
             <>
               <div className="qr-header-section">
@@ -194,7 +339,6 @@ const QrCodesPage = () => {
             </>
           )}
 
-          {/* Dynamic QR Tab */}
           {activeTab === 'Dynamic' && (
             <>
               <div className="qr-header-section">
@@ -208,7 +352,7 @@ const QrCodesPage = () => {
                     type="number"
                     placeholder="Enter amount"
                     value={dynamicAmount}
-                    onChange={e => setDynamicAmount(e.target.value)}
+                    onChange={(e) => setDynamicAmount(e.target.value)}
                     style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '18px' }}
                   />
                 </div>
@@ -223,154 +367,17 @@ const QrCodesPage = () => {
             </>
           )}
 
-          {/* Inventory Tab */}
           {activeTab === 'Inventory' && (
-            <div className="assigned-qrs-section card" style={{ maxWidth: '900px', width: '100%', padding: '2rem' }}>
-              <div className="qr-header-section" style={{ marginBottom: '1.5rem' }}>
+            <div className="assigned-qrs-section card qr-inventory-card">
+              <div className="qr-header-section qr-inventory-header">
                 <h2>My QR Inventory</h2>
-                <p className="subtitle">Select QRs and assign them to your downline members.</p>
+                <p className="subtitle">Tap any QR row to open its report with totals, transaction count, and datewise filtering.</p>
               </div>
 
-              {/* Assign bar */}
-              {downline.length > 0 && (
-                <div style={{
-                  background: 'rgba(124,108,248,0.08)',
-                  border: '1px solid rgba(124,108,248,0.2)',
-                  borderRadius: '16px',
-                  padding: '1rem 1.25rem',
-                  marginBottom: '1.5rem',
-                  display: 'flex',
-                  gap: '12px',
-                  alignItems: 'center',
-                  flexWrap: 'wrap'
-                }}>
-                  <span style={{ fontWeight: 700, fontSize: '13px', color: '#c4b5fd', whiteSpace: 'nowrap' }}>
-                    {selectedQrIds.length > 0 ? `${selectedQrIds.length} QR(s) selected` : 'Select QRs below'}
-                  </span>
-                  <select
-                    value={assignTargetId}
-                    onChange={e => setAssignTargetId(e.target.value)}
-                    style={{
-                      flex: 1, minWidth: '200px',
-                      background: 'rgba(0,0,0,0.4)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="">— Select Downline Member —</option>
-                    {downline.map(m => (
-                      <option key={m.userId} value={m.userId}>{m.fullName}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleAssignToDownline}
-                    disabled={isAssigning || selectedQrIds.length === 0 || !assignTargetId}
-                    style={{
-                      padding: '10px 24px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: (isAssigning || selectedQrIds.length === 0 || !assignTargetId) ? 'rgba(124,108,248,0.3)' : '#7c6cf8',
-                      color: '#fff',
-                      fontWeight: 700,
-                      cursor: (isAssigning || selectedQrIds.length === 0 || !assignTargetId) ? 'not-allowed' : 'pointer',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {isAssigning ? 'Assigning...' : `Assign ${selectedQrIds.length > 0 ? selectedQrIds.length : ''} QR(s)`}
-                  </button>
-                </div>
-              )}
-
-              {/* My inventory QRs */}
-              {myInventoryQrs.length === 0 ? (
-                <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
-                  No QRs in your inventory.
-                </div>
-              ) : (
-                <>
-                  <h4 style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>
-                    My Inventory ({myInventoryQrs.length})
-                  </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                    {myInventoryQrs.map(q => {
-                      const isSelected = selectedQrIds.includes(q.id);
-                      return (
-                        <div
-                          key={q.id}
-                          onClick={() => toggleSelectQr(q.id)}
-                          style={{
-                            background: isSelected ? 'rgba(124,108,248,0.12)' : 'rgba(255,255,255,0.03)',
-                            border: `1px solid ${isSelected ? 'rgba(124,108,248,0.4)' : 'rgba(255,255,255,0.06)'}`,
-                            borderRadius: '14px',
-                            padding: '1rem',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            position: 'relative'
-                          }}
-                        >
-                          {/* Checkbox indicator */}
-                          <div style={{
-                            position: 'absolute', top: '10px', right: '10px',
-                            width: '20px', height: '20px',
-                            borderRadius: '6px',
-                            border: `2px solid ${isSelected ? '#7c6cf8' : 'rgba(255,255,255,0.2)'}`,
-                            background: isSelected ? '#7c6cf8' : 'transparent',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#fff', fontSize: '12px', fontWeight: 700
-                          }}>
-                            {isSelected && '✓'}
-                          </div>
-
-                          <div style={{ fontWeight: 700, color: '#fff', marginBottom: '4px', paddingRight: '28px' }}>{q.label || 'QR Code'}</div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace', marginBottom: '10px' }}>
-                            {(q.upiId || '').substring(0, 16)}{q.upiId?.length > 16 ? '...' : ''}
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: q.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: q.status === 'active' ? '#10b981' : '#ef4444', fontWeight: 700 }}>
-                              {q.status?.toUpperCase()}
-                            </span>
-                            {q.tid && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', color: '#94a3b8' }}>TID: {q.tid}</span>}
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }} onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={() => unassignQrCode(q.id)}
-                              style={{ flex: 1, padding: '6px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
-                            >
-                              Unassign
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Assigned to downline section */}
-                  {assignedDownlineQrs.length > 0 && (
-                    <>
-                      <h4 style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem', marginTop: '0.5rem' }}>
-                        Assigned to Downline ({assignedDownlineQrs.length})
-                      </h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
-                        {assignedDownlineQrs.map(q => (
-                          <div key={q.id} style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.1)', borderRadius: '14px', padding: '1rem' }}>
-                            <div style={{ fontWeight: 700, color: '#fff', marginBottom: '4px' }}>{q.label || 'QR Code'}</div>
-                            <div style={{ fontSize: '12px', color: '#10b981', marginBottom: '10px' }}>→ {q.merchantName}</div>
-                            <button
-                              onClick={() => unassignQrCode(q.id)}
-                              style={{ width: '100%', padding: '6px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
-                            >
-                              Revoke
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
+              {renderInventoryTable(myInventoryQrs, {
+                title: `My Inventory (${myInventoryQrs.length})`,
+                emptyMessage: 'No QRs in your inventory.'
+              })}
             </div>
           )}
         </main>

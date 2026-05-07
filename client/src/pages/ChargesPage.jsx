@@ -291,6 +291,7 @@ const ChargesPage = () => {
         [downlineDefaults, currentUser]
     );
     const canManageDownlineDefaults = ['admin', 'staff', 'master', 'merchant'].includes(currentUser?.role);
+    const canCreateGlobalSlabs = currentUser?.role === 'admin';
     const defaultTargetLabel = currentUser?.role === 'admin' || currentUser?.role === 'staff'
         ? 'Masters'
         : currentUser?.role === 'master'
@@ -307,7 +308,7 @@ const ChargesPage = () => {
                     <div className="charges-header">
                         <div className="charges-title">
                             <h2>Charge Configuration</h2>
-                            <p>Global defaults, downline defaults, and manual user overrides.</p>
+                            <p>Admin creates slab ranges. Everyone else can only set rates against those admin-created slabs.</p>
                         </div>
                         
                         <div className="charges-search-container">
@@ -347,7 +348,7 @@ const ChargesPage = () => {
                         <>
                             <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3><span>⚙️</span> Default Global Charges (By Role)</h3>
-                                <button className="add-slab-btn" onClick={handleOpenGlobalSlab}>+ Add Default Slab</button>
+                                {canCreateGlobalSlabs && <button className="add-slab-btn" onClick={handleOpenGlobalSlab}>+ Add Default Slab</button>}
                             </div>
                             <div className="charges-card animated-fade-in" style={{ background: 'rgba(99, 102, 241, 0.05)' }}>
                                 <div className="table-responsive">

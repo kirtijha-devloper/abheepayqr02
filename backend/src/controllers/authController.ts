@@ -5,6 +5,162 @@ import jwt from "jsonwebtoken";
 import { getJwtSecret } from "../utils/env";
 
 const JWT_SECRET = getJwtSecret();
+const ALL_STAFF_PAGES = [
+  "dashboard",
+  "transactions",
+  "masters",
+  "users",
+  "wallet",
+  "reconciliation",
+  "qr_codes",
+  "settlements",
+  "fund_requests",
+  "ledger",
+  "reports",
+  "callbacks",
+  "support",
+  "charges",
+  "settings",
+];
+const FEATURE_ACCESS_DEFAULTS: Record<string, string[]> = {
+  admin: [
+    "dashboard",
+    "transactions",
+    "masters",
+    "users",
+    "wallet",
+    "reconciliation",
+    "qr_codes",
+    "settlements",
+    "fund_requests",
+    "ledger",
+    "reports",
+    "callbacks",
+    "support",
+    "charges",
+    "settings",
+  ],
+  staff: [
+    "dashboard",
+    "transactions",
+    "masters",
+    "users",
+    "wallet",
+    "reconciliation",
+    "qr_codes",
+    "settlements",
+    "fund_requests",
+    "ledger",
+    "reports",
+    "callbacks",
+    "support",
+    "charges",
+    "settings",
+  ],
+  master: [
+    "dashboard",
+    "transactions",
+    "merchants",
+    "wallet",
+    "ledger",
+    "qr_codes",
+    "fund_requests",
+    "settlements",
+    "reconciliation",
+    "reports",
+    "callbacks",
+    "support",
+    "charges",
+    "settings",
+  ],
+  merchant: [
+    "dashboard",
+    "transactions",
+    "branches",
+    "qr_codes",
+    "settlements",
+    "fund_requests",
+    "reconciliation",
+    "wallet",
+    "ledger",
+    "callbacks",
+    "support",
+    "charges",
+    "settings",
+    "reports",
+  ],
+  branch: [
+    "dashboard",
+    "transactions",
+    "qr_codes",
+    "wallet",
+    "ledger",
+    "support",
+    "settings",
+  ],
+};
+
+function buildPermissions(user: any) {
+  const role = user?.roles?.[0]?.role;
+  if (role === "admin") {
+    return {
+      canManageUsers: true,
+      canManageFinances: true,
+      canManageCommissions: true,
+      canManageServices: true,
+      canManageSettings: true,
+      canManageSecurity: true,
+      canViewReports: true,
+    };
+  }
+
+  if (role === "staff") {
+    return {
+      canManageUsers: user?.staffPermission?.canManageUsers ?? false,
+      canManageFinances: user?.staffPermission?.canManageFinances ?? false,
+      canManageCommissions: user?.staffPermission?.canManageCommissions ?? false,
+      canManageServices: user?.staffPermission?.canManageServices ?? false,
+      canManageSettings: user?.staffPermission?.canManageSettings ?? false,
+      canManageSecurity: user?.staffPermission?.canManageSecurity ?? false,
+      canViewReports: user?.staffPermission?.canViewReports ?? false,
+    };
+  }
+
+  return null;
+}
+
+async function fetchAllowedPages(userId: string, role: string | undefined) {
+  if (role === "admin") return ALL_STAFF_PAGES;
+  if (role !== "staff") return null;
+
+  const pageAccessSetting = await prisma.appSetting.findUnique({
+    where: { key: `staff_page_access_${userId}` },
+    select: { value: true },
+  });
+
+  try {
+    return pageAccessSetting?.value ? JSON.parse(pageAccessSetting.value) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchEnabledFeatures(userId: string, role: string | undefined) {
+  const roleKey = String(role || "").toLowerCase();
+  const defaults = FEATURE_ACCESS_DEFAULTS[roleKey] || [];
+  if (roleKey === "admin") return defaults;
+
+  const setting = await prisma.appSetting.findUnique({
+    where: { key: `feature_access_${userId}` },
+    select: { value: true },
+  });
+
+  try {
+    return setting?.value ? JSON.parse(setting.value) : defaults;
+  } catch {
+    return defaults;
+  }
+}
 
 export const registerUser = async (req: Request, res: Response) => {
   const { email, password, fullName, role } = req.body;
@@ -60,7 +216,7 @@ export const loginUser = async (req: Request, res: Response) => {
   
   const user = await prisma.user.findUnique({
     where: { email },
-    include: { profile: true, roles: true, wallet: true },
+    include: { profile: true, roles: true, wallet: true, staffPermission: true },
   });
 
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
@@ -68,6 +224,8 @@ export const loginUser = async (req: Request, res: Response) => {
   }
 
   const token = jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+  const allowedPages = await fetchAllowedPages(user.id, user.roles[0]?.role);
+  const enabledFeatures = await fetchEnabledFeatures(user.id, user.roles[0]?.role);
 
   res.json({
     token,
@@ -77,6 +235,9 @@ export const loginUser = async (req: Request, res: Response) => {
       fullName: user.profile?.fullName,
       role: user.roles[0]?.role,
       walletBalance: user.wallet ? Number(user.wallet.balance) : 0,
+      permissions: buildPermissions(user),
+      allowedPages,
+      enabledFeatures,
     },
   });
 };
@@ -84,10 +245,12 @@ export const loginUser = async (req: Request, res: Response) => {
 export const getMe = async (req: any, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.userId! },
-    include: { profile: true, roles: true, wallet: true },
+    include: { profile: true, roles: true, wallet: true, staffPermission: true },
   });
 
   if (!user) return res.status(404).json({ error: "User not found" });
+  const allowedPages = await fetchAllowedPages(user.id, user.roles[0]?.role);
+  const enabledFeatures = await fetchEnabledFeatures(user.id, user.roles[0]?.role);
 
   res.json({
     userId: user.id,
@@ -96,6 +259,9 @@ export const getMe = async (req: any, res: Response) => {
     role: user.roles[0]?.role,
     walletBalance: user.wallet ? Number(user.wallet.balance) : 0,
     eWalletBalance: user.wallet ? Number(user.wallet.eWalletBalance) : 0,
+    permissions: buildPermissions(user),
+    allowedPages,
+    enabledFeatures,
   });
 };
 
@@ -120,7 +286,7 @@ export const loginAsUser = async (req: any, res: Response) => {
         { userId: id }
       ]
     },
-    include: { user: { include: { roles: true, wallet: true } } }
+    include: { user: { include: { roles: true, wallet: true, staffPermission: true } } }
   });
 
   if (!targetProfile || !targetProfile.user) return res.status(404).json({ error: "User not found" });
@@ -134,6 +300,7 @@ export const loginAsUser = async (req: any, res: Response) => {
   }
 
   const token = jwt.sign({ sub: targetProfile.user.id, email: targetProfile.user.email }, JWT_SECRET, { expiresIn: "7d" });
+  const enabledFeatures = await fetchEnabledFeatures(targetProfile.user.id, targetProfile.user.roles[0]?.role);
 
   res.json({
     token,
@@ -143,6 +310,9 @@ export const loginAsUser = async (req: any, res: Response) => {
       fullName: targetProfile.fullName,
       role: targetProfile.user.roles[0]?.role,
       walletBalance: targetProfile.user.wallet ? Number(targetProfile.user.wallet.balance) : 0,
+      permissions: null,
+      allowedPages: null,
+      enabledFeatures,
     },
   });
 };

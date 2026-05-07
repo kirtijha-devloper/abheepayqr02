@@ -12,7 +12,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
     const role = roleRow?.role || null;
     const isAdmin = role === "admin";
-    const isStaff = role === "staff";
+    const isStaff = role === "staff" && req.permissions?.canViewReports;
     const isHierarchyViewer = role === "master" || role === "merchant";
 
     const where: any = {};

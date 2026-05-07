@@ -39,6 +39,7 @@ const WalletPage = () => {
   const [branchxQuoteLoading, setBranchxQuoteLoading] = useState(false);
   const [branchxRemark, setBranchxRemark] = useState('');
   const [branchxTpin, setBranchxTpin] = useState('');
+  const [branchxTpinEditable, setBranchxTpinEditable] = useState(false);
   const [branchxTransferMode, setBranchxTransferMode] = useState('IMPS');
   const [verifyingBeneficiary, setVerifyingBeneficiary] = useState(false);
   const [selectedBankId, setSelectedBankId] = useState('');
@@ -75,6 +76,7 @@ const WalletPage = () => {
     setBranchxQuote(defaultBranchXQuote);
     setBranchxRemark('');
     setBranchxTpin('');
+    setBranchxTpinEditable(false);
     setBranchxTransferMode('IMPS');
     setShowPayoutModal(true);
   };
@@ -168,6 +170,7 @@ const WalletPage = () => {
         setSelectedBankId('');
         setBranchxRemark('');
         setBranchxTpin('');
+        setBranchxTpinEditable(false);
         setBranchxQuote(defaultBranchXQuote);
       } else {
         error(res.error || 'BranchX payout failed.');
@@ -420,7 +423,12 @@ const WalletPage = () => {
                         placeholder="Enter TPIN"
                         value={branchxTpin}
                         onChange={(e) => setBranchxTpin(e.target.value)}
-                        autoComplete="off"
+                        onFocus={() => setBranchxTpinEditable(true)}
+                        autoComplete="new-password"
+                        name="branchx_tpin_manual"
+                        readOnly={!branchxTpinEditable}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
                         style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '14px' }}
                       />
                     </div>

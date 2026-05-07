@@ -274,8 +274,12 @@ const QrCodesAdminPage = () => {
             formDataObj.append('merchantName', merchants.find(m => (m.userId || m.id) === formData.merchantId)?.fullName || "Unassigned");
             formDataObj.append('type', 'single');
 
-            await addQrCode(formDataObj);
-            success('QR code onboarded successfully.');
+            const result = await addQrCode(formDataObj);
+            if (result?.success) {
+              success('QR code onboarded successfully.');
+            } else {
+              throw new Error(result?.error || 'QR upload failed');
+            }
         }
 
         // Reset

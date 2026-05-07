@@ -3,7 +3,6 @@ import { prisma } from "../prisma";
 import { requireAuth, requirePermission, AuthRequest } from "../middleware/auth";
 import {
   getAccessibleUserIds,
-  getAllowedDownlineRole,
   getEffectiveChargeConfig,
   isDescendantUser,
   roundCurrency,
@@ -17,6 +16,10 @@ function canManageGlobalSlabs(req: AuthRequest) {
   return req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageCommissions);
 }
 
+function canCreateGlobalSlabs(req: AuthRequest) {
+  return req.userRole === "admin";
+}
+
 function canManageHierarchyOverrides(req: AuthRequest) {
   return canManageGlobalSlabs(req) || req.userRole === "master" || req.userRole === "merchant";
 }
@@ -26,6 +29,23 @@ function getAllowedTargetRolesForUser(req: AuthRequest) {
   if (req.userRole === "master") return ["merchant"];
   if (req.userRole === "merchant") return ["branch"];
   return [];
+}
+
+async function findMatchingGlobalSlab(
+  role: string,
+  serviceKey: string,
+  minAmount: number,
+  maxAmount: number
+) {
+  return prisma.commissionSlab.findFirst({
+    where: {
+      role: role as any,
+      serviceKey,
+      isActive: true,
+      minAmount,
+      maxAmount,
+    },
+  });
 }
 
 // POST /api/commission/process — auto-distribute commissions up hierarchy
@@ -143,8 +163,8 @@ router.get("/slabs", requireAuth, async (_req, res) => {
 router.post("/slabs", requireAuth, async (req: AuthRequest, res) => {
     const { role, service_key, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
 
-    if (!canManageGlobalSlabs(req)) {
-        return res.status(403).json({ error: "Only admins or authorized staff can manage global slabs." });
+    if (!canCreateGlobalSlabs(req)) {
+        return res.status(403).json({ error: "Only admins can create new slabs." });
     }
     
     if (!role || !service_key) {
@@ -225,8 +245,8 @@ router.patch("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
 
 // DELETE /api/commission/slabs/:id — remove a global slab
 router.delete("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
-    if (!canManageGlobalSlabs(req)) {
-        return res.status(403).json({ error: "Only admins or authorized staff can delete global slabs." });
+    if (!canCreateGlobalSlabs(req)) {
+        return res.status(403).json({ error: "Only admins can delete slabs." });
     }
     try {
         await prisma.commissionSlab.delete({ where: { id: req.params.id } });
@@ -366,6 +386,15 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
       return res.status(400).json({ error: "Charge and commission values cannot be negative." });
     }
 
+    if (req.userRole !== "admin") {
+      const matchingSlab = await findMatchingGlobalSlab(target_role, service_key || "payout", n_min, n_max);
+      if (!matchingSlab) {
+        return res.status(400).json({
+          error: "Non-admin users can only set rates on slabs already created by admin.",
+        });
+      }
+    }
+
     const created = await prisma.downlineChargeDefault.upsert({
       where: {
         ownerUserId_targetRole_serviceKey_minAmount: {
@@ -461,6 +490,24 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
       const allowed = await isDescendantUser(prisma, req.userId!, target_user_id);
       if (!allowed) {
         return res.status(403).json({ error: "You can only manage overrides for users in your own downline." });
+      }
+    }
+
+    if (req.userRole !== "admin") {
+      const actualTargetRole = (
+        await prisma.userRole.findFirst({
+          where: { userId: target_user_id },
+          select: { role: true },
+        })
+      )?.role;
+      const matchingSlab = actualTargetRole
+        ? await findMatchingGlobalSlab(actualTargetRole, service_key, n_min, n_max)
+        : null;
+
+      if (!matchingSlab) {
+        return res.status(400).json({
+          error: "Non-admin users can only set rates on slabs already created by admin.",
+        });
       }
     }
 

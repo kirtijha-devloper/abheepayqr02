@@ -569,10 +569,12 @@ router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
         let where: any = { serviceType: { in: ["payout", "branchx_payout"] } };
         if (status) where.status = status as string;
 
+        const canStaffViewFinance = req.userRole === "staff" && req.permissions?.canManageFinances;
+
         if (req.userRole === "master" || req.userRole === "merchant") {
             const accessibleUserIds = await getAccessibleUserIds(prisma, req.userId!);
             where.userId = { in: [req.userId!, ...accessibleUserIds] };
-        } else if (req.userRole !== "admin" && req.userRole !== "staff") {
+        } else if (req.userRole !== "admin" && !canStaffViewFinance) {
             where.userId = req.userId!;
         }
 
@@ -581,7 +583,7 @@ router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
             orderBy: { createdAt: "desc" },
             include: { user: { include: { profile: true } } }
         });
-        const viewerVisibleUserIds = req.userRole === "admin" || req.userRole === "staff"
+        const viewerVisibleUserIds = req.userRole === "admin" || canStaffViewFinance
             ? null
             : new Set(
                 req.userRole === "master" || req.userRole === "merchant"

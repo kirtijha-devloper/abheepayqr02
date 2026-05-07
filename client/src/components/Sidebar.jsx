@@ -12,6 +12,7 @@ const Sidebar = () => {
   const isMaster = location.pathname.startsWith('/master');
   const isAdmin = location.pathname.startsWith('/admin');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const navRef = useRef(null);
 
   useEffect(() => {
     const handleToggle = () => {
@@ -43,9 +44,6 @@ const Sidebar = () => {
     return () => document.body.classList.remove('sidebar-open');
   }, [isMobileOpen]);
 
-  const navRef = useRef(null);
-
-  // Restore scroll position
   useEffect(() => {
     const savedScroll = localStorage.getItem('sidebar-scroll');
     if (savedScroll && navRef.current) {
@@ -63,79 +61,129 @@ const Sidebar = () => {
   };
 
   const merchantItems = [
-    { name: 'Dashboard', icon: '▦', path: '/dashboard' },
-    { name: 'Transactions', icon: '⇄', path: '/transactions' },
-    { name: 'Branches', icon: '👥', path: '/branches' },
-    { name: 'QR Codes', icon: '🔳', path: '/merchant/qr-codes' },
-    { name: 'Settlements', icon: '💸', path: '/settlements' },
-    { name: 'Fund Requests', icon: '📥', path: '/fund-requests' },
-    { name: 'Reconciliation', icon: '⚖', path: '/reconciliation' },
-    { name: 'Wallet', icon: '💳', path: '/wallet' },
-    { name: 'Ledger', icon: '≡', path: '/ledger' },
-    { name: 'Callbacks', icon: '⚡', path: '/callbacks' },
-    { name: 'Support', icon: '🎧', path: '/support' },
-    { name: 'Charges', icon: '％', path: '/charges' },
-    { name: 'Settings', icon: '⚙', path: '/settings' },
+    { name: 'Dashboard', icon: '▦', path: '/dashboard', feature: 'dashboard' },
+    { name: 'Transactions', icon: '⇄', path: '/transactions', feature: 'transactions' },
+    { name: 'Branches', icon: '👥', path: '/branches', feature: 'branches' },
+    { name: 'QR Codes', icon: '🔳', path: '/merchant/qr-codes', feature: 'qr_codes' },
+    { name: 'Settlements', icon: '💸', path: '/settlements', feature: 'settlements' },
+    { name: 'Fund Requests', icon: '📥', path: '/fund-requests', feature: 'fund_requests' },
+    { name: 'Reconciliation', icon: '⚖', path: '/reconciliation', feature: 'reconciliation' },
+    { name: 'Wallet', icon: '💳', path: '/wallet', feature: 'wallet' },
+    { name: 'Ledger', icon: '≡', path: '/ledger', feature: 'ledger' },
+    { name: 'Callbacks', icon: '⚡', path: '/callbacks', feature: 'callbacks' },
+    { name: 'Support', icon: '🎧', path: '/support', feature: 'support' },
+    { name: 'Charges', icon: '％', path: '/charges', feature: 'charges' },
+    { name: 'Settings', icon: '⚙', path: '/settings', feature: 'settings' },
   ];
 
   const branchItems = [
-    { name: 'Dashboard', icon: '▦', path: '/dashboard' },
-    { name: 'Transactions', icon: '⇄', path: '/transactions' },
-    { name: 'QR Codes', icon: '🔳', path: '/qr-codes' },
-    { name: 'Wallet', icon: '💳', path: '/wallet' },
-    { name: 'Ledger', icon: '≡', path: '/ledger' },
-    { name: 'Support', icon: '🎧', path: '/support' },
-    { name: 'Settings', icon: '⚙', path: '/settings' },
+    { name: 'Dashboard', icon: '▦', path: '/dashboard', feature: 'dashboard' },
+    { name: 'Transactions', icon: '⇄', path: '/transactions', feature: 'transactions' },
+    { name: 'QR Codes', icon: '🔳', path: '/qr-codes', feature: 'qr_codes' },
+    { name: 'Wallet', icon: '💳', path: '/wallet', feature: 'wallet' },
+    { name: 'Ledger', icon: '≡', path: '/ledger', feature: 'ledger' },
+    { name: 'Support', icon: '🎧', path: '/support', feature: 'support' },
+    { name: 'Settings', icon: '⚙', path: '/settings', feature: 'settings' },
   ];
 
   const adminItems = [
-    { name: 'Dashboard', icon: '▦', path: '/admin/dashboard' },
+    { name: 'Dashboard', icon: '▦', path: '/admin/dashboard', feature: 'dashboard' },
     { name: 'Staff Panel', icon: '🛡️', path: '/admin/staff' },
-    { name: 'Transactions', icon: '⇄', path: '/admin/transactions' },
-    { name: 'Masters', icon: '👥', path: '/admin/merchants' },
-    { name: 'User List', icon: '👥', path: '/admin/users' },
-    { name: 'Wallet', icon: '💳', path: '/admin/wallet' },
-    { name: 'Reconciliation', icon: '⚖', path: '/admin/reconciliation' },
-    { name: 'QR Codes', icon: '🔳', path: '/admin/qr-codes' },
-    { name: 'Settlements', icon: '💸', path: '/admin/settlements' },
-    { name: 'Fund Requests', icon: '📥', path: '/admin/fund-requests' },
-    { name: 'Ledger', icon: '≡', path: '/admin/ledger' },
-    { name: 'Reports', icon: '📊', path: '/admin/reports' },
-    { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks' },
-    { name: 'Support', icon: '🎧', path: '/admin/support' },
-    { name: 'Charges', icon: '％', path: '/admin/charges' },
-    { name: 'Settings', icon: '⚙', path: '/admin/settings' },
+    { name: 'Transactions', icon: '⇄', path: '/admin/transactions', feature: 'transactions' },
+    { name: 'Masters', icon: '👥', path: '/admin/merchants', feature: 'masters' },
+    { name: 'User List', icon: '👥', path: '/admin/users', feature: 'users' },
+    { name: 'Wallet', icon: '💳', path: '/admin/wallet', feature: 'wallet' },
+    { name: 'Reconciliation', icon: '⚖', path: '/admin/reconciliation', feature: 'reconciliation' },
+    { name: 'QR Codes', icon: '🔳', path: '/admin/qr-codes', feature: 'qr_codes' },
+    { name: 'Settlements', icon: '💸', path: '/admin/settlements', feature: 'settlements' },
+    { name: 'Fund Requests', icon: '📥', path: '/admin/fund-requests', feature: 'fund_requests' },
+    { name: 'Ledger', icon: '≡', path: '/admin/ledger', feature: 'ledger' },
+    { name: 'Reports', icon: '📊', path: '/admin/reports', feature: 'reports' },
+    { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks', feature: 'callbacks' },
+    { name: 'Support', icon: '🎧', path: '/admin/support', feature: 'support' },
+    { name: 'Charges', icon: '％', path: '/admin/charges', feature: 'charges' },
+    { name: 'Settings', icon: '⚙', path: '/admin/settings', feature: 'settings' },
   ];
 
   const masterItems = [
-    { name: 'Dashboard', icon: '▦', path: '/master/dashboard' },
-    { name: 'Transactions', icon: '⇄', path: '/master/transactions' },
-    { name: 'Merchants', icon: '👥', path: '/master/merchants' },
-    { name: 'User List', icon: '👥', path: '/admin/users' },
-    { name: 'Wallet', icon: '💳', path: '/master/wallet' },
-    { name: 'Ledger', icon: '≡', path: '/master/ledger' },
-    { name: 'QR Codes', icon: '🔳', path: '/master/qr-codes' },
-    { name: 'Fund Requests', icon: '📥', path: '/master/fund-requests' },
-    { name: 'Settlements', icon: '💸', path: '/master/settlements' },
-    { name: 'Reconciliation', icon: '⚖', path: '/master/reconciliation' },
-    { name: 'Reports', icon: '📊', path: '/master/reports' },
-    { name: 'Callbacks', icon: '⚡', path: '/master/callbacks' },
-    { name: 'Support', icon: '🎧', path: '/master/support' },
-    { name: 'Charges', icon: '％', path: '/master/charges' },
-    { name: 'Settings', icon: '⚙', path: '/master/settings' },
+    { name: 'Dashboard', icon: '▦', path: '/master/dashboard', feature: 'dashboard' },
+    { name: 'Transactions', icon: '⇄', path: '/master/transactions', feature: 'transactions' },
+    { name: 'Merchants', icon: '👥', path: '/master/merchants', feature: 'merchants' },
+    { name: 'Wallet', icon: '💳', path: '/master/wallet', feature: 'wallet' },
+    { name: 'Ledger', icon: '≡', path: '/master/ledger', feature: 'ledger' },
+    { name: 'QR Codes', icon: '🔳', path: '/master/qr-codes', feature: 'qr_codes' },
+    { name: 'Fund Requests', icon: '📥', path: '/master/fund-requests', feature: 'fund_requests' },
+    { name: 'Settlements', icon: '💸', path: '/master/settlements', feature: 'settlements' },
+    { name: 'Reconciliation', icon: '⚖', path: '/master/reconciliation', feature: 'reconciliation' },
+    { name: 'Reports', icon: '📊', path: '/master/reports', feature: 'reports' },
+    { name: 'Callbacks', icon: '⚡', path: '/master/callbacks', feature: 'callbacks' },
+    { name: 'Support', icon: '🎧', path: '/master/support', feature: 'support' },
+    { name: 'Charges', icon: '％', path: '/master/charges', feature: 'charges' },
+    { name: 'Settings', icon: '⚙', path: '/master/settings', feature: 'settings' },
   ];
+
+  const hasFeatureEnabled = (feature) => {
+    if (!feature || user?.role === 'admin') return true;
+    return Array.isArray(user?.enabledFeatures) ? user.enabledFeatures.includes(feature) : true;
+  };
+
+  const canAccessAdminItem = (item) => {
+    if (user?.role === 'admin') return true;
+    if (user?.role !== 'staff') return true;
+
+    const permissionMap = {
+      'Staff Panel': 'canManageSecurity',
+      Transactions: 'canViewReports',
+      Masters: 'canManageUsers',
+      'User List': 'canManageUsers',
+      Wallet: 'canManageFinances',
+      Reconciliation: 'canManageFinances',
+      'QR Codes': 'canManageServices',
+      Settlements: 'canManageFinances',
+      'Fund Requests': 'canManageFinances',
+      Ledger: 'canViewReports',
+      Reports: 'canViewReports',
+      Callbacks: 'canManageServices',
+      Support: 'canViewReports',
+      Charges: 'canManageCommissions',
+      Settings: 'canManageSettings',
+    };
+    const pageMap = {
+      Dashboard: 'dashboard',
+      Transactions: 'transactions',
+      Masters: 'masters',
+      'User List': 'users',
+      Wallet: 'wallet',
+      Reconciliation: 'reconciliation',
+      'QR Codes': 'qr_codes',
+      Settlements: 'settlements',
+      'Fund Requests': 'fund_requests',
+      Ledger: 'ledger',
+      Reports: 'reports',
+      Callbacks: 'callbacks',
+      Support: 'support',
+      Charges: 'charges',
+      Settings: 'settings',
+    };
+
+    const requiredPermission = permissionMap[item.name];
+    const requiredPage = pageMap[item.name];
+    const hasPermission = !requiredPermission || !!user?.permissions?.[requiredPermission];
+    const hasPageAccess = !requiredPage || !!user?.allowedPages?.includes(requiredPage);
+    return hasPermission && hasPageAccess && hasFeatureEnabled(item.feature);
+  };
 
   const getMenuItems = () => {
     if (isAdmin) {
       if (user?.role === 'staff') {
-        return adminItems.filter(item => item.name !== 'Staff Panel');
+        return adminItems.filter((item) => canAccessAdminItem(item));
       }
       return adminItems;
     }
-    if (isMaster) return masterItems;
-    if (user?.role === 'merchant') return merchantItems;
-    if (user?.role === 'branch') return branchItems;
-    return merchantItems;
+    if (isMaster) return masterItems.filter((item) => hasFeatureEnabled(item.feature));
+    if (user?.role === 'merchant') return merchantItems.filter((item) => hasFeatureEnabled(item.feature));
+    if (user?.role === 'branch') return branchItems.filter((item) => hasFeatureEnabled(item.feature));
+    return merchantItems.filter((item) => hasFeatureEnabled(item.feature));
   };
 
   const menuItems = getMenuItems();

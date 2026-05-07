@@ -10,6 +10,7 @@ const emptyForm = {
   email: '',
   phone: '',
   password: '',
+  pageAccess: [],
   permissions: {
     canManageUsers: false,
     canManageFinances: false,
@@ -17,9 +18,37 @@ const emptyForm = {
     canManageServices: false,
     canManageSettings: false,
     canManageSecurity: false,
-    canViewReports: true,
+    canViewReports: false,
   }
 };
+
+const permissionOptions = [
+  { key: 'canManageUsers', title: 'Manage Users', desc: 'Create and edit merchant, master, and branch accounts.' },
+  { key: 'canManageFinances', title: 'Manage Finances', desc: 'Approve fund requests, settlements, and wallet actions.' },
+  { key: 'canManageCommissions', title: 'Manage Charges', desc: 'Update slabs, rates, and commission settings.' },
+  { key: 'canManageServices', title: 'Manage Services', desc: 'Control QR, callbacks, and operational service tools.' },
+  { key: 'canViewReports', title: 'View Reports', desc: 'Access reports, ledger, transactions, and support views.' },
+  { key: 'canManageSettings', title: 'Manage Settings', desc: 'Change platform and account setting screens.' },
+  { key: 'canManageSecurity', title: 'Manage Security', desc: 'Control security-sensitive administrative operations.' },
+];
+
+const pageOptions = [
+  { key: 'dashboard', title: 'Dashboard' },
+  { key: 'transactions', title: 'Transactions' },
+  { key: 'masters', title: 'Masters' },
+  { key: 'users', title: 'User List' },
+  { key: 'wallet', title: 'Wallet' },
+  { key: 'reconciliation', title: 'Reconciliation' },
+  { key: 'qr_codes', title: 'QR Codes' },
+  { key: 'settlements', title: 'Settlements' },
+  { key: 'fund_requests', title: 'Fund Requests' },
+  { key: 'ledger', title: 'Ledger' },
+  { key: 'reports', title: 'Reports' },
+  { key: 'callbacks', title: 'Callbacks' },
+  { key: 'support', title: 'Support' },
+  { key: 'charges', title: 'Charges' },
+  { key: 'settings', title: 'Settings' },
+];
 
 const StaffManagementPage = () => {
   const [showModal, setShowModal] = useState(false);
@@ -36,7 +65,7 @@ const StaffManagementPage = () => {
   }, [fetchStaffMembers]);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, checked } = e.target;
     if (name.startsWith('perm_')) {
       const permKey = name.replace('perm_', '');
       setFormData({
@@ -46,6 +75,14 @@ const StaffManagementPage = () => {
           [permKey]: checked
         }
       });
+    } else if (name.startsWith('page_')) {
+      const pageKey = name.replace('page_', '');
+      setFormData((prev) => ({
+        ...prev,
+        pageAccess: checked
+          ? Array.from(new Set([...(prev.pageAccess || []), pageKey]))
+          : (prev.pageAccess || []).filter((page) => page !== pageKey),
+      }));
     } else {
       setFormData({ ...formData, [name]: value });
     }
@@ -58,6 +95,23 @@ const StaffManagementPage = () => {
     setFormData(emptyForm);
   };
 
+  const setAllPermissions = (enabled) => {
+    const nextPermissions = Object.fromEntries(
+      permissionOptions.map((perm) => [perm.key, enabled])
+    );
+    setFormData((prev) => ({
+      ...prev,
+      permissions: nextPermissions
+    }));
+  };
+
+  const setAllPages = (enabled) => {
+    setFormData((prev) => ({
+      ...prev,
+      pageAccess: enabled ? pageOptions.map((page) => page.key) : []
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -65,7 +119,8 @@ const StaffManagementPage = () => {
       const res = await updateStaffMember(selectedStaff.id, {
         fullName: formData.fullName,
         phone: formData.phone,
-        permissions: formData.permissions
+        permissions: formData.permissions,
+        pageAccess: formData.pageAccess
       });
 
       if (res.success) {
@@ -95,7 +150,11 @@ const StaffManagementPage = () => {
       email: staff.email || '',
       phone: staff.phone || '',
       password: '',
-      permissions: staff.permissions || emptyForm.permissions
+      pageAccess: Array.isArray(staff.pageAccess) ? staff.pageAccess : [],
+      permissions: {
+        ...emptyForm.permissions,
+        ...(staff.permissions || {})
+      }
     });
     setShowModal(true);
   };
@@ -144,7 +203,7 @@ const StaffManagementPage = () => {
                     <th>ID</th>
                     <th>Staff Member</th>
                     <th>Status</th>
-                    <th>Permissions</th>
+                    <th>Permissions / Pages</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -189,6 +248,11 @@ const StaffManagementPage = () => {
                           {(!staff.permissions || Object.values(staff.permissions).every(v => !v)) && 
                             <span className="no-permissions">Restricted Access</span>
                           }
+                          {Array.isArray(staff.pageAccess) && staff.pageAccess.map((page) => (
+                            <span key={page} className="permission-tag">
+                              {page.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                            </span>
+                          ))}
                         </div>
                       </td>
                       <td>
@@ -249,15 +313,22 @@ const StaffManagementPage = () => {
 
                 <div className="modal-section">
                   <h4>Platform Access & Permissions</h4>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <button type="button" className="action-btn success-btn" onClick={() => setAllPermissions(true)}>
+                      Grant Full Access
+                    </button>
+                    <button type="button" className="action-btn warning-btn" onClick={() => setAllPermissions(false)}>
+                      Remove All Access
+                    </button>
+                    <button type="button" className="action-btn success-btn" onClick={() => setAllPages(true)}>
+                      Select All Pages
+                    </button>
+                    <button type="button" className="action-btn warning-btn" onClick={() => setAllPages(false)}>
+                      Clear Pages
+                    </button>
+                  </div>
                   <div className="permissions-grid">
-                    {[
-                      { key: 'canManageUsers', title: 'Manage Users', desc: 'Create and edit merchant accounts.' },
-                      { key: 'canManageFinances', title: 'Manage Finances', desc: 'Approve fund requests & settlements.' },
-                      { key: 'canManageCommissions', title: 'Commissions', desc: 'Set and override service slabs.' },
-                      { key: 'canManageServices', title: 'Manage Services', desc: 'Control service availability & QRs.' },
-                      { key: 'canViewReports', title: 'View Reports', desc: 'Access analytics and transaction logs.' },
-                      { key: 'canManageSettings', title: 'System Settings', desc: 'Modify core platform configurations.' },
-                    ].map(perm => (
+                    {permissionOptions.map(perm => (
                       <label key={perm.key} className="permission-item">
                         <input 
                           type="checkbox" 
@@ -271,6 +342,25 @@ const StaffManagementPage = () => {
                         </div>
                       </label>
                     ))}
+                  </div>
+                  <div style={{ marginTop: '20px' }}>
+                    <h4 style={{ marginBottom: '12px' }}>Page Access Filter</h4>
+                    <div className="permissions-grid">
+                      {pageOptions.map((page) => (
+                        <label key={page.key} className="permission-item">
+                          <input
+                            type="checkbox"
+                            name={`page_${page.key}`}
+                            checked={(formData.pageAccess || []).includes(page.key)}
+                            onChange={handleChange}
+                          />
+                          <div className="permission-info">
+                            <span className="p-title">{page.title}</span>
+                            <span className="p-desc">Allow this staff member to open the {page.title} page.</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
