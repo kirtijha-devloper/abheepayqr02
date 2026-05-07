@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { API_BASE } from '../config';
+import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 
 const STATUS_COLORS = {
   pending: '#F59E0B',
@@ -116,6 +118,8 @@ const userCols = [
 ];
 
 const AdminReportsPage = () => {
+  const { uploadReport } = useAppContext();
+  const { success, error } = useToast();
   const [activeTab, setActiveTab] = useState(0);
   const [fundRequests, setFundRequests] = useState([]);
   const [settlements, setSettlements] = useState([]);
@@ -123,6 +127,9 @@ const AdminReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const fileInputRef = React.useRef(null);
 
   const getHeaders = () => {
     const token = sessionStorage.getItem('authToken');
@@ -168,18 +175,63 @@ const AdminReportsPage = () => {
     }
   };
 
+  const handleUploadClick = () => {
+    if (uploading) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleReportUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setUploading(true);
+    setUploadStatus('Uploading report...');
+    const result = await uploadReport(file);
+    setUploading(false);
+
+    if (result.success) {
+      const details = result.data || {};
+      const statusLine = [
+        `Processed ${details.processed || 0}`,
+        details.skipped ? `Skipped ${details.skipped}` : null,
+        details.errors ? `Errors ${details.errors}` : null,
+      ].filter(Boolean).join(', ');
+      setUploadStatus(`Upload complete. ${statusLine}`);
+      success(`Upload complete. ${statusLine}`);
+      fetchAll();
+      return;
+    }
+
+    setUploadStatus(`Upload failed: ${result.error}`);
+    error(`Upload failed: ${result.error}`);
+  };
+
   return (
     <div className="dashboard-layout">
       <Sidebar />
       <div className="main-content">
         <Header />
         <main className="dashboard-body animated">
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept=".csv, .xlsx, .xls"
+            onChange={handleReportUpload}
+          />
           <div className="dashboard-header-row">
             <div className="title-section">
               <h2>Admin Reports</h2>
               <p className="subtitle">Full visibility across all levels — fund requests, settlements, and user data</p>
+              {uploadStatus && <p className="subtitle" style={{ marginTop: '6px', color: '#94a3b8' }}>{uploadStatus}</p>}
             </div>
-            <button onClick={fetchAll} style={btnStyle('#1e293b', '#38bdf8')}>↻ Refresh</button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={handleUploadClick} style={btnStyle('#1e293b', '#a78bfa')}>
+                {uploading ? 'Uploading...' : 'Upload Report'}
+              </button>
+              <button onClick={fetchAll} style={btnStyle('#1e293b', '#38bdf8')}>↻ Refresh</button>
+            </div>
           </div>
 
           {/* Filters */}

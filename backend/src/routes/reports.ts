@@ -142,7 +142,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 
 router.post("/upload", requireAuth, upload.single("report"), async (req: AuthRequest, res) => {
   try {
-    if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff") {
+    if (req.userRole !== "admin" && req.userRole !== "merchant" && req.userRole !== "staff" && req.userRole !== "master") {
         return res.status(403).json({ error: "Forbidden" });
     }
     if (req.userRole === "staff" && !req.permissions?.canViewReports) {
@@ -382,17 +382,34 @@ router.get("/admin/fund-requests", requireAuth, async (req: AuthRequest, res) =>
   }
 });
 
-// GET /api/reports/admin/settlements — Admin: all wallet transactions across all levels
+// GET /api/reports/admin/settlements — Admin: all payout settlement transactions across all levels
 router.get("/admin/settlements", requireAuth, async (req: AuthRequest, res) => {
   if (req.userRole !== "admin" && !req.permissions?.canViewReports) {
       return res.status(403).json({ error: "Forbidden" });
   }
   try {
-    const settlements = await prisma.walletTransaction.findMany({
+    const settlements = await prisma.transaction.findMany({
+      where: {
+        serviceType: { in: ["payout", "branchx_payout"] },
+      },
       orderBy: { createdAt: "desc" },
       take: 500,
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+      },
     });
-    res.json(settlements.map(s => ({ ...s, amount: Number(s.amount) })));
+    res.json(
+      settlements.map((settlement) => ({
+        ...settlement,
+        amount: Number(settlement.amount || 0),
+        fee: Number(settlement.fee || 0),
+        userName: settlement.user?.profile?.fullName || settlement.user?.profile?.businessName || settlement.user?.email || "Unknown",
+      }))
+    );
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

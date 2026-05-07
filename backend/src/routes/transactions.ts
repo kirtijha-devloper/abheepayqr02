@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { getAccessibleUserIds } from "../utils/commission";
 
 const router = Router();
 
@@ -9,10 +10,18 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   const { service, status, limit } = req.query;
   try {
     const roleRow = await prisma.userRole.findFirst({ where: { userId: req.userId! } });
-    const isAdmin = roleRow?.role === "admin";
+    const role = roleRow?.role || null;
+    const isAdmin = role === "admin";
+    const isStaff = role === "staff";
+    const isHierarchyViewer = role === "master" || role === "merchant";
 
     const where: any = {};
-    if (!isAdmin) {
+    if (isAdmin || isStaff) {
+      // Full stream for admin and staff users.
+    } else if (isHierarchyViewer) {
+      const accessibleUserIds = await getAccessibleUserIds(prisma, req.userId!);
+      where.userId = { in: [req.userId!, ...accessibleUserIds] };
+    } else {
       where.userId = req.userId!;
     }
     if (service) where.serviceType = service as string;
@@ -25,7 +34,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     });
 
     // Enrich with user names for admin
-    if (isAdmin) {
+    if (isAdmin || isStaff) {
       const userIds = [...new Set(txns.map(t => t.userId))];
       const profiles = await prisma.profile.findMany({
         where: { userId: { in: userIds } },

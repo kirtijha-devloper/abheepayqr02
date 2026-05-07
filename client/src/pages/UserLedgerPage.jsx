@@ -11,19 +11,38 @@ const formatCurrency = (value) =>
     maximumFractionDigits: 2
   })}`;
 
-const formatDateInput = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
 const prettifyType = (value) =>
   (value || '')
     .split('_')
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+
+const DEFAULT_TRANSACTION_TYPES = [
+  'bank_deposit',
+  'branchx_payout',
+  'branchx_payout_debit',
+  'branchx_payout_hold',
+  'branchx_payout_refund',
+  'commission',
+  'fund_request_approved',
+  'fund_request_failed',
+  'fund_request_pending',
+  'hold',
+  'payout',
+  'pg_add',
+  'qr_settlement_credit',
+  'refund',
+  'top_up',
+  'transfer',
+  'unhold',
+  'wallet',
+];
+
+const DEFAULT_STATUS_OPTIONS = ['success', 'pending', 'failed'];
+
+const mergeOptions = (defaults, incoming) =>
+  Array.from(new Set([...(defaults || []), ...((incoming || []).filter(Boolean))])).sort((a, b) => a.localeCompare(b));
 
 const downloadFile = (content, filename, mimeType) => {
   const blob = new Blob([content], { type: mimeType });
@@ -41,7 +60,6 @@ const toExcel = (rows, headers) =>
 const UserLedgerPage = () => {
   const { user } = useAuth();
   const todayLabel = useMemo(() => new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }), []);
-  const todayInput = useMemo(() => formatDateInput(new Date()), []);
 
   const [loading, setLoading] = useState(true);
   const [ledgerUser, setLedgerUser] = useState(null);
@@ -53,8 +71,8 @@ const UserLedgerPage = () => {
   const [pageSize, setPageSize] = useState(50);
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [startDate, setStartDate] = useState(todayInput);
-  const [endDate, setEndDate] = useState(todayInput);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [transactionType, setTransactionType] = useState('');
   const [status, setStatus] = useState('');
 
@@ -82,13 +100,17 @@ const UserLedgerPage = () => {
       setLedgerUser(data.user || null);
       setBalances(data.balances || { totalBalance: 0, availableBalance: 0, holdBalance: 0 });
       setRows(Array.isArray(data.rows) ? data.rows : []);
-      setTransactionTypes(Array.isArray(data.filters?.availableTransactionTypes) ? data.filters.availableTransactionTypes : []);
-      setStatusOptions(Array.isArray(data.filters?.availableStatuses) ? data.filters.availableStatuses : []);
+      setTransactionTypes(mergeOptions(DEFAULT_TRANSACTION_TYPES, Array.isArray(data.filters?.availableTransactionTypes) ? data.filters.availableTransactionTypes : []));
+      setStatusOptions(mergeOptions(DEFAULT_STATUS_OPTIONS, Array.isArray(data.filters?.availableStatuses) ? data.filters.availableStatuses : []));
       setTotalRecords(Number(data.pagination?.totalRecords) || 0);
       setTotalPages(Number(data.pagination?.totalPages) || 1);
     } catch (error) {
       console.error('User ledger fetch failed', error);
       setRows([]);
+      setLedgerUser(null);
+      setBalances({ totalBalance: 0, availableBalance: 0, holdBalance: 0 });
+      setTransactionTypes(DEFAULT_TRANSACTION_TYPES);
+      setStatusOptions(DEFAULT_STATUS_OPTIONS);
       setTotalRecords(0);
       setTotalPages(1);
     } finally {
@@ -127,8 +149,8 @@ const UserLedgerPage = () => {
   };
 
   const handleReset = () => {
-    setStartDate(todayInput);
-    setEndDate(todayInput);
+    setStartDate('');
+    setEndDate('');
     setTransactionType('');
     setStatus('');
     setPageSize(50);

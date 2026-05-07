@@ -506,7 +506,7 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
 router.get("/settlements", requireAuth, async (req: AuthRequest, res) => {
     try {
         const { status } = req.query;
-        let where: any = { serviceType: "payout" };
+        let where: any = { serviceType: { in: ["payout", "branchx_payout"] } };
         if (status) where.status = status as string;
 
         if (req.userRole === "master" || req.userRole === "merchant") {

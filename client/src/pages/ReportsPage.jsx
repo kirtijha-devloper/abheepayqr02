@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import './ReportsPage.css';
 
 const statusFilters = ['All', 'Completed', 'Pending', 'Failed'];
@@ -37,10 +39,17 @@ const exportCols = [
 ];
 
 const ReportsPage = () => {
-  const { reports, fetchReports } = useAppContext();
+  const { reports, fetchReports, uploadReport } = useAppContext();
+  const { user } = useAuth();
+  const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const fileInputRef = React.useRef(null);
+
+  const canUploadReports = ['admin', 'staff', 'merchant', 'master'].includes(String(user?.role || '').toLowerCase());
 
   useEffect(() => {
     const loadReports = async () => {
@@ -111,21 +120,68 @@ const ReportsPage = () => {
     }
   };
 
+  const handleUploadClick = () => {
+    if (!canUploadReports || uploading) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleReportUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setUploading(true);
+    setUploadStatus('Uploading report...');
+    const result = await uploadReport(file);
+    setUploading(false);
+
+    if (result.success) {
+      const details = result.data || {};
+      const statusLine = [
+        `Processed ${details.processed || 0}`,
+        details.skipped ? `Skipped ${details.skipped}` : null,
+        details.errors ? `Errors ${details.errors}` : null,
+      ].filter(Boolean).join(', ');
+      setUploadStatus(`Upload complete. ${statusLine}`);
+      success(`Upload complete. ${statusLine}`);
+      await fetchReports({ limit: 200, status: statusFilter === 'All' ? undefined : statusFilter.toLowerCase() });
+      return;
+    }
+
+    setUploadStatus(`Upload failed: ${result.error}`);
+    error(`Upload failed: ${result.error}`);
+  };
+
   return (
     <div className="dashboard-layout">
       <Sidebar />
       <div className="main-content">
         <Header />
         <main className="dashboard-body animated">
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept=".csv, .xlsx, .xls"
+            onChange={handleReportUpload}
+          />
           <div className="reports-header">
             <div>
               <h2>Manual Reports</h2>
               <p>View the latest reconciliation lines that were uploaded by your admin.</p>
               <p className="reports-subtext">Showing items assigned to your QR list - Last entry {lastRunLabel}</p>
+              {uploadStatus && <p className="reports-upload-status">{uploadStatus}</p>}
             </div>
-            <div className="reports-meta">
-              <span className="reports-meta-label">Records fetched</span>
-              <strong>{normalizedReports.length}</strong>
+            <div className="reports-meta reports-meta-actions">
+              <div>
+                <span className="reports-meta-label">Records fetched</span>
+                <strong>{normalizedReports.length}</strong>
+              </div>
+              {canUploadReports && (
+                <button className="reports-upload-btn" onClick={handleUploadClick} disabled={uploading}>
+                  {uploading ? 'Uploading...' : 'Upload Report'}
+                </button>
+              )}
             </div>
           </div>
 

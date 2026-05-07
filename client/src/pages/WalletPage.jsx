@@ -33,7 +33,11 @@ const WalletPage = () => {
   const handleOpenPayout = async () => {
     if (bankAccounts.length === 0) {
       info('Please add a bank account in Settings first.');
-      const settingsPath = (user?.role === 'admin' || user?.role === 'staff' || user?.role === 'master') ? '/admin/settings' : '/settings';
+      const settingsPath = user?.role === 'admin' || user?.role === 'staff'
+        ? '/admin/settings'
+        : user?.role === 'master'
+          ? '/master/settings'
+          : '/settings';
       navigate(settingsPath);
       return;
     }
@@ -70,10 +74,6 @@ const WalletPage = () => {
     setPayoutFee(fee);
     setPayoutTotal(amount + fee);
   }, [payoutAmount, payoutConfig]);
-
-  const chargeLabel = payoutConfig.type === 'percentage'
-    ? `${payoutConfig.default || 0}% default`
-    : `Rs ${payoutConfig.default || 0} default`;
 
   const handleConfirmPayout = async () => {
     if (!payoutAmount || Number(payoutAmount) <= 0) return error('Enter a valid amount.');
@@ -215,7 +215,7 @@ const WalletPage = () => {
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                     <span style={{ color: '#94a3b8', fontSize: '14px' }}>Transfer Fee</span>
-                    <span style={{ color: '#10b981', fontWeight: '600' }}>Free</span>
+                    <span style={{ color: '#10b981', fontWeight: '600' }}>Rs {payoutFee.toFixed(2)}</span>
                   </div>
                   <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', marginBottom: '12px' }}></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -343,7 +343,7 @@ const WalletPage = () => {
                   ))}
                   {filteredTransactions.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="wallet-empty-state">
+                      <td colSpan="7" className="wallet-empty-state">
                         No wallet records found for this filter.
                       </td>
                     </tr>

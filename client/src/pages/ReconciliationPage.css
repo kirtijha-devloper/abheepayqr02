@@ -6,6 +6,32 @@
   margin-bottom: 2rem;
 }
 
+.recon-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.recon-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.recon-summary-item span {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-mute);
+}
+
+.recon-summary-item strong {
+  font-size: 1.5rem;
+  color: var(--text-h);
+}
+
 .recon-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -40,6 +66,23 @@
   font-size: 0.875rem;
   color: var(--text-p);
   line-height: 1.6;
+}
+
+.recon-status-box {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-md);
+  padding: 0.9rem 1rem;
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.recon-status-label {
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .upload-zone {
