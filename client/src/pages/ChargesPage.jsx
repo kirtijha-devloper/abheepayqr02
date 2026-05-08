@@ -312,17 +312,20 @@ const ChargesPage = () => {
                         </div>
                         
                         <div className="charges-search-container">
-                            <input 
-                                type="text" 
-                                className="charge-input" 
-                                placeholder="🔍 Search any user to override..."
-                                value={searchQuery}
-                                onChange={(e) => {
-                                    setSearchQuery(e.target.value);
-                                    setShowSuggestions(true);
-                                }}
-                                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                            />
+                            <div className="merchant-search-wrap">
+                                <span className="merchant-search-icon">🔎</span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search any user to override..."
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        setShowSuggestions(true);
+                                    }}
+                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
                             {showSuggestions && searchQuery && (
                                 <div className="search-suggestions">
                                     {suggestions.length === 0 ? (
