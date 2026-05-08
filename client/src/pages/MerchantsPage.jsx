@@ -421,19 +421,17 @@ const MerchantsPage = () => {
                         </td>
                         <td>
                           <div className="merchant-actions">
-                            {!isMerchant && (
-                                <button className="action-btn primary-btn" onClick={() => handleViewBranches(merchant)}>Branches</button>
-                            )}
-                            <button className="action-btn hold-btn" onClick={() => handleHoldAction(merchant, 'hold')}>Hold</button>
-                            <button className="action-btn unhold-btn" onClick={() => handleHoldAction(merchant, 'unhold')}>Unhold</button>
                             <button className="action-btn login-btn" onClick={() => handleLoginAs(merchant)}>Login</button>
                             <button className="action-btn neutral-btn" onClick={() => handleEdit(merchant)}>Edit</button>
-
+                            <button className="action-btn hold-btn" onClick={() => handleHoldAction(merchant, 'hold')} style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.05)' }}>Hold / Unhold</button>
                             <button className="action-btn danger-btn" onClick={async () => {
                               const res = await deleteMerchant(merchant.id);
                               if (res?.success) success('Merchant deleted successfully.');
                               else if (res?.error) error(res.error);
                             }}>Delete</button>
+                            {!isMerchant && (
+                                <button className="action-btn primary-btn" onClick={() => handleViewBranches(merchant)}>Branches</button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -590,6 +588,17 @@ const MerchantsPage = () => {
                     </div>
                 </div>
 
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label className="callback-label">Action</label>
+                  <select 
+                    className="form-input-box" 
+                    value={holdData.type}
+                    onChange={(e) => setHoldData({ ...holdData, type: e.target.value })}
+                  >
+                    <option value="hold">Hold Amount</option>
+                    <option value="unhold">Release Amount</option>
+                  </select>
+                </div>
                 <div className="form-group">
                   <label className="callback-label">Amount to {holdData.type === 'hold' ? 'Hold' : 'Release'}</label>
                   <input 
