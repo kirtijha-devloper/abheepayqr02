@@ -185,14 +185,23 @@ const StaffManagementPage = () => {
 
           <div className="staff-table-card">
             <div className="staff-toolbar">
-              <div className="staff-search-wrap">
-                <span className="staff-search-icon">Search</span>
-                <input
-                  type="text"
-                  placeholder="by name or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <div className="staff-search-panel" style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', flex: '1 1 360px' }}>
+                <label className="staff-search-label" htmlFor="staff-search" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-mute)' }}>
+                  Search Staff
+                </label>
+                <div className="staff-search-wrap">
+                  <span className="staff-search-icon" style={{ fontSize: '1rem', left: '1rem', textTransform: 'none', color: '#94a3b8' }}>🔎</span>
+                  <input
+                    id="staff-search"
+                    type="text"
+                    placeholder="Name or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <span className="staff-search-meta" style={{ fontSize: '0.78rem', color: 'var(--text-mute)' }}>
+                  {filteredStaff.length} result{filteredStaff.length === 1 ? '' : 's'}
+                </span>
               </div>
             </div>
 

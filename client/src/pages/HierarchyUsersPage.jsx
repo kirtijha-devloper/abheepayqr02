@@ -192,14 +192,23 @@ const HierarchyUsersPage = () => {
                         {/* Professional Table Card (Step 2 - Matching Merchants Page) */}
                         <div className="merchants-table-card">
                             <div className="merchants-toolbar">
-                                <div className="merchant-search-wrap">
-                                    <span className="merchant-search-icon">SEARCH</span>
-                                    <input 
-                                        type="text" 
-                                        placeholder={`Filter by ID, name, email, phone...`} 
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
+                                <div className="merchant-search-panel">
+                                    <label className="merchant-search-label" htmlFor="merchant-search">
+                                        Search Users
+                                    </label>
+                                    <div className="merchant-search-wrap">
+                                        <span className="merchant-search-icon">🔎</span>
+                                        <input 
+                                            id="merchant-search"
+                                            type="text" 
+                                            placeholder={`Name, email, phone`} 
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                    <span className="merchant-search-meta">
+                                        {filteredUsers.length} result{filteredUsers.length === 1 ? '' : 's'}
+                                    </span>
                                 </div>
                                 <div className="merchant-filter-group">
                                     {['All', 'Active', 'Inactive'].map(tab => (

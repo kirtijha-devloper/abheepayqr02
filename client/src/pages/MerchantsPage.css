@@ -233,23 +233,28 @@
 
 .merchant-actions {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
   align-items: center;
+  justify-content: flex-start;
+  white-space: nowrap;
 }
 
 .action-btn {
   background: #fff;
   border: 1px solid var(--border);
   color: var(--text-p);
-  padding: 0.48rem 0.9rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.725rem;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
-  min-height: 36px;
+  min-height: 32px;
   transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .action-btn:hover {
@@ -262,13 +267,13 @@
   background: var(--primary);
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 10px 20px rgba(124, 108, 248, 0.18);
+  box-shadow: 0 4px 10px rgba(124, 108, 248, 0.18);
 }
 
 .action-btn.primary-btn:hover {
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 12px 24px rgba(124, 108, 248, 0.24);
+  box-shadow: 0 6px 14px rgba(124, 108, 248, 0.24);
 }
 
 .action-btn.neutral-btn {

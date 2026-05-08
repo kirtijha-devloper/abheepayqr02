@@ -422,7 +422,7 @@ const MerchantsPage = () => {
                         <td>
                           <div className="merchant-actions">
                             {!isMerchant && (
-                                <button className="action-btn primary-btn" onClick={() => handleViewBranches(merchant)}>See Branches</button>
+                                <button className="action-btn primary-btn" onClick={() => handleViewBranches(merchant)}>Branches</button>
                             )}
                             <button className="action-btn hold-btn" onClick={() => handleHoldAction(merchant, 'hold')}>Hold</button>
                             <button className="action-btn unhold-btn" onClick={() => handleHoldAction(merchant, 'unhold')}>Unhold</button>
