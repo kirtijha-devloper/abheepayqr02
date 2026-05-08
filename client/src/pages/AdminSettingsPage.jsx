@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
@@ -90,8 +90,11 @@ const AdminSettingsPage = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [allUsers, setAllUsers] = useState([]);
   const [selectedFeatureUserId, setSelectedFeatureUserId] = useState('');
+  const [searchUser, setSearchUser] = useState('');
+  const [isUserSearchOpen, setIsUserSearchOpen] = useState(false);
   const [featureAccessMap, setFeatureAccessMap] = useState({});
   const [searchFeature, setSearchFeature] = useState('');
+  const userSearchRef = useRef(null);
   const [newBank, setNewBank] = useState({
     bankName: '',
     accountName: '',
@@ -176,6 +179,28 @@ const AdminSettingsPage = () => {
       fetchUsers();
     }
   }, [user?.role, selectedFeatureUserId]);
+
+  useEffect(() => {
+    if (!isUserSearchOpen) {
+      const selectedUser = allUsers.find((item) => (item.userId || item.id) === selectedFeatureUserId) || null;
+      setSearchUser(
+        selectedUser
+          ? `${selectedUser.fullName || selectedUser.email} (${String(selectedUser.role || '').toUpperCase()})`
+          : ''
+      );
+    }
+  }, [allUsers, isUserSearchOpen, selectedFeatureUserId]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userSearchRef.current && !userSearchRef.current.contains(event.target)) {
+        setIsUserSearchOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSave = async () => {
     localStorage.setItem('leopayAdminSettings', JSON.stringify(settings));
@@ -335,9 +360,23 @@ const AdminSettingsPage = () => {
     setDbSettings({ payout_config: JSON.stringify(defaultPayoutConfig) });
   };
 
+  const formatFeatureUserLabel = (item) => `${item.fullName || item.email} (${String(item.role || '').toUpperCase()})`;
   const selectedFeatureUser = allUsers.find((item) => (item.userId || item.id) === selectedFeatureUserId) || null;
   const selectedFeatureOptions = featureOptionsByRole[selectedFeatureUser?.role] || [];
   const selectedFeatureValues = featureAccessMap[selectedFeatureUserId] || selectedFeatureOptions.map((item) => item.key);
+  const filteredFeatureUsers = useMemo(() => {
+    const query = searchUser.trim().toLowerCase();
+    if (!query) return allUsers;
+
+    return allUsers.filter((item) => {
+      const name = String(item.fullName || '').toLowerCase();
+      const email = String(item.email || '').toLowerCase();
+      const role = String(item.role || '').toLowerCase();
+      const id = String(item.userId || item.id || '').toLowerCase();
+
+      return name.includes(query) || email.includes(query) || role.includes(query) || id.includes(query);
+    });
+  }, [allUsers, searchUser]);
 
   const toggleFeatureAccess = (featureKey, enabled) => {
     if (!selectedFeatureUserId) return;
@@ -705,17 +744,46 @@ const AdminSettingsPage = () => {
                   <div className="portal-content">
                     <div className="form-group-v2 full-width" style={{ marginBottom: '20px' }}>
                       <label>Select User</label>
-                      <select
-                        className="premium-input"
-                        value={selectedFeatureUserId}
-                        onChange={(e) => setSelectedFeatureUserId(e.target.value)}
-                      >
-                        {allUsers.map((item) => (
-                          <option key={item.userId || item.id} value={item.userId || item.id}>
-                            {(item.fullName || item.email)} ({String(item.role || '').toUpperCase()})
-                          </option>
-                        ))}
-                      </select>
+                      <div className={`user-search-select ${isUserSearchOpen ? 'open' : ''}`} ref={userSearchRef}>
+                        <input
+                          type="text"
+                          className="premium-input user-search-input"
+                          placeholder="Search or select a user"
+                          value={searchUser}
+                          onFocus={() => {
+                            setIsUserSearchOpen(true);
+                            setSearchUser('');
+                          }}
+                          onChange={(e) => {
+                            setSearchUser(e.target.value);
+                            setIsUserSearchOpen(true);
+                          }}
+                        />
+                        <span className="user-search-caret">▾</span>
+                        {isUserSearchOpen && (
+                          <div className="user-search-dropdown">
+                            {filteredFeatureUsers.length > 0 ? (
+                              filteredFeatureUsers.map((item) => (
+                                <button
+                                  type="button"
+                                  key={item.userId || item.id}
+                                  className={`user-search-option ${selectedFeatureUserId === (item.userId || item.id) ? 'active' : ''}`}
+                                  onClick={() => {
+                                    setSelectedFeatureUserId(item.userId || item.id);
+                                    setSearchUser(formatFeatureUserLabel(item));
+                                    setIsUserSearchOpen(false);
+                                  }}
+                                >
+                                  <span className="user-search-option-name">{item.fullName || item.email}</span>
+                                  <span className="user-search-option-meta">{String(item.role || '').toUpperCase()}</span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="user-search-empty">No users found.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {selectedFeatureUser ? (

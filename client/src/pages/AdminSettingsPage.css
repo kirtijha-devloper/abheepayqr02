@@ -728,6 +728,79 @@ input:checked + .switch-slider:before {
 
 
 /* Feature Access Layout */
+.user-search-select {
+  position: relative;
+}
+
+.user-search-input {
+  padding-right: 3rem;
+}
+
+.user-search-caret {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-mute);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.user-search-select.open .user-search-caret {
+  color: var(--primary);
+}
+
+.user-search-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.user-search-option {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.user-search-option:hover,
+.user-search-option.active {
+  background: rgba(108, 99, 255, 0.1);
+}
+
+.user-search-option-name {
+  font-weight: 600;
+}
+
+.user-search-option-meta {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-mute);
+  letter-spacing: 0.04em;
+}
+
+.user-search-empty {
+  padding: 1rem;
+  color: var(--text-mute);
+  font-size: 0.9rem;
+}
+
 .feature-access-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

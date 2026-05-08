@@ -343,14 +343,23 @@ const MerchantsPage = () => {
 
           <div className="merchants-table-card">
             <div className="merchants-toolbar">
-              <div className="merchant-search-wrap">
-                <span className="merchant-search-icon">Search</span>
-                <input
-                  type="text"
-                  placeholder="Filter by ID, name, email, phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <div className="merchant-search-panel">
+                <label className="merchant-search-label" htmlFor="merchant-search">
+                  Search {entityPlural}
+                </label>
+                <div className="merchant-search-wrap">
+                  <span className="merchant-search-icon">🔎</span>
+                  <input
+                    id="merchant-search"
+                    type="text"
+                    placeholder="Name, email, phone"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <span className="merchant-search-meta">
+                  {filteredMerchants.length} result{filteredMerchants.length === 1 ? '' : 's'}
+                </span>
               </div>
               <div className="merchant-filter-group">
                 {['All', 'Active', 'Inactive'].map((tab) => (
@@ -413,12 +422,12 @@ const MerchantsPage = () => {
                         <td>
                           <div className="merchant-actions">
                             {!isMerchant && (
-                                <button className="action-btn" style={{background: 'var(--primary)', color: 'white'}} onClick={() => handleViewBranches(merchant)}>See Branches</button>
+                                <button className="action-btn primary-btn" onClick={() => handleViewBranches(merchant)}>See Branches</button>
                             )}
                             <button className="action-btn hold-btn" onClick={() => handleHoldAction(merchant, 'hold')}>Hold</button>
                             <button className="action-btn unhold-btn" onClick={() => handleHoldAction(merchant, 'unhold')}>Unhold</button>
                             <button className="action-btn login-btn" onClick={() => handleLoginAs(merchant)}>Login</button>
-                            <button className="action-btn" onClick={() => handleEdit(merchant)}>Edit</button>
+                            <button className="action-btn neutral-btn" onClick={() => handleEdit(merchant)}>Edit</button>
 
                             <button className="action-btn danger-btn" onClick={async () => {
                               const res = await deleteMerchant(merchant.id);
