@@ -52,6 +52,133 @@ async function findMatchingGlobalSlab(
   });
 }
 
+async function getAncestorChainUserIds(userId: string) {
+  const profile = await prisma.profile.findUnique({
+    where: { userId },
+    select: { parentId: true },
+  });
+
+  const ancestorUserIds: string[] = [];
+  const visited = new Set<string>();
+  let currentParentId = profile?.parentId || null;
+
+  while (currentParentId && !visited.has(currentParentId)) {
+    visited.add(currentParentId);
+    const parentProfile = await prisma.profile.findUnique({
+      where: { id: currentParentId },
+      select: { userId: true, parentId: true },
+    });
+    if (!parentProfile) break;
+    ancestorUserIds.push(parentProfile.userId);
+    currentParentId = parentProfile.parentId || null;
+  }
+
+  return ancestorUserIds;
+}
+
+async function getMyChargeSlabs(userId: string) {
+  const role = await prisma.userRole.findFirst({
+    where: { userId },
+    select: { role: true },
+  });
+
+  if (!role?.role) return [];
+
+  const [overrides, globalSlabs, ancestorUserIds] = await Promise.all([
+    prisma.userCommissionOverride.findMany({
+      where: { targetUserId: userId, isActive: true },
+      orderBy: [{ minAmount: "asc" }, { createdAt: "desc" }],
+    }),
+    prisma.commissionSlab.findMany({
+      where: { role: role.role as any, isActive: true },
+      orderBy: [{ minAmount: "asc" }, { createdAt: "desc" }],
+    }),
+    getAncestorChainUserIds(userId),
+  ]);
+
+  const ancestorDefaults = ancestorUserIds.length
+    ? await prisma.downlineChargeDefault.findMany({
+        where: {
+          ownerUserId: { in: ancestorUserIds },
+          targetRole: role.role,
+          isActive: true,
+        },
+        orderBy: [{ minAmount: "asc" }, { createdAt: "desc" }],
+      })
+    : [];
+
+  const rankedAncestorDefaults = ancestorDefaults.sort((a, b) => {
+    return ancestorUserIds.indexOf(a.ownerUserId) - ancestorUserIds.indexOf(b.ownerUserId);
+  });
+
+  const entries = new Map<string, any>();
+  const makeKey = (serviceKey: string, minAmount: number | string, maxAmount: number | string) =>
+    `${serviceKey}:${Number(minAmount)}:${Number(maxAmount)}`;
+
+  for (const item of overrides) {
+    entries.set(makeKey(item.serviceKey, item.minAmount, item.maxAmount), {
+      id: item.id,
+      source: "override",
+      role: role.role,
+      serviceKey: item.serviceKey,
+      serviceLabel: item.serviceLabel,
+      minAmount: Number(item.minAmount),
+      maxAmount: Number(item.maxAmount),
+      chargeType: item.chargeType || "flat",
+      chargeValue: Number(item.chargeValue || 0),
+      inheritedChargeType: item.chargeType || "flat",
+      inheritedChargeValue: Number(item.chargeValue || 0),
+      overrideId: item.id,
+      ownerUserId: item.setBy,
+    });
+  }
+
+  for (const item of rankedAncestorDefaults) {
+    const key = makeKey(item.serviceKey, item.minAmount, item.maxAmount);
+    if (entries.has(key)) continue;
+    entries.set(key, {
+      id: item.id,
+      source: "downline_default",
+      role: role.role,
+      serviceKey: item.serviceKey,
+      serviceLabel: item.serviceLabel,
+      minAmount: Number(item.minAmount),
+      maxAmount: Number(item.maxAmount),
+      chargeType: item.chargeType || "flat",
+      chargeValue: Number(item.chargeValue || 0),
+      inheritedChargeType: item.chargeType || "flat",
+      inheritedChargeValue: Number(item.chargeValue || 0),
+      downlineDefaultId: item.id,
+      ownerUserId: item.ownerUserId,
+    });
+  }
+
+  for (const item of globalSlabs) {
+    const key = makeKey(item.serviceKey, item.minAmount, item.maxAmount);
+    if (entries.has(key)) continue;
+    entries.set(key, {
+      id: item.id,
+      source: "global",
+      role: role.role,
+      serviceKey: item.serviceKey,
+      serviceLabel: item.serviceLabel,
+      minAmount: Number(item.minAmount),
+      maxAmount: Number(item.maxAmount),
+      chargeType: item.chargeType || "flat",
+      chargeValue: Number(item.chargeValue || 0),
+      inheritedChargeType: item.chargeType || "flat",
+      inheritedChargeValue: Number(item.chargeValue || 0),
+      slabId: item.id,
+      ownerUserId: null,
+    });
+  }
+
+  return Array.from(entries.values()).sort((a, b) => {
+    if (a.serviceKey !== b.serviceKey) return a.serviceKey.localeCompare(b.serviceKey);
+    return Number(a.minAmount) - Number(b.minAmount);
+  });
+}
+
 // POST /api/commission/process — auto-distribute commissions up hierarchy
 router.post("/process", requireAuth, async (req: AuthRequest, res) => {
   const { service_key, transaction_amount } = req.body;
@@ -362,6 +489,28 @@ router.get("/downline-defaults", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+router.get("/my-charge-slabs", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const rows = await getMyChargeSlabs(req.userId!);
+    res.json(
+      rows.map((item) => ({
+        ...item,
+        service_key: item.serviceKey,
+        service_label: item.serviceLabel,
+        min_amount: item.minAmount,
+        max_amount: item.maxAmount,
+        charge_type: item.chargeType,
+        charge_value: item.chargeValue,
+        inherited_charge_type: item.inheritedChargeType,
+        inherited_charge_value: item.inheritedChargeValue,
+        owner_user_id: item.ownerUserId,
+      }))
+    );
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || "Failed to load charge slabs" });
+  }
+});
+
 router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => {
   const { target_role, service_key, service_label, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
 
@@ -393,18 +542,27 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
     let effectiveMin = n_min;
     let effectiveMax = n_max;
     let effectiveChargeType = charge_type || "flat";
+    let effectiveServiceLabel = service_label || `${service_key || "payout"} inherited charge`;
 
     if (!canManageGlobalSlabs(req)) {
-      const matchingSlab = await findMatchingGlobalSlab(target_role, service_key || "payout", n_min, n_max);
-      if (!matchingSlab) {
+      const myChargeSlabs = await getMyChargeSlabs(req.userId!);
+      const matchingSource = myChargeSlabs.find(
+        (item) =>
+          item.serviceKey === (service_key || "payout") &&
+          Number(item.minAmount) === n_min &&
+          Number(item.maxAmount) === n_max
+      );
+
+      if (!matchingSource) {
         return res.status(400).json({
-          error: "Only admin can create or change slab ranges. Others must override the charge on an admin-created slab.",
+          error: "You can only set downline charges on your own visible charge slabs.",
         });
       }
 
-      effectiveMin = Number(matchingSlab.minAmount);
-      effectiveMax = Number(matchingSlab.maxAmount);
-      effectiveChargeType = matchingSlab.chargeType || "flat";
+      effectiveMin = Number(matchingSource.minAmount);
+      effectiveMax = Number(matchingSource.maxAmount);
+      effectiveChargeType = matchingSource.chargeType || "flat";
+      effectiveServiceLabel = matchingSource.serviceLabel || effectiveServiceLabel;
     }
 
     const created = await prisma.downlineChargeDefault.upsert({
@@ -420,7 +578,7 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
         ownerUserId: req.userId!,
         targetRole: target_role,
         serviceKey: service_key || "payout",
-        serviceLabel: service_label || "Payout Downline Default",
+        serviceLabel: effectiveServiceLabel,
         minAmount: effectiveMin,
         maxAmount: effectiveMax,
         commissionType: commission_type || "percent",
@@ -431,6 +589,7 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
       },
       update: {
         maxAmount: effectiveMax,
+        serviceLabel: effectiveServiceLabel,
         commissionType: commission_type || "percent",
         commissionValue: n_comm,
         chargeType: effectiveChargeType,

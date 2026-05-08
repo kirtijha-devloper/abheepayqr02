@@ -30,6 +30,7 @@ const ChargesPage = () => {
     const [overrides, setOverrides] = useState([]);
     const [downlineDefaults, setDownlineDefaults] = useState([]);
     const [slabs, setSlabs] = useState([]);
+    const [myChargeSlabs, setMyChargeSlabs] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -79,13 +80,14 @@ const ChargesPage = () => {
                 fetch(`${API_BASE}/commission/overrides`, { headers }),
                 fetch(`${API_BASE}/commission/slabs`, { headers }),
                 fetch(`${API_BASE}/commission/downline-defaults`, { headers }),
+                fetch(`${API_BASE}/commission/my-charge-slabs`, { headers }),
             ];
 
             if (canSearchAllUsers) {
                 requests.push(fetch(`${API_BASE}/users/all`, { headers }));
             }
 
-            const [ovRes, slabRes, defaultsRes, usersRes] = await Promise.all(requests);
+            const [ovRes, slabRes, defaultsRes, myChargeSlabsRes, usersRes] = await Promise.all(requests);
 
             if (ovRes.ok) {
                 setOverrides(await ovRes.json());
@@ -105,6 +107,12 @@ const ChargesPage = () => {
                 setDownlineDefaults(await defaultsRes.json());
             } else {
                 console.error('Failed to fetch downline defaults:', await parseErrorResponse(defaultsRes, 'Unknown error'));
+            }
+
+            if (myChargeSlabsRes.ok) {
+                setMyChargeSlabs(await myChargeSlabsRes.json());
+            } else {
+                console.error('Failed to fetch my charge slabs:', await parseErrorResponse(myChargeSlabsRes, 'Unknown error'));
             }
 
             if (usersRes?.ok) {
@@ -145,27 +153,26 @@ const ChargesPage = () => {
     const downlineRole = useMemo(() => getImmediateDownlineRole(currentUser?.role), [currentUser?.role]);
 
     const currentRoleSlabs = useMemo(() =>
-        currentUser?.role
-            ? slabs.filter((slab) => slab.role === currentUser.role)
+        Array.isArray(myChargeSlabs)
+            ? myChargeSlabs
             : [],
-        [currentUser?.role, slabs]
-    );
-
-    const currentDownlineSlabs = useMemo(() =>
-        downlineRole
-            ? slabs.filter((slab) => slab.role === downlineRole)
-            : [],
-        [downlineRole, slabs]
+        [myChargeSlabs]
     );
 
     const availableBaseSlabs = useMemo(() => {
         if (modalMode === 'global') return [];
-        const role = modalMode === 'override' ? targetUser?.role : targetRole;
+        if (modalMode === 'downline-default') {
+            return currentRoleSlabs
+                .filter((slab) => slab.service_key === serviceKey || slab.serviceKey === serviceKey)
+                .sort((a, b) => Number(a.min_amount ?? a.minAmount) - Number(b.min_amount ?? b.minAmount));
+        }
+
+        const role = targetUser?.role;
         if (!role) return [];
         return slabs
             .filter((slab) => slab.role === role && slab.serviceKey === serviceKey)
             .sort((a, b) => Number(a.minAmount) - Number(b.minAmount));
-    }, [modalMode, serviceKey, slabs, targetRole, targetUser]);
+    }, [currentRoleSlabs, modalMode, serviceKey, slabs, targetUser]);
 
     const selectedBaseSlab = useMemo(() =>
         availableBaseSlabs.find((slab) => slab.id === selectedBaseSlabId) || null,
@@ -184,16 +191,18 @@ const ChargesPage = () => {
 
         const slabToUse = selectedBaseSlab || availableBaseSlabs[0];
         setSelectedBaseSlabId(slabToUse.id);
-        setChargeType(slabToUse.chargeType || 'flat');
-        setMinAmount(String(slabToUse.minAmount));
-        setMaxAmount(String(slabToUse.maxAmount));
+        setChargeType(slabToUse.charge_type || slabToUse.chargeType || 'flat');
+        setMinAmount(String(slabToUse.min_amount ?? slabToUse.minAmount));
+        setMaxAmount(String(slabToUse.max_amount ?? slabToUse.maxAmount));
     }, [availableBaseSlabs, modalMode, selectedBaseSlab, showModal]);
 
     useEffect(() => {
         if (!showModal || modalMode === 'global' || !selectedBaseSlab) return;
 
         if (modalMode === 'downline-default') {
-            const existingDefault = findExistingDownlineDefault(targetRole, selectedBaseSlab.serviceKey, selectedBaseSlab.minAmount);
+            const baseServiceKey = selectedBaseSlab.service_key || selectedBaseSlab.serviceKey;
+            const baseMinAmount = selectedBaseSlab.min_amount ?? selectedBaseSlab.minAmount;
+            const existingDefault = findExistingDownlineDefault(targetRole, baseServiceKey, baseMinAmount);
             setChargeValue(existingDefault ? String(existingDefault.charge_value) : '');
             return;
         }
@@ -226,9 +235,11 @@ const ChargesPage = () => {
         resetModal();
         setModalMode('downline-default');
         setTargetRole(downlineRole || 'merchant');
-        setServiceKey(baseSlab.serviceKey);
+        const baseServiceKey = baseSlab.service_key || baseSlab.serviceKey;
+        const baseMinAmount = baseSlab.min_amount ?? baseSlab.minAmount;
+        setServiceKey(baseServiceKey);
         setSelectedBaseSlabId(baseSlab.id);
-        const existingDefault = findExistingDownlineDefault(downlineRole, baseSlab.serviceKey, baseSlab.minAmount);
+        const existingDefault = findExistingDownlineDefault(downlineRole, baseServiceKey, baseMinAmount);
         setChargeValue(existingDefault ? String(existingDefault.charge_value) : '');
         setShowModal(true);
     };
@@ -288,9 +299,9 @@ const ChargesPage = () => {
                         target_role: targetRole,
                         service_key: serviceKey,
                         service_label: `${serviceKey} inherited charge`,
-                        min_amount: Number(selectedBaseSlab.minAmount),
-                        max_amount: Number(selectedBaseSlab.maxAmount),
-                        charge_type: selectedBaseSlab.chargeType,
+                        min_amount: Number(selectedBaseSlab.min_amount ?? selectedBaseSlab.minAmount),
+                        max_amount: Number(selectedBaseSlab.max_amount ?? selectedBaseSlab.maxAmount),
+                        charge_type: selectedBaseSlab.charge_type || selectedBaseSlab.chargeType,
                         charge_value: Number(chargeValue),
                         commission_type: 'percent',
                         commission_value: 0,
@@ -389,7 +400,7 @@ const ChargesPage = () => {
                     <div className="charges-header">
                         <div className="charges-title">
                             <h2>Charge Configuration</h2>
-                            <p>Admin fixes the slab range. All other users can only set or override the charge on that same admin slab.</p>
+                            <p>Admin sets charge for master. Then master sets charge for merchant, and merchant sets charge for branch on the same visible slab ranges.</p>
                         </div>
 
                         <div className="charges-search-container">
@@ -488,7 +499,7 @@ const ChargesPage = () => {
                     {canManageOwnCharges && (
                         <>
                             <div className="section-header">
-                                <h3>My Charges From Admin</h3>
+                                <h3>My Charges</h3>
                             </div>
                             <div className="charges-card animated-fade-in" style={{ background: 'rgba(59, 130, 246, 0.05)' }}>
                                 <div className="table-responsive">
@@ -498,71 +509,39 @@ const ChargesPage = () => {
                                                 <th>Role</th>
                                                 <th>Service</th>
                                                 <th>Range</th>
-                                                <th>Admin Charge</th>
-                                                <th>Manual Override</th>
+                                                <th>My Charge</th>
+                                                <th>Charge For My {downlineRole === 'branch' ? 'Branches' : 'Merchants'}</th>
                                                 <th>Status</th>
+                                                {downlineRole && <th style={{ textAlign: 'right' }}>Actions</th>}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {currentRoleSlabs.length === 0 ? (
-                                                <tr><td colSpan="6" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Admin has not created slabs for your role yet.</td></tr>
+                                                <tr><td colSpan={downlineRole ? 7 : 6} style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No charge slabs are available for your account yet.</td></tr>
                                             ) : currentRoleSlabs.map((slab) => {
-                                                const selfOverride = findExistingOverride(currentUser?.id, slab.serviceKey, slab.minAmount);
+                                                const slabServiceKey = slab.service_key || slab.serviceKey;
+                                                const slabMinAmount = slab.min_amount ?? slab.minAmount;
+                                                const slabMaxAmount = slab.max_amount ?? slab.maxAmount;
+                                                const slabChargeType = slab.charge_type || slab.chargeType;
+                                                const slabChargeValue = slab.charge_value ?? slab.chargeValue;
+                                                const existingDefault = downlineRole
+                                                    ? findExistingDownlineDefault(downlineRole, slabServiceKey, slabMinAmount)
+                                                    : null;
                                                 return (
                                                     <tr key={slab.id}>
-                                                        <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
-                                                        <td>{slab.serviceKey.replace('_', ' ').toUpperCase()}</td>
-                                                        <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatRange(slab.minAmount, slab.maxAmount)}</span></td>
-                                                        <td>{formatCharge(slab.chargeType, slab.chargeValue)}</td>
-                                                        <td>{selfOverride ? formatCharge(selfOverride.charge_type, selfOverride.charge_value) : <span style={{ color: '#64748b' }}>None</span>}</td>
-                                                        <td><span className={`status-pill ${selfOverride ? 'active' : 'info'}`}>{selfOverride ? 'OVERRIDDEN' : 'INHERITED'}</span></td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {canManageOwnCharges && downlineRole && (
-                        <>
-                            <div className="section-header">
-                                <h3>Charges For My {downlineRole === 'branch' ? 'Branches' : 'Merchants'}</h3>
-                            </div>
-                            <div className="charges-card animated-fade-in" style={{ background: 'rgba(34, 197, 94, 0.05)' }}>
-                                <div className="table-responsive">
-                                    <table className="charges-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Role</th>
-                                                <th>Service</th>
-                                                <th>Range</th>
-                                                <th>Inherited Charge</th>
-                                                <th>Your Charge</th>
-                                                <th>Status</th>
-                                                <th style={{ textAlign: 'right' }}>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {currentDownlineSlabs.length === 0 ? (
-                                                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Admin has not created slabs for {downlineRole} yet.</td></tr>
-                                            ) : currentDownlineSlabs.map((slab) => {
-                                                const existingDefault = findExistingDownlineDefault(downlineRole, slab.serviceKey, slab.minAmount);
-                                                return (
-                                                    <tr key={slab.id}>
-                                                        <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
-                                                        <td>{slab.serviceKey.replace('_', ' ').toUpperCase()}</td>
-                                                        <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatRange(slab.minAmount, slab.maxAmount)}</span></td>
-                                                        <td>{formatCharge(slab.chargeType, slab.chargeValue)}<div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>By admin</div></td>
+                                                        <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{(slab.role || currentUser?.role || '').replace('_', ' ')}</strong></td>
+                                                        <td>{slabServiceKey.replace('_', ' ').toUpperCase()}</td>
+                                                        <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatRange(slabMinAmount, slabMaxAmount)}</span></td>
+                                                        <td>{formatCharge(slabChargeType, slabChargeValue)}</td>
                                                         <td>{existingDefault ? formatCharge(existingDefault.charge_type, existingDefault.charge_value) : <span style={{ color: '#64748b' }}>Not set</span>}</td>
                                                         <td><span className={`status-pill ${existingDefault ? 'active' : 'info'}`}>{existingDefault ? 'ACTIVE' : 'INHERITED'}</span></td>
-                                                        <td style={{ textAlign: 'right' }}>
-                                                            <button className="add-btn-v2" onClick={() => handleOpenDownlineCharge(slab)}>
-                                                                {existingDefault ? 'Edit Charge' : 'Set Charge'}
-                                                            </button>
-                                                        </td>
+                                                        {downlineRole && (
+                                                            <td style={{ textAlign: 'right' }}>
+                                                                <button className="add-btn-v2" onClick={() => handleOpenDownlineCharge(slab)}>
+                                                                    {existingDefault ? 'Edit Charge' : 'Set Charge'}
+                                                                </button>
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 );
                                             })}
@@ -645,7 +624,7 @@ const ChargesPage = () => {
                 <div className="modal-overlay">
                     <div className="modal-container" style={{ maxWidth: '560px' }}>
                         <div className="modal-header-gradient">
-                            <h3>{modalMode === 'global' ? 'Add Global Default Slab' : modalMode === 'downline-default' ? 'Set Charge On Admin Slab' : 'Override Charge On Admin Slab'}</h3>
+                            <h3>{modalMode === 'global' ? 'Add Global Default Slab' : modalMode === 'downline-default' ? `Set Charge For My ${targetRole === 'branch' ? 'Branches' : 'Merchants'}` : 'Override Charge On Visible Slab'}</h3>
                             <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
                         </div>
                         <div className="modal-body hide-scrollbar">
@@ -661,7 +640,7 @@ const ChargesPage = () => {
                                 <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(34, 197, 94, 0.08)', borderRadius: '12px', border: '1px solid rgba(34, 197, 94, 0.15)' }}>
                                     <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '4px' }}>Target Role</div>
                                     <div style={{ color: '#fff', fontWeight: 600, textTransform: 'capitalize' }}>{targetRole}</div>
-                                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>This charge will be inherited by your {targetRole === 'branch' ? 'branches' : 'merchants'} on the selected admin slab.</div>
+                                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>This charge will be inherited by your {targetRole === 'branch' ? 'branches' : 'merchants'} on the selected slab range.</div>
                                 </div>
                             )}
 
@@ -688,13 +667,13 @@ const ChargesPage = () => {
 
                                 {modalMode !== 'global' && (
                                     <div className="form-group full-width">
-                                        <label className="callback-label">Admin Slab</label>
+                                        <label className="callback-label">Base Slab</label>
                                         <select className="form-input-box" value={selectedBaseSlabId} onChange={(e) => setSelectedBaseSlabId(e.target.value)} disabled={availableBaseSlabs.length === 0}>
                                             {availableBaseSlabs.length === 0 ? (
-                                                <option value="">No admin slab available</option>
+                                                <option value="">No slab available</option>
                                             ) : availableBaseSlabs.map((slab) => (
                                                 <option key={slab.id} value={slab.id}>
-                                                    {slab.serviceKey.toUpperCase()} | {formatRange(slab.minAmount, slab.maxAmount)}
+                                                    {(slab.service_key || slab.serviceKey).toUpperCase()} | {formatRange(slab.min_amount ?? slab.minAmount, slab.max_amount ?? slab.maxAmount)}
                                                 </option>
                                             ))}
                                         </select>
@@ -723,7 +702,7 @@ const ChargesPage = () => {
                                 {modalMode !== 'global' && (
                                     <div className="form-group full-width">
                                         <label className="callback-label">Inherited Charge</label>
-                                        <input className="form-input-box" value={selectedBaseSlab ? formatCharge(selectedBaseSlab.chargeType, selectedBaseSlab.chargeValue) : 'No slab selected'} readOnly />
+                                        <input className="form-input-box" value={selectedBaseSlab ? formatCharge(selectedBaseSlab.charge_type || selectedBaseSlab.chargeType, selectedBaseSlab.charge_value ?? selectedBaseSlab.chargeValue) : 'No slab selected'} readOnly />
                                     </div>
                                 )}
                                 <div className="form-group full-width">
