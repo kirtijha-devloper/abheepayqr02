@@ -30,7 +30,7 @@ import { startBranchXPayoutSyncJob } from "./jobs/branchxPayoutSync";
 import { errorHandler } from "./middleware/errorHandler";
 import { getJwtSecret, validateEnv } from "./utils/env";
 
-import { prisma } from "./prisma";
+import { activeDatabaseTarget, prisma } from "./prisma";
 validateEnv();
 getJwtSecret();
 
@@ -86,7 +86,7 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", time: new Date().toISOString() });
+  res.json({ status: "ok", time: new Date().toISOString(), databaseTarget: activeDatabaseTarget });
 });
 
 app.use("/api/auth", authRoutes);
@@ -113,6 +113,7 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`AbheePay backend listening on port ${PORT}`);
+  console.log(`Database target: ${activeDatabaseTarget}`);
   startBranchXPayoutSyncJob();
 });
 
