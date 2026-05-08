@@ -179,6 +179,16 @@ async function getMyChargeSlabs(userId: string) {
   });
 }
 
+async function findVisibleChargeSlabForUser(userId: string, serviceKey: string, minAmount: number, maxAmount: number) {
+  const visibleSlabs = await getMyChargeSlabs(userId);
+  return visibleSlabs.find(
+    (item) =>
+      item.serviceKey === serviceKey &&
+      Number(item.minAmount) === Number(minAmount) &&
+      Number(item.maxAmount) === Number(maxAmount)
+  ) || null;
+}
+
 // POST /api/commission/process — auto-distribute commissions up hierarchy
 router.post("/process", requireAuth, async (req: AuthRequest, res) => {
   const { service_key, transaction_amount } = req.body;
@@ -545,12 +555,11 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
     let effectiveServiceLabel = service_label || `${service_key || "payout"} inherited charge`;
 
     if (!canManageGlobalSlabs(req)) {
-      const myChargeSlabs = await getMyChargeSlabs(req.userId!);
-      const matchingSource = myChargeSlabs.find(
-        (item) =>
-          item.serviceKey === (service_key || "payout") &&
-          Number(item.minAmount) === n_min &&
-          Number(item.maxAmount) === n_max
+      const matchingSource = await findVisibleChargeSlabForUser(
+        req.userId!,
+        service_key || "payout",
+        n_min,
+        n_max
       );
 
       if (!matchingSource) {
@@ -667,27 +676,26 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
     let effectiveMin = n_min;
     let effectiveMax = n_max;
     let effectiveChargeType = charge_type || "flat";
+    let effectiveServiceLabel = service_label || service_key;
 
     if (!canManageGlobalSlabs(req)) {
-      const actualTargetRole = (
-        await prisma.userRole.findFirst({
-          where: { userId: target_user_id },
-          select: { role: true },
-        })
-      )?.role;
-      const matchingSlab = actualTargetRole
-        ? await findMatchingGlobalSlab(actualTargetRole, service_key, n_min, n_max)
-        : null;
+      const matchingSource = await findVisibleChargeSlabForUser(
+        target_user_id,
+        service_key,
+        n_min,
+        n_max
+      );
 
-      if (!matchingSlab) {
+      if (!matchingSource) {
         return res.status(400).json({
-          error: "Only admin can create or change slab ranges. Others must override the charge on an admin-created slab.",
+          error: "You can only override users on charge slabs that are visible for that user.",
         });
       }
 
-      effectiveMin = Number(matchingSlab.minAmount);
-      effectiveMax = Number(matchingSlab.maxAmount);
-      effectiveChargeType = matchingSlab.chargeType || "flat";
+      effectiveMin = Number(matchingSource.minAmount);
+      effectiveMax = Number(matchingSource.maxAmount);
+      effectiveChargeType = matchingSource.chargeType || "flat";
+      effectiveServiceLabel = matchingSource.serviceLabel || effectiveServiceLabel;
     }
 
     const override = await prisma.userCommissionOverride.upsert({
@@ -702,7 +710,7 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
         setBy: req.userId!,
         targetUserId: target_user_id,
         serviceKey: service_key,
-        serviceLabel: service_label || service_key,
+        serviceLabel: effectiveServiceLabel,
         minAmount: effectiveMin,
         maxAmount: effectiveMax,
         commissionType: commission_type || "flat",
@@ -713,6 +721,7 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
       },
       update: {
         maxAmount: effectiveMax,
+        serviceLabel: effectiveServiceLabel,
         commissionType: commission_type,
         commissionValue: n_comm,
         chargeType: effectiveChargeType,
