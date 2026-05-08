@@ -144,6 +144,13 @@ const ChargesPage = () => {
 
     const downlineRole = useMemo(() => getImmediateDownlineRole(currentUser?.role), [currentUser?.role]);
 
+    const currentRoleSlabs = useMemo(() =>
+        currentUser?.role
+            ? slabs.filter((slab) => slab.role === currentUser.role)
+            : [],
+        [currentUser?.role, slabs]
+    );
+
     const currentDownlineSlabs = useMemo(() =>
         downlineRole
             ? slabs.filter((slab) => slab.role === downlineRole)
@@ -471,6 +478,47 @@ const ChargesPage = () => {
                                                     </td>
                                                 </tr>
                                             ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {canManageOwnCharges && (
+                        <>
+                            <div className="section-header">
+                                <h3>My Charges From Admin</h3>
+                            </div>
+                            <div className="charges-card animated-fade-in" style={{ background: 'rgba(59, 130, 246, 0.05)' }}>
+                                <div className="table-responsive">
+                                    <table className="charges-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Role</th>
+                                                <th>Service</th>
+                                                <th>Range</th>
+                                                <th>Admin Charge</th>
+                                                <th>Manual Override</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {currentRoleSlabs.length === 0 ? (
+                                                <tr><td colSpan="6" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Admin has not created slabs for your role yet.</td></tr>
+                                            ) : currentRoleSlabs.map((slab) => {
+                                                const selfOverride = findExistingOverride(currentUser?.id, slab.serviceKey, slab.minAmount);
+                                                return (
+                                                    <tr key={slab.id}>
+                                                        <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
+                                                        <td>{slab.serviceKey.replace('_', ' ').toUpperCase()}</td>
+                                                        <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatRange(slab.minAmount, slab.maxAmount)}</span></td>
+                                                        <td>{formatCharge(slab.chargeType, slab.chargeValue)}</td>
+                                                        <td>{selfOverride ? formatCharge(selfOverride.charge_type, selfOverride.charge_value) : <span style={{ color: '#64748b' }}>None</span>}</td>
+                                                        <td><span className={`status-pill ${selfOverride ? 'active' : 'info'}`}>{selfOverride ? 'OVERRIDDEN' : 'INHERITED'}</span></td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
