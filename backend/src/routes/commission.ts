@@ -13,11 +13,11 @@ const router = Router();
 const COMMISSION_MANAGER_ROLES = new Set(["admin", "staff", "master", "merchant"]);
 
 function canManageGlobalSlabs(req: AuthRequest) {
-  return req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageCommissions);
+  return req.userRole === "admin";
 }
 
 function canCreateGlobalSlabs(req: AuthRequest) {
-  return canManageGlobalSlabs(req);
+  return req.userRole === "admin";
 }
 
 function canDeleteGlobalSlabs(req: AuthRequest) {
@@ -390,13 +390,21 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
       return res.status(400).json({ error: "Charge and commission values cannot be negative." });
     }
 
+    let effectiveMin = n_min;
+    let effectiveMax = n_max;
+    let effectiveChargeType = charge_type || "flat";
+
     if (!canManageGlobalSlabs(req)) {
       const matchingSlab = await findMatchingGlobalSlab(target_role, service_key || "payout", n_min, n_max);
       if (!matchingSlab) {
         return res.status(400).json({
-          error: "Only admin or staff admin can create new slabs. Others must override charges on an existing admin-created slab.",
+          error: "Only admin can create or change slab ranges. Others must override the charge on an admin-created slab.",
         });
       }
+
+      effectiveMin = Number(matchingSlab.minAmount);
+      effectiveMax = Number(matchingSlab.maxAmount);
+      effectiveChargeType = matchingSlab.chargeType || "flat";
     }
 
     const created = await prisma.downlineChargeDefault.upsert({
@@ -405,7 +413,7 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
           ownerUserId: req.userId!,
           targetRole: target_role,
           serviceKey: service_key || "payout",
-          minAmount: n_min,
+          minAmount: effectiveMin,
         },
       },
       create: {
@@ -413,19 +421,19 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
         targetRole: target_role,
         serviceKey: service_key || "payout",
         serviceLabel: service_label || "Payout Downline Default",
-        minAmount: n_min,
-        maxAmount: n_max,
+        minAmount: effectiveMin,
+        maxAmount: effectiveMax,
         commissionType: commission_type || "percent",
         commissionValue: n_comm,
-        chargeType: charge_type || "flat",
+        chargeType: effectiveChargeType,
         chargeValue: n_cval,
         isActive: true,
       },
       update: {
-        maxAmount: n_max,
+        maxAmount: effectiveMax,
         commissionType: commission_type || "percent",
         commissionValue: n_comm,
-        chargeType: charge_type || "flat",
+        chargeType: effectiveChargeType,
         chargeValue: n_cval,
         isActive: true,
       },
@@ -497,6 +505,10 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
       }
     }
 
+    let effectiveMin = n_min;
+    let effectiveMax = n_max;
+    let effectiveChargeType = charge_type || "flat";
+
     if (!canManageGlobalSlabs(req)) {
       const actualTargetRole = (
         await prisma.userRole.findFirst({
@@ -510,9 +522,13 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
 
       if (!matchingSlab) {
         return res.status(400).json({
-          error: "Only admin or staff admin can create new slabs. Others must override charges on an existing admin-created slab.",
+          error: "Only admin can create or change slab ranges. Others must override the charge on an admin-created slab.",
         });
       }
+
+      effectiveMin = Number(matchingSlab.minAmount);
+      effectiveMax = Number(matchingSlab.maxAmount);
+      effectiveChargeType = matchingSlab.chargeType || "flat";
     }
 
     const override = await prisma.userCommissionOverride.upsert({
@@ -520,7 +536,7 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
         targetUserId_serviceKey_minAmount: { 
             targetUserId: target_user_id, 
             serviceKey: service_key,
-            minAmount: n_min
+            minAmount: effectiveMin
         } 
       },
       create: {
@@ -528,19 +544,19 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
         targetUserId: target_user_id,
         serviceKey: service_key,
         serviceLabel: service_label || service_key,
-        minAmount: n_min,
-        maxAmount: n_max,
+        minAmount: effectiveMin,
+        maxAmount: effectiveMax,
         commissionType: commission_type || "flat",
         commissionValue: n_comm,
-        chargeType: charge_type || "flat",
+        chargeType: effectiveChargeType,
         chargeValue: n_cval,
         isActive: true,
       },
       update: {
-        maxAmount: n_max,
+        maxAmount: effectiveMax,
         commissionType: commission_type,
         commissionValue: n_comm,
-        chargeType: charge_type,
+        chargeType: effectiveChargeType,
         chargeValue: n_cval,
       },
     });

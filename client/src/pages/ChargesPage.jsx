@@ -1,38 +1,56 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { API_BASE } from '../config';
-import './ChargesPage.css'; 
-import './MerchantsPage.css'; // Modal styles reside here
+import './ChargesPage.css';
+import './MerchantsPage.css';
+
+const GLOBAL_ROLE_OPTIONS = ['master', 'merchant', 'branch'];
+const SERVICE_OPTIONS = [
+    { value: 'payout', label: 'Settlement (Payout)' },
+    { value: 'branchx_payout', label: 'BranchX Payout Charge' },
+    { value: 'collection', label: 'Fund Request (Collection)' },
+];
 
 const ChargesPage = () => {
     const { user: currentUser } = useAuth();
-    const { merchants } = useAppContext(); // Direct downlines
+    const { merchants } = useAppContext();
     const { success, error } = useToast();
-    
+
     const [overrides, setOverrides] = useState([]);
     const [downlineDefaults, setDownlineDefaults] = useState([]);
-    const [slabs, setSlabs] = useState([]); // Default global slabs
-    const [allUsers, setAllUsers] = useState([]); // For search suggestion
+    const [slabs, setSlabs] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [modalMode, setModalMode] = useState('override');
-    
-    // Search State
     const [searchQuery, setSearchQuery] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
-
-    // Modal State (for adding/editing a slab)
     const [targetUser, setTargetUser] = useState(null);
     const [targetRole, setTargetRole] = useState('merchant');
+    const [serviceKey, setServiceKey] = useState('payout');
+    const [selectedBaseSlabId, setSelectedBaseSlabId] = useState('');
     const [chargeType, setChargeType] = useState('percent');
     const [chargeValue, setChargeValue] = useState('');
     const [minAmount, setMinAmount] = useState('0');
     const [maxAmount, setMaxAmount] = useState('999999');
-    const [serviceKey, setServiceKey] = useState('payout');
+
+    const isAdmin = currentUser?.role === 'admin';
+    const canManageOverrides = isAdmin || ['master', 'merchant'].includes(currentUser?.role);
+    const visibleUsers = currentUser?.role === 'admin' || currentUser?.role === 'staff'
+        ? allUsers
+        : Array.isArray(merchants) ? merchants : [];
+
+    const inheritedTargetRole = currentUser?.role === 'admin'
+        ? 'master'
+        : currentUser?.role === 'master'
+            ? 'merchant'
+            : currentUser?.role === 'merchant'
+                ? 'branch'
+                : null;
 
     const parseErrorResponse = async (res, fallbackMessage) => {
         try {
@@ -49,10 +67,13 @@ const ChargesPage = () => {
         }
     };
 
+    const formatCharge = (type, value) => type === 'percent' ? `${value}%` : `Rs ${value}`;
+    const formatRange = (min, max) => `Rs ${min} - Rs ${Number(max) >= 9999999 ? 'Infinity' : max}`;
+
     const fetchData = async () => {
         try {
             const token = sessionStorage.getItem('authToken');
-            const headers = { 'Authorization': `Bearer ${token}` };
+            const headers = { Authorization: `Bearer ${token}` };
             const canSearchAllUsers = currentUser?.role === 'admin' || currentUser?.role === 'staff';
 
             const requests = [
@@ -89,10 +110,7 @@ const ChargesPage = () => {
 
             if (usersRes?.ok) {
                 setAllUsers(await usersRes.json());
-            } else if (canSearchAllUsers && usersRes) {
-                console.error('Failed to fetch users:', await parseErrorResponse(usersRes, 'Unknown error'));
             }
-
         } catch (err) {
             console.error(err);
         } finally {
@@ -104,64 +122,140 @@ const ChargesPage = () => {
         fetchData();
     }, []);
 
-    useEffect(() => {
-        if (currentUser?.role !== 'admin' && currentUser?.role !== 'staff') {
-            setAllUsers(Array.isArray(merchants) ? merchants : []);
-        }
-    }, [currentUser?.role, merchants]);
+    const findExistingDownlineDefault = (role, key, minAmountValue) =>
+        downlineDefaults.find((item) =>
+            item.owner_user_id === currentUser?.id &&
+            item.target_role === role &&
+            item.service_key === key &&
+            Number(item.min_amount) === Number(minAmountValue)
+        );
 
-    const handleOpenOverride = (userObj) => {
-        setModalMode('override');
-        setTargetUser(userObj);
+    const findExistingOverride = (userId, key, minAmountValue) =>
+        overrides.find((item) =>
+            item.target_user_id === userId &&
+            item.service_key === key &&
+            Number(item.min_amount) === Number(minAmountValue)
+        );
+
+    const suggestions = useMemo(() => visibleUsers.filter((userItem) =>
+        (userItem.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            userItem.email?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+        userItem.role !== 'admin'
+    ).slice(0, 5), [searchQuery, visibleUsers]);
+
+    const inheritedDownlineSlabs = useMemo(() =>
+        inheritedTargetRole
+            ? slabs.filter((slab) => slab.role === inheritedTargetRole)
+            : [],
+        [inheritedTargetRole, slabs]
+    );
+
+    const availableBaseSlabs = useMemo(() => {
+        if (modalMode === 'global') return [];
+        const role = modalMode === 'override' ? targetUser?.role : targetRole;
+        if (!role) return [];
+        return slabs
+            .filter((slab) => slab.role === role && slab.serviceKey === serviceKey)
+            .sort((a, b) => Number(a.minAmount) - Number(b.minAmount));
+    }, [modalMode, serviceKey, slabs, targetRole, targetUser]);
+
+    const selectedBaseSlab = useMemo(() =>
+        availableBaseSlabs.find((slab) => slab.id === selectedBaseSlabId) || null,
+        [availableBaseSlabs, selectedBaseSlabId]
+    );
+
+    useEffect(() => {
+        if (!showModal || modalMode === 'global') return;
+        if (availableBaseSlabs.length === 0) {
+            setSelectedBaseSlabId('');
+            setChargeType('flat');
+            setMinAmount('0');
+            setMaxAmount('999999');
+            return;
+        }
+
+        const slabToUse = selectedBaseSlab || availableBaseSlabs[0];
+        setSelectedBaseSlabId(slabToUse.id);
+        setChargeType(slabToUse.chargeType || 'flat');
+        setMinAmount(String(slabToUse.minAmount));
+        setMaxAmount(String(slabToUse.maxAmount));
+    }, [availableBaseSlabs, modalMode, selectedBaseSlab, showModal]);
+
+    useEffect(() => {
+        if (!showModal || modalMode === 'global' || !selectedBaseSlab) return;
+
+        if (modalMode === 'downline-default') {
+            const existingDefault = findExistingDownlineDefault(targetRole, selectedBaseSlab.serviceKey, selectedBaseSlab.minAmount);
+            setChargeValue(existingDefault ? String(existingDefault.charge_value) : '');
+            return;
+        }
+
+        if (modalMode === 'override' && targetUser) {
+            const targetUserId = targetUser.userId || targetUser.id;
+            const existingOverride = findExistingOverride(targetUserId, selectedBaseSlab.serviceKey, selectedBaseSlab.minAmount);
+            setChargeValue(existingOverride ? String(existingOverride.charge_value) : '');
+        }
+    }, [modalMode, selectedBaseSlab, showModal, targetRole, targetUser]);
+
+    const resetModal = () => {
+        setTargetUser(null);
+        setTargetRole('merchant');
+        setServiceKey('payout');
+        setSelectedBaseSlabId('');
         setChargeType('percent');
         setChargeValue('');
         setMinAmount('0');
         setMaxAmount('999999');
-        setServiceKey('payout');
+    };
+
+    const handleOpenGlobalSlab = () => {
+        resetModal();
+        setModalMode('global');
+        setShowModal(true);
+    };
+
+    const handleOpenDownlineDefault = (baseSlab) => {
+        resetModal();
+        setModalMode('downline-default');
+        const role = inheritedTargetRole || 'merchant';
+        setTargetRole(role);
+        setServiceKey(baseSlab.serviceKey);
+        setSelectedBaseSlabId(baseSlab.id);
+        const existingDefault = findExistingDownlineDefault(role, baseSlab.serviceKey, baseSlab.minAmount);
+        setChargeValue(existingDefault ? String(existingDefault.charge_value) : '');
+        setShowModal(true);
+    };
+
+    const handleOpenOverride = (userItem) => {
+        resetModal();
+        setModalMode('override');
+        setTargetUser(userItem);
         setShowModal(true);
         setSearchQuery('');
         setShowSuggestions(false);
     };
 
-    const handleOpenGlobalSlab = () => {
-        setModalMode('global');
-        setTargetUser(null);
-        setTargetRole('merchant');
-        setChargeType('percent');
-        setChargeValue('');
-        setMinAmount('0');
-        setMaxAmount('999999');
-        setServiceKey('payout');
-        setShowModal(true);
-    };
-
-    const handleOpenDownlineDefault = () => {
-        setModalMode('downline-default');
-        setTargetUser(null);
-        setTargetRole(currentUser?.role === 'admin' || currentUser?.role === 'staff' ? 'master' : currentUser?.role === 'master' ? 'merchant' : 'branch');
-        setChargeType('percent');
-        setChargeValue('');
-        setMinAmount('0');
-        setMaxAmount('999999');
-        setServiceKey('payout');
-        setShowModal(true);
-    };
-
     const handleSaveSlab = async () => {
-        if (Number(chargeValue) < 0) return error("Charge value cannot be negative.");
-        if (Number(minAmount) < 0 || Number(maxAmount) <= Number(minAmount)) {
-            return error("Invalid range. Max must be greater than Min.");
+        if (Number(chargeValue) < 0) {
+            return error('Charge value cannot be negative.');
+        }
+
+        if (modalMode === 'global' && (Number(minAmount) < 0 || Number(maxAmount) <= Number(minAmount))) {
+            return error('Invalid range. Max must be greater than Min.');
+        }
+
+        if (modalMode !== 'global' && !selectedBaseSlab) {
+            return error('Please select an admin slab first.');
         }
 
         const token = sessionStorage.getItem('authToken');
         const headers = {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
         };
 
         try {
             if (modalMode === 'global') {
-                // Save Global Default Slab
                 const res = await fetch(`${API_BASE}/commission/slabs`, {
                     method: 'POST',
                     headers,
@@ -172,15 +266,13 @@ const ChargesPage = () => {
                         max_amount: Number(maxAmount),
                         charge_type: chargeType,
                         charge_value: Number(chargeValue),
-                    })
+                    }),
                 });
-                if (res.ok) {
-                    success("Global slab added.");
-                    setShowModal(false);
-                    fetchData();
-                } else {
-                    error(await parseErrorResponse(res, "Failed to add global slab."));
+
+                if (!res.ok) {
+                    return error(await parseErrorResponse(res, 'Failed to add global slab.'));
                 }
+                success('Global slab added.');
             } else if (modalMode === 'downline-default') {
                 const res = await fetch(`${API_BASE}/commission/downline-defaults`, {
                     method: 'POST',
@@ -188,115 +280,98 @@ const ChargesPage = () => {
                     body: JSON.stringify({
                         target_role: targetRole,
                         service_key: serviceKey,
-                        service_label: serviceKey === 'payout' ? 'Downline Payout Charge' : serviceKey === 'branchx_payout' ? 'Downline BranchX Charge' : 'Downline Collection Charge',
-                        min_amount: Number(minAmount),
-                        max_amount: Number(maxAmount),
-                        charge_type: chargeType,
+                        service_label: `${serviceKey} inherited charge`,
+                        min_amount: Number(selectedBaseSlab.minAmount),
+                        max_amount: Number(selectedBaseSlab.maxAmount),
+                        charge_type: selectedBaseSlab.chargeType,
                         charge_value: Number(chargeValue),
                         commission_type: 'percent',
-                        commission_value: 0
-                    })
+                        commission_value: 0,
+                    }),
                 });
-                if (res.ok) {
-                    success("Downline default saved.");
-                    setShowModal(false);
-                    fetchData();
-                } else {
-                    error(await parseErrorResponse(res, "Failed to save downline default."));
+
+                if (!res.ok) {
+                    return error(await parseErrorResponse(res, 'Failed to save downline default.'));
                 }
+                success('Charge saved on admin slab.');
             } else {
-                // Save User Override Slab
                 const res = await fetch(`${API_BASE}/commission/overrides`, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
                         target_user_id: targetUser.userId || targetUser.id,
                         service_key: serviceKey,
-                        service_label: serviceKey === 'payout' ? 'Transfer Charge' : serviceKey === 'branchx_payout' ? 'BranchX Payout Charge' : 'Collection Charge',
-                        min_amount: Number(minAmount),
-                        max_amount: Number(maxAmount),
-                        charge_type: chargeType,
+                        service_label: `${serviceKey} override`,
+                        min_amount: Number(selectedBaseSlab.minAmount),
+                        max_amount: Number(selectedBaseSlab.maxAmount),
+                        charge_type: selectedBaseSlab.chargeType,
                         charge_value: Number(chargeValue),
-                        commission_type: 'percent', 
-                        commission_value: 0
-                    })
+                        commission_type: 'percent',
+                        commission_value: 0,
+                    }),
                 });
-                if (res.ok) {
-                    success("Override saved.");
-                    setShowModal(false);
-                    fetchData();
-                } else {
-                    error(await parseErrorResponse(res, "Failed to save override."));
+
+                if (!res.ok) {
+                    return error(await parseErrorResponse(res, 'Failed to save override.'));
                 }
+                success('Override saved on admin slab.');
             }
+
+            setShowModal(false);
+            resetModal();
+            fetchData();
         } catch (err) {
             console.error(err);
-            error("Connection error. Please try again.");
+            error('Connection error. Please try again.');
         }
     };
 
     const handleDeleteSlab = async (id, type = 'override') => {
-        if (!window.confirm("Delete this slab?")) return;
+        if (!window.confirm('Delete this charge override?')) return;
         try {
             const token = sessionStorage.getItem('authToken');
             const endpoint = type === 'global' ? `slabs/${id}` : type === 'downline-default' ? `downline-defaults/${id}` : `overrides/${id}`;
             const res = await fetch(`${API_BASE}/commission/${endpoint}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
             });
+
             if (res.ok) {
-                success("Slab removed.");
+                success('Entry removed.');
                 fetchData();
             }
         } catch (err) {
             console.error(err);
-            error("Delete failed");
+            error('Delete failed');
         }
     };
 
-    const handleUpdateDefault = async (slabId, val, type) => {
+    const handleUpdateDefault = async (slabId, value, type) => {
         try {
             const token = sessionStorage.getItem('authToken');
             const res = await fetch(`${API_BASE}/commission/slabs/${slabId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    charge_value: Number(val),
-                    charge_type: type
-                })
+                    charge_value: Number(value),
+                    charge_type: type,
+                }),
             });
+
             if (res.ok) {
-                success("Updated.");
+                success('Updated.');
                 fetchData();
             }
         } catch (err) {
             console.error(err);
-            error("Update failed");
+            error('Update failed');
         }
     };
 
-    const suggestions = useMemo(() => allUsers.filter(u => 
-        (u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-         u.email?.toLowerCase().includes(searchQuery.toLowerCase())) &&
-        u.role !== 'admin'
-    ).slice(0, 5), [allUsers, searchQuery]);
-
-    const defaultCharges = slabs;
-    
-    const myDownlineDefaults = useMemo(() => 
-        downlineDefaults.filter(d => (currentUser?.role === 'admin' || currentUser?.role === 'staff' ? true : d.owner_user_id === currentUser?.id)),
-        [downlineDefaults, currentUser]
-    );
-    const canManageDownlineDefaults = ['admin', 'staff', 'master', 'merchant'].includes(currentUser?.role);
-    const canCreateGlobalSlabs = currentUser?.role === 'admin' || currentUser?.role === 'staff';
-    const defaultTargetLabel = currentUser?.role === 'admin' || currentUser?.role === 'staff'
-        ? 'Masters'
-        : currentUser?.role === 'master'
-            ? 'Merchants'
-            : 'Branches';
+    const canManageDownlineDefaults = ['master', 'merchant'].includes(currentUser?.role);
 
     return (
         <div className="dashboard-layout">
@@ -304,18 +379,17 @@ const ChargesPage = () => {
             <div className="main-content">
                 <Header title="Management & Charges" />
                 <main className="dashboard-body animated">
-                    
                     <div className="charges-header">
                         <div className="charges-title">
                             <h2>Charge Configuration</h2>
-                            <p>Only admin or staff admin can create slab ranges. Everyone else can only override charges on those existing slabs.</p>
+                            <p>Admin fixes the slab range. All other users can only set or override the charge on that same admin slab.</p>
                         </div>
-                        
+
                         <div className="charges-search-container">
                             <div className="merchant-search-wrap">
-                                <span className="merchant-search-icon">🔎</span>
-                                <input 
-                                    type="text" 
+                                <span className="merchant-search-icon">Search</span>
+                                <input
+                                    type="text"
                                     placeholder="Search any user to override..."
                                     value={searchQuery}
                                     onChange={(e) => {
@@ -324,34 +398,34 @@ const ChargesPage = () => {
                                     }}
                                     onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                                     style={{ width: '100%' }}
+                                    disabled={!canManageOverrides}
                                 />
                             </div>
-                            {showSuggestions && searchQuery && (
+                            {showSuggestions && searchQuery && canManageOverrides && (
                                 <div className="search-suggestions">
                                     {suggestions.length === 0 ? (
                                         <div style={{ padding: '12px', color: '#64748b' }}>No users found.</div>
-                                    ) : (
-                                        suggestions.map(s => (
-                                            <div key={s.userId} className="suggestion-item" onClick={() => handleOpenOverride(s)}>
-                                                <div className="user-avatar-small" style={{ width: '32px', height: '32px' }}>{s.fullName?.charAt(0)}</div>
-                                                <div>
-                                                    <div style={{ fontSize: '13px', color: '#fff' }}>{s.fullName}</div>
-                                                    <div style={{ fontSize: '11px', color: '#64748b' }}>{s.role} • {s.email}</div>
-                                                </div>
+                                    ) : suggestions.map((userItem) => (
+                                        <div key={userItem.userId || userItem.id} className="suggestion-item" onClick={() => handleOpenOverride(userItem)}>
+                                            <div className="user-avatar-small" style={{ width: '32px', height: '32px' }}>
+                                                {userItem.fullName?.charAt(0)}
                                             </div>
-                                        ))
-                                    )}
+                                            <div>
+                                                <div style={{ fontSize: '13px', color: '#fff' }}>{userItem.fullName}</div>
+                                                <div style={{ fontSize: '11px', color: '#64748b' }}>{userItem.role} - {userItem.email}</div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Default Charges Section */}
-                    {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && (
+                    {isAdmin && (
                         <>
                             <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3><span>⚙️</span> Default Global Charges (By Role)</h3>
-                                {canCreateGlobalSlabs && <button className="add-slab-btn" onClick={handleOpenGlobalSlab}>+ Add Default Slab</button>}
+                                <h3>Default Global Charges (By Role)</h3>
+                                <button className="add-slab-btn" onClick={handleOpenGlobalSlab}>Add Default Slab</button>
                             </div>
                             <div className="charges-card animated-fade-in" style={{ background: 'rgba(99, 102, 241, 0.05)' }}>
                                 <div className="table-responsive">
@@ -360,25 +434,21 @@ const ChargesPage = () => {
                                             <tr>
                                                 <th>User Role</th>
                                                 <th>Service</th>
-                                                <th>Range (Min - Max)</th>
+                                                <th>Range</th>
                                                 <th>Charge Type</th>
                                                 <th>Value</th>
                                                 <th style={{ textAlign: 'right' }}>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {defaultCharges.map(slab => (
+                                            {slabs.map((slab) => (
                                                 <tr key={slab.id}>
                                                     <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
-                                                    <td><span className={`status-pill ${['payout', 'branchx_payout'].includes(slab.serviceKey) ? 'active' : 'info'}`} style={{ fontSize: '10px' }}>{slab.serviceKey.replace('_', ' ').toUpperCase()}</span></td>
+                                                    <td>{slab.serviceKey.replace('_', ' ').toUpperCase()}</td>
+                                                    <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatRange(slab.minAmount, slab.maxAmount)}</span></td>
                                                     <td>
-                                                        <span style={{ color: '#94a3b8', fontSize: '12px' }}>
-                                                            {slab.minAmount} - {slab.maxAmount >= 9999999 ? '∞' : slab.maxAmount}
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        <select 
-                                                            className="charge-input" 
+                                                        <select
+                                                            className="charge-input"
                                                             style={{ width: '130px', padding: '4px' }}
                                                             value={slab.chargeType}
                                                             onChange={(e) => handleUpdateDefault(slab.id, slab.chargeValue, e.target.value)}
@@ -388,10 +458,10 @@ const ChargesPage = () => {
                                                         </select>
                                                     </td>
                                                     <td>
-                                                        <input 
-                                                            className="charge-input" 
+                                                        <input
+                                                            className="charge-input"
                                                             style={{ width: '90px', padding: '4px' }}
-                                                            type="number" 
+                                                            type="number"
                                                             value={slab.chargeValue}
                                                             onChange={(e) => handleUpdateDefault(slab.id, e.target.value, slab.chargeType)}
                                                         />
@@ -410,38 +480,44 @@ const ChargesPage = () => {
 
                     {canManageDownlineDefaults && (
                         <>
-                            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3><span>↳</span> Default Charges For My {defaultTargetLabel}</h3>
-                                <button className="add-slab-btn" onClick={handleOpenDownlineDefault}>+ Add Downline Default</button>
+                            <div className="section-header">
+                                <h3>Default Charges For My Downline</h3>
                             </div>
                             <div className="charges-card animated-fade-in" style={{ background: 'rgba(34, 197, 94, 0.05)' }}>
                                 <div className="table-responsive">
                                     <table className="charges-table">
                                         <thead>
                                             <tr>
-                                                <th>Applies To</th>
+                                                <th>Role</th>
                                                 <th>Service</th>
-                                                <th>Range (Min - Max)</th>
-                                                <th>Charge Type</th>
-                                                <th>Value</th>
+                                                <th>Range</th>
+                                                <th>Inherited Charge</th>
+                                                <th>Your Charge</th>
+                                                <th>Status</th>
                                                 <th style={{ textAlign: 'right' }}>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {myDownlineDefaults.length === 0 ? (
-                                                <tr><td colSpan="5" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No downline defaults configured yet.</td></tr>
-                                            ) : myDownlineDefaults.map((item) => (
-                                                <tr key={item.id}>
-                                                    <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{item.target_role?.replace('_', ' ')}</strong></td>
-                                                    <td><span className={`status-pill ${['payout', 'branchx_payout'].includes(item.service_key) ? 'active' : 'info'}`} style={{ fontSize: '10px' }}>{item.service_key?.replace('_', ' ').toUpperCase()}</span></td>
-                                                    <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{item.min_amount} - {item.max_amount >= 9999999 ? '∞' : item.max_amount}</span></td>
-                                                    <td>{item.charge_type === 'percent' ? 'Percent (%)' : 'Flat (INR)'}</td>
-                                                    <td>{item.charge_type === 'percent' ? `${item.charge_value}%` : `₹${item.charge_value}`}</td>
-                                                    <td style={{ textAlign: 'right' }}>
-                                                        <button className="delete-btn-v2" onClick={() => handleDeleteSlab(item.id, 'downline-default')}>Delete</button>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {inheritedDownlineSlabs.length === 0 ? (
+                                                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Admin has not created slabs for your hierarchy yet.</td></tr>
+                                            ) : inheritedDownlineSlabs.map((slab) => {
+                                                const existingDefault = findExistingDownlineDefault(inheritedTargetRole, slab.serviceKey, slab.minAmount);
+                                                return (
+                                                    <tr key={slab.id}>
+                                                        <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
+                                                        <td>{slab.serviceKey.replace('_', ' ').toUpperCase()}</td>
+                                                        <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatRange(slab.minAmount, slab.maxAmount)}</span></td>
+                                                        <td>{formatCharge(slab.chargeType, slab.chargeValue)}<div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>By admin</div></td>
+                                                        <td>{existingDefault ? formatCharge(existingDefault.charge_type, existingDefault.charge_value) : <span style={{ color: '#64748b' }}>Not set</span>}</td>
+                                                        <td><span className={`status-pill ${existingDefault ? 'active' : 'info'}`}>{existingDefault ? 'ACTIVE' : 'INHERITED'}</span></td>
+                                                        <td style={{ textAlign: 'right' }}>
+                                                            <button className="add-btn-v2" onClick={() => handleOpenDownlineDefault(slab)}>
+                                                                {existingDefault ? 'Edit Charge' : 'Set Charge'}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -449,9 +525,8 @@ const ChargesPage = () => {
                         </>
                     )}
 
-                    {/* Manual Overrides Section */}
                     <div className="section-header">
-                        <h3><span>✏️</span> Manual Overrides (User Specific)</h3>
+                        <h3>Manual Overrides (User Specific)</h3>
                     </div>
 
                     <div className="charges-card animated-fade-in">
@@ -467,46 +542,45 @@ const ChargesPage = () => {
                                         <tr>
                                             <th>Member Identity</th>
                                             <th>Role</th>
-                                            <th>Active Amount Slabs</th>
+                                            <th>Current Slab Overrides</th>
                                             <th style={{ textAlign: 'right' }}>Management</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {merchants.length === 0 ? (
-                                            <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No user overrides configured yet.</td></tr>
-                                        ) : merchants.map(merchant => {
-                                            const userSlabs = overrides.filter(o => o.target_user_id === merchant.userId);
-                                            const matchingDownlineDefault = myDownlineDefaults.find((item) => item.target_role === merchant.role);
+                                        {!canManageOverrides ? (
+                                            <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Only admin, master, and merchant can manage manual charge overrides.</td></tr>
+                                        ) : visibleUsers.length === 0 ? (
+                                            <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No users available.</td></tr>
+                                        ) : visibleUsers.filter((userItem) => userItem.role !== 'admin').map((userItem) => {
+                                            const userSlabs = overrides.filter((item) => item.target_user_id === (userItem.userId || userItem.id));
                                             return (
-                                                <tr key={merchant.userId}>
+                                                <tr key={userItem.userId || userItem.id}>
                                                     <td>
                                                         <div className="user-cell">
-                                                            <div className="user-avatar-small">{(merchant.fullName || 'U').charAt(0).toUpperCase()}</div>
+                                                            <div className="user-avatar-small">{(userItem.fullName || 'U').charAt(0).toUpperCase()}</div>
                                                             <div className="user-info-text">
-                                                                <span className="user-name">{merchant.fullName || 'Unnamed'}</span>
-                                                                <span className="user-email">{merchant.email}</span>
+                                                                <span className="user-name">{userItem.fullName || 'Unnamed'}</span>
+                                                                <span className="user-email">{userItem.email}</span>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td><span className="role-tag">{merchant.role}</span></td>
+                                                    <td><span className="role-tag">{userItem.role}</span></td>
                                                     <td>
                                                         <div className="slabs-list">
                                                             {userSlabs.length === 0 ? (
-                                                                <span style={{ color: '#64748b', fontSize: '12px' }}>
-                                                                    {matchingDownlineDefault ? 'Using Your Downline Default' : 'Using Global Defaults'}
-                                                                </span>
-                                                            ) : userSlabs.map(slab => (
+                                                                <span style={{ color: '#64748b', fontSize: '12px' }}>Using inherited slab charges.</span>
+                                                            ) : userSlabs.map((slab) => (
                                                                 <div key={slab.id} className="slab-badge">
-                                                                    <span style={{ color: '#fff', opacity: 0.5 }}>{slab.service_key?.toUpperCase()}: </span>
-                                                                    <span>₹{slab.min_amount} - ₹{slab.max_amount >= 999999 ? '∞' : slab.max_amount}: </span>
-                                                                    <strong>{slab.charge_type === 'percent' ? `${slab.charge_value}%` : `₹${slab.charge_value}`}</strong>
+                                                                    <span style={{ color: '#fff', opacity: 0.5 }}>{slab.service_key?.toUpperCase()}:</span>
+                                                                    <span>{formatRange(slab.min_amount, slab.max_amount)}</span>
+                                                                    <strong>{formatCharge(slab.charge_type, slab.charge_value)}</strong>
                                                                     <button className="remove-slab" onClick={() => handleDeleteSlab(slab.id)}>&times;</button>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     </td>
                                                     <td style={{ textAlign: 'right' }}>
-                                                        <button className="add-btn-v2" onClick={() => handleOpenOverride(merchant)}>+ Add Slab</button>
+                                                        <button className="add-btn-v2" onClick={() => handleOpenOverride(userItem)}>Set Override</button>
                                                     </td>
                                                 </tr>
                                             );
@@ -521,9 +595,9 @@ const ChargesPage = () => {
 
             {showModal && (
                 <div className="modal-overlay">
-                    <div className="modal-container" style={{ maxWidth: '500px' }}>
+                    <div className="modal-container" style={{ maxWidth: '560px' }}>
                         <div className="modal-header-gradient">
-                            <h3>{modalMode === 'global' ? 'Add Global Default' : modalMode === 'downline-default' ? 'Add Downline Default' : 'Override Amount Slab'}</h3>
+                            <h3>{modalMode === 'global' ? 'Add Global Default Slab' : modalMode === 'downline-default' ? 'Set Charge On Admin Slab' : 'Override Charge On Admin Slab'}</h3>
                             <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
                         </div>
                         <div className="modal-body hide-scrollbar">
@@ -536,43 +610,68 @@ const ChargesPage = () => {
                             )}
 
                             <div className="modal-grid">
-                                {modalMode !== 'override' && (
+                                {modalMode === 'global' && (
                                     <div className="form-group full-width">
                                         <label className="callback-label">Target Role</label>
                                         <select className="form-input-box" value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
-                                            {(modalMode === 'global' ? ['master', 'merchant', 'branch'] : currentUser?.role === 'admin' || currentUser?.role === 'staff' ? ['master'] : currentUser?.role === 'master' ? ['merchant'] : ['branch']).map((roleOption) => (
+                                            {GLOBAL_ROLE_OPTIONS.map((roleOption) => (
                                                 <option key={roleOption} value={roleOption}>{roleOption.charAt(0).toUpperCase() + roleOption.slice(1)}</option>
                                             ))}
                                         </select>
                                     </div>
                                 )}
-                                
+
                                 <div className="form-group full-width">
                                     <label className="callback-label">Service Type</label>
                                     <select className="form-input-box" value={serviceKey} onChange={(e) => setServiceKey(e.target.value)}>
-                                        <option value="payout">Settlement (Payout)</option>
-                                        <option value="branchx_payout">BranchX Payout Charge</option>
-                                        <option value="collection">Fund Request (Collection)</option>
+                                        {SERVICE_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
                                     </select>
                                 </div>
-                                
+
+                                {modalMode !== 'global' && (
+                                    <div className="form-group full-width">
+                                        <label className="callback-label">Admin Slab</label>
+                                        <select className="form-input-box" value={selectedBaseSlabId} onChange={(e) => setSelectedBaseSlabId(e.target.value)} disabled={availableBaseSlabs.length === 0}>
+                                            {availableBaseSlabs.length === 0 ? (
+                                                <option value="">No admin slab available</option>
+                                            ) : availableBaseSlabs.map((slab) => (
+                                                <option key={slab.id} value={slab.id}>
+                                                    {slab.serviceKey.toUpperCase()} | {formatRange(slab.minAmount, slab.maxAmount)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
                                 <div className="form-group">
-                                    <label className="callback-label">Min Amount (₹)</label>
-                                    <input type="number" className="form-input-box" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} placeholder="0" />
+                                    <label className="callback-label">Minimum Amount (Rs)</label>
+                                    <input type="number" className="form-input-box" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} readOnly={modalMode !== 'global'} />
                                 </div>
                                 <div className="form-group">
-                                    <label className="callback-label">Max Amount (₹)</label>
-                                    <input type="number" className="form-input-box" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} placeholder="999999" />
+                                    <label className="callback-label">Maximum Amount (Rs)</label>
+                                    <input type="number" className="form-input-box" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} readOnly={modalMode !== 'global'} />
                                 </div>
                                 <div className="form-group full-width">
-                                    <label className="callback-label">Charge Type</label>
-                                    <select className="form-input-box" value={chargeType} onChange={(e) => setChargeType(e.target.value)}>
-                                        <option value="percent">Percentage (%)</option>
-                                        <option value="flat">Flat (Rs)</option>
-                                    </select>
+                                    <label className="callback-label">{modalMode === 'global' ? 'Charge Mechanism' : 'Charge Mechanism (Inherited)'}</label>
+                                    {modalMode === 'global' ? (
+                                        <select className="form-input-box" value={chargeType} onChange={(e) => setChargeType(e.target.value)}>
+                                            <option value="percent">Percentage (%)</option>
+                                            <option value="flat">Flat (Rs)</option>
+                                        </select>
+                                    ) : (
+                                        <input className="form-input-box" value={chargeType === 'percent' ? 'Percentage (%)' : 'Flat (Rs)'} readOnly />
+                                    )}
                                 </div>
+                                {modalMode !== 'global' && (
+                                    <div className="form-group full-width">
+                                        <label className="callback-label">Inherited Charge</label>
+                                        <input className="form-input-box" value={selectedBaseSlab ? formatCharge(selectedBaseSlab.chargeType, selectedBaseSlab.chargeValue) : 'No slab selected'} readOnly />
+                                    </div>
+                                )}
                                 <div className="form-group full-width">
-                                    <label className="callback-label">Charge Value</label>
+                                    <label className="callback-label">{modalMode === 'global' ? 'Charge Value' : 'Your Charge Value'}</label>
                                     <input type="number" className="form-input-box" value={chargeValue} onChange={(e) => setChargeValue(e.target.value)} placeholder="0.00" />
                                 </div>
                             </div>
@@ -580,7 +679,7 @@ const ChargesPage = () => {
                         <div className="modal-footer">
                             <button className="btn-cancel" onClick={() => setShowModal(false)}>Close</button>
                             <button className="btn-create" onClick={handleSaveSlab}>
-                                {modalMode === 'global' ? 'Create Slab' : modalMode === 'downline-default' ? 'Save Default' : 'Apply Override'}
+                                {modalMode === 'global' ? 'Create Slab' : modalMode === 'downline-default' ? 'Save Charge' : 'Apply Override'}
                             </button>
                         </div>
                     </div>
