@@ -44,14 +44,6 @@ const ChargesPage = () => {
         ? allUsers
         : Array.isArray(merchants) ? merchants : [];
 
-    const inheritedTargetRole = currentUser?.role === 'admin'
-        ? 'master'
-        : currentUser?.role === 'master'
-            ? 'merchant'
-            : currentUser?.role === 'merchant'
-                ? 'branch'
-                : null;
-
     const parseErrorResponse = async (res, fallbackMessage) => {
         try {
             const contentType = res.headers.get('content-type') || '';
@@ -143,11 +135,11 @@ const ChargesPage = () => {
         userItem.role !== 'admin'
     ).slice(0, 5), [searchQuery, visibleUsers]);
 
-    const inheritedDownlineSlabs = useMemo(() =>
-        inheritedTargetRole
-            ? slabs.filter((slab) => slab.role === inheritedTargetRole)
+    const currentRoleSlabs = useMemo(() =>
+        currentUser?.role
+            ? slabs.filter((slab) => slab.role === currentUser.role)
             : [],
-        [inheritedTargetRole, slabs]
+        [currentUser?.role, slabs]
     );
 
     const availableBaseSlabs = useMemo(() => {
@@ -214,15 +206,21 @@ const ChargesPage = () => {
         setShowModal(true);
     };
 
-    const handleOpenDownlineDefault = (baseSlab) => {
+    const handleOpenSelfCharge = (baseSlab) => {
         resetModal();
-        setModalMode('downline-default');
-        const role = inheritedTargetRole || 'merchant';
-        setTargetRole(role);
+        setModalMode('override');
+        setTargetUser({
+            id: currentUser?.id,
+            userId: currentUser?.id,
+            fullName: currentUser?.name || currentUser?.email || 'Current User',
+            email: currentUser?.email || '',
+            role: currentUser?.role,
+        });
+        setTargetRole(currentUser?.role || 'merchant');
         setServiceKey(baseSlab.serviceKey);
         setSelectedBaseSlabId(baseSlab.id);
-        const existingDefault = findExistingDownlineDefault(role, baseSlab.serviceKey, baseSlab.minAmount);
-        setChargeValue(existingDefault ? String(existingDefault.charge_value) : '');
+        const existingOverride = findExistingOverride(currentUser?.id, baseSlab.serviceKey, baseSlab.minAmount);
+        setChargeValue(existingOverride ? String(existingOverride.charge_value) : '');
         setShowModal(true);
     };
 
@@ -371,7 +369,7 @@ const ChargesPage = () => {
         }
     };
 
-    const canManageDownlineDefaults = ['master', 'merchant'].includes(currentUser?.role);
+    const canManageOwnCharges = ['master', 'merchant'].includes(currentUser?.role);
 
     return (
         <div className="dashboard-layout">
@@ -478,10 +476,10 @@ const ChargesPage = () => {
                         </>
                     )}
 
-                    {canManageDownlineDefaults && (
+                    {canManageOwnCharges && (
                         <>
                             <div className="section-header">
-                                <h3>Default Charges For My Downline</h3>
+                                <h3>My Charge Slabs</h3>
                             </div>
                             <div className="charges-card animated-fade-in" style={{ background: 'rgba(34, 197, 94, 0.05)' }}>
                                 <div className="table-responsive">
@@ -498,21 +496,21 @@ const ChargesPage = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {inheritedDownlineSlabs.length === 0 ? (
-                                                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Admin has not created slabs for your hierarchy yet.</td></tr>
-                                            ) : inheritedDownlineSlabs.map((slab) => {
-                                                const existingDefault = findExistingDownlineDefault(inheritedTargetRole, slab.serviceKey, slab.minAmount);
+                                            {currentRoleSlabs.length === 0 ? (
+                                                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Admin has not created slabs for your role yet.</td></tr>
+                                            ) : currentRoleSlabs.map((slab) => {
+                                                const existingOverride = findExistingOverride(currentUser?.id, slab.serviceKey, slab.minAmount);
                                                 return (
                                                     <tr key={slab.id}>
                                                         <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{slab.role.replace('_', ' ')}</strong></td>
                                                         <td>{slab.serviceKey.replace('_', ' ').toUpperCase()}</td>
                                                         <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatRange(slab.minAmount, slab.maxAmount)}</span></td>
                                                         <td>{formatCharge(slab.chargeType, slab.chargeValue)}<div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>By admin</div></td>
-                                                        <td>{existingDefault ? formatCharge(existingDefault.charge_type, existingDefault.charge_value) : <span style={{ color: '#64748b' }}>Not set</span>}</td>
-                                                        <td><span className={`status-pill ${existingDefault ? 'active' : 'info'}`}>{existingDefault ? 'ACTIVE' : 'INHERITED'}</span></td>
+                                                        <td>{existingOverride ? formatCharge(existingOverride.charge_type, existingOverride.charge_value) : <span style={{ color: '#64748b' }}>Not set</span>}</td>
+                                                        <td><span className={`status-pill ${existingOverride ? 'active' : 'info'}`}>{existingOverride ? 'ACTIVE' : 'INHERITED'}</span></td>
                                                         <td style={{ textAlign: 'right' }}>
-                                                            <button className="add-btn-v2" onClick={() => handleOpenDownlineDefault(slab)}>
-                                                                {existingDefault ? 'Edit Charge' : 'Set Charge'}
+                                                            <button className="add-btn-v2" onClick={() => handleOpenSelfCharge(slab)}>
+                                                                {existingOverride ? 'Edit Charge' : 'Set Charge'}
                                                             </button>
                                                         </td>
                                                     </tr>
