@@ -17,6 +17,10 @@ function canManageGlobalSlabs(req: AuthRequest) {
 }
 
 function canCreateGlobalSlabs(req: AuthRequest) {
+  return canManageGlobalSlabs(req);
+}
+
+function canDeleteGlobalSlabs(req: AuthRequest) {
   return req.userRole === "admin";
 }
 
@@ -164,7 +168,7 @@ router.post("/slabs", requireAuth, async (req: AuthRequest, res) => {
     const { role, service_key, min_amount, max_amount, commission_type, commission_value, charge_type, charge_value } = req.body;
 
     if (!canCreateGlobalSlabs(req)) {
-        return res.status(403).json({ error: "Only admins can create new slabs." });
+        return res.status(403).json({ error: "Only admins or authorized staff can create new slabs." });
     }
     
     if (!role || !service_key) {
@@ -245,7 +249,7 @@ router.patch("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
 
 // DELETE /api/commission/slabs/:id — remove a global slab
 router.delete("/slabs/:id", requireAuth, async (req: AuthRequest, res) => {
-    if (!canCreateGlobalSlabs(req)) {
+    if (!canDeleteGlobalSlabs(req)) {
         return res.status(403).json({ error: "Only admins can delete slabs." });
     }
     try {
@@ -386,11 +390,11 @@ router.post("/downline-defaults", requireAuth, async (req: AuthRequest, res) => 
       return res.status(400).json({ error: "Charge and commission values cannot be negative." });
     }
 
-    if (req.userRole !== "admin") {
+    if (!canManageGlobalSlabs(req)) {
       const matchingSlab = await findMatchingGlobalSlab(target_role, service_key || "payout", n_min, n_max);
       if (!matchingSlab) {
         return res.status(400).json({
-          error: "Non-admin users can only set rates on slabs already created by admin.",
+          error: "Only admin or staff admin can create new slabs. Others must override charges on an existing admin-created slab.",
         });
       }
     }
@@ -493,7 +497,7 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
       }
     }
 
-    if (req.userRole !== "admin") {
+    if (!canManageGlobalSlabs(req)) {
       const actualTargetRole = (
         await prisma.userRole.findFirst({
           where: { userId: target_user_id },
@@ -506,7 +510,7 @@ router.post("/overrides", requireAuth, async (req: AuthRequest, res) => {
 
       if (!matchingSlab) {
         return res.status(400).json({
-          error: "Non-admin users can only set rates on slabs already created by admin.",
+          error: "Only admin or staff admin can create new slabs. Others must override charges on an existing admin-created slab.",
         });
       }
     }

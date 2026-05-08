@@ -291,7 +291,7 @@ const ChargesPage = () => {
         [downlineDefaults, currentUser]
     );
     const canManageDownlineDefaults = ['admin', 'staff', 'master', 'merchant'].includes(currentUser?.role);
-    const canCreateGlobalSlabs = currentUser?.role === 'admin';
+    const canCreateGlobalSlabs = currentUser?.role === 'admin' || currentUser?.role === 'staff';
     const defaultTargetLabel = currentUser?.role === 'admin' || currentUser?.role === 'staff'
         ? 'Masters'
         : currentUser?.role === 'master'
@@ -308,7 +308,7 @@ const ChargesPage = () => {
                     <div className="charges-header">
                         <div className="charges-title">
                             <h2>Charge Configuration</h2>
-                            <p>Admin creates slab ranges. Everyone else can only set rates against those admin-created slabs.</p>
+                            <p>Only admin or staff admin can create slab ranges. Everyone else can only override charges on those existing slabs.</p>
                         </div>
                         
                         <div className="charges-search-container">
