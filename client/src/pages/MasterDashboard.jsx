@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import MetricCard from '../components/MetricCard';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { formatRoleLabel, formatRolePlural } from '../utils/roleLabels';
 import './AdminDashboard.css';
 
 const MasterDashboard = () => {
@@ -15,35 +16,33 @@ const MasterDashboard = () => {
 
   const metrics = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
-    const todaysTxns = (transactions || []).filter(t => {
+    const todaysTxns = (transactions || []).filter((t) => {
       const d = t?.date || t?.createdAt;
       return d && String(d).startsWith(today);
     });
-    const successCount = (transactions || []).filter(t => t?.status === 'Completed' || t?.status === 'success').length;
-    const pendingRequests = (fundRequests || []).filter(r => r?.status === 'pending').length;
+    const successCount = (transactions || []).filter((t) => t?.status === 'Completed' || t?.status === 'success').length;
+    const pendingRequests = (fundRequests || []).filter((r) => r?.status === 'pending').length;
 
-    // Trend data from last 7 days
     const trendMap = {};
-    (transactions || []).forEach(t => {
+    (transactions || []).forEach((t) => {
       const day = (t?.createdAt || '').slice(0, 10);
       if (day) trendMap[day] = (trendMap[day] || 0) + Math.abs(Number(t?.amount) || 0);
     });
+
     const trendData = Object.entries(trendMap).slice(-7).map(([date, value]) => ({
       name: date.slice(5),
-      value
+      value,
     }));
 
     return {
       todaysCount: todaysTxns.length,
-      todaysVolume: todaysTxns.reduce((s, t) => s + Math.abs(Number(t?.amount) || 0), 0),
+      todaysVolume: todaysTxns.reduce((sum, t) => sum + Math.abs(Number(t?.amount) || 0), 0),
       totalMerchants: (merchants || []).length,
-      successRate: (transactions || []).length
-        ? ((successCount / transactions.length) * 100).toFixed(1)
-        : '0.0',
-      activeQrs: (qrCodes || []).filter(q => q && (q.status || '').toLowerCase() === 'active').length,
+      successRate: (transactions || []).length ? ((successCount / transactions.length) * 100).toFixed(1) : '0.0',
       pendingRequests,
       walletBalance: Number(wallet?.balance || 0),
       trendData: trendData.length ? trendData : [{ name: 'No data', value: 0 }],
+      activeQrs: (qrCodes || []).filter((q) => q && (q.status || '').toLowerCase() === 'active').length,
     };
   }, [transactions, merchants, qrCodes, fundRequests, wallet]);
 
@@ -55,15 +54,15 @@ const MasterDashboard = () => {
         <main className="dashboard-body animated">
           <div className="dashboard-header-row">
             <div className="title-section">
-              <h2>Master Dashboard</h2>
-              <p className="subtitle">Manage your merchant network and monitor performance</p>
+              <h2>{formatRoleLabel('master')} Dashboard</h2>
+              <p className="subtitle">Manage your distributor network and monitor performance</p>
             </div>
           </div>
 
           <div className="admin-hero-banner" style={{ background: 'var(--primary)' }}>
             <div className="admin-hero-text">
-              <h2>Welcome, {user?.name || 'Master'}</h2>
-              <p>Your network has <span>{metrics.totalMerchants}</span> merchants active today.</p>
+              <h2>Welcome, {user?.name || formatRoleLabel('master')}</h2>
+              <p>Your network has <span>{metrics.totalMerchants}</span> {formatRolePlural('merchant').toLowerCase()} active today.</p>
             </div>
             <div className="admin-hero-stats">
               <div className="admin-hero-stat">
@@ -90,7 +89,7 @@ const MasterDashboard = () => {
               to="/master/wallet"
             />
             <MetricCard
-              title="TOTAL MERCHANTS"
+              title={`TOTAL ${formatRolePlural('merchant').toUpperCase()}`}
               value={metrics.totalMerchants.toString()}
               icon="👥"
               iconBg="accent"
@@ -144,14 +143,14 @@ const MasterDashboard = () => {
           </div>
 
           <section className="recent-txns-section card">
-            <h3 className="section-title">RECENT MERCHANT ACTIVITY</h3>
+            <h3 className="section-title">RECENT DISTRIBUTOR ACTIVITY</h3>
             <div className="activity-list">
-              {(merchants || []).slice(0, 5).map((m, i) => (
-                <div className="activity-item" key={m?.id || i}>
-                  <span className="activity-icon info">Merchant</span>
+              {(merchants || []).slice(0, 5).map((member, index) => (
+                <div className="activity-item" key={member?.id || index}>
+                  <span className="activity-icon info">{formatRoleLabel('merchant')}</span>
                   <div className="activity-details">
-                    <p><strong>{m?.fullName || m?.businessName || 'Merchant'}</strong> — {m?.status || 'active'}</p>
-                    <span className="activity-time">Wallet: ₹{Number(m?.walletBalance || 0).toLocaleString()}</span>
+                    <p><strong>{member?.fullName || member?.businessName || formatRoleLabel('merchant')}</strong> - {member?.status || 'active'}</p>
+                    <span className="activity-time">Wallet: ₹{Number(member?.walletBalance || 0).toLocaleString()}</span>
                   </div>
                   <button
                     className="view-all-link"
@@ -164,7 +163,7 @@ const MasterDashboard = () => {
               ))}
               {(!merchants || merchants.length === 0) && (
                 <p style={{ color: '#64748b', padding: '16px 0', textAlign: 'center' }}>
-                  No merchants yet. <button className="view-all-link" onClick={() => navigate('/master/merchants')}>Add one →</button>
+                  No distributors yet. <button className="view-all-link" onClick={() => navigate('/master/merchants')}>Add one →</button>
                 </p>
               )}
             </div>

@@ -4,7 +4,7 @@ import './index.css'
 import App from './App.jsx'
 
 // Global fix for number inputs: disable scroll to change value
-document.addEventListener("wheel", (e) => {
+document.addEventListener("wheel", () => {
   if (document.activeElement.type === "number") {
     document.activeElement.blur();
   }

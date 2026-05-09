@@ -88,7 +88,7 @@ const SupportAdminPage = () => {
                         <div className="support-header-icon">🎫</div>
                         <div>
                             <h1>Support Management</h1>
-                            <p>Review and respond to merchant inquiries</p>
+                            <p>Review and respond to distributor inquiries</p>
                         </div>
                     </header>
 
@@ -154,7 +154,7 @@ const SupportAdminPage = () => {
                                 <h3>Manage Support Ticket</h3>
                                 
                                 <div className="ticket-context">
-                                    <strong>Merchant Message</strong>
+                                    <strong>Distributor Message</strong>
                                     <p>{selectedTicket.message}</p>
                                 </div>
 
@@ -162,7 +162,7 @@ const SupportAdminPage = () => {
                                     <div className="form-group">
                                         <label>Your Reply</label>
                                         <textarea 
-                                            placeholder="Type your response to the merchant..."
+                                            placeholder="Type your response to the distributor..."
                                             value={replyText}
                                             onChange={(e) => setReplyText(e.target.value)}
                                             style={{minHeight: '150px'}}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { QRCodeSVG } from 'qrcode.react';
@@ -31,7 +31,6 @@ const QrCodesPage = () => {
   const [fixingQr, setFixingQr] = useState(null);
   const [manualUpi, setManualUpi] = useState('');
   const [isFixing, setIsFixing] = useState(false);
-  const [selectedQrId, setSelectedQrId] = useState(null);
   const [reportQr, setReportQr] = useState(null);
   const [qrReport, setQrReport] = useState(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
@@ -47,17 +46,13 @@ const QrCodesPage = () => {
 
   const activeQr = useMemo(() => {
     if (myDirectQrs.length === 0) return null;
-    if (selectedQrId) {
-      const found = myDirectQrs.find((q) => q.id === selectedQrId);
-      if (found) return found;
-    }
     const sorted = [...myDirectQrs].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const verified = sorted.filter((q) => {
       const upi = (q.upiId || '').trim();
       return upi && !upi.startsWith('MANUAL-UPI');
     });
     return verified.length > 0 ? verified[0] : sorted[0];
-  }, [myDirectQrs, selectedQrId]);
+  }, [myDirectQrs]);
 
   const getUpiString = (amount = 0) => {
     if (!activeQr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
@@ -97,7 +92,7 @@ const QrCodesPage = () => {
       setFixingQr(null);
       setManualUpi('');
       success('UPI ID updated successfully.');
-    } catch (err) {
+    } catch {
       error('Failed to update UPI ID. Please try again.');
     } finally {
       setIsFixing(false);

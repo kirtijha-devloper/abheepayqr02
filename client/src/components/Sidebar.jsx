@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+/* eslint-disable react-hooks/set-state-in-effect */
+import React, { useEffect, useRef, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { formatRoleLabel } from '../utils/roleLabels';
 import './Sidebar.css';
 
 const MOBILE_BREAKPOINT = 940;
@@ -88,9 +90,9 @@ const Sidebar = () => {
 
   const adminItems = [
     { name: 'Dashboard', icon: '▦', path: '/admin/dashboard', feature: 'dashboard', category: 'MAIN' },
-    { name: 'Staff Panel', icon: '🛡️', path: '/admin/staff', category: 'MANAGEMENT' },
+    { name: 'Staff Panel', icon: '🛡', path: '/admin/staff', category: 'MANAGEMENT' },
     { name: 'Transactions', icon: '⇄', path: '/admin/transactions', feature: 'transactions', category: 'MAIN' },
-    { name: 'Masters', icon: '👥', path: '/admin/merchants', feature: 'masters', category: 'MAIN' },
+    { name: 'Super Distributors', icon: '👥', path: '/admin/merchants', feature: 'masters', category: 'MAIN' },
     { name: 'User List', icon: '👥', path: '/admin/users', feature: 'users', category: 'MAIN' },
     { name: 'Wallet', icon: '💳', path: '/admin/wallet', feature: 'wallet', category: 'MAIN' },
     { name: 'Reconciliation', icon: '⚖', path: '/admin/reconciliation', feature: 'reconciliation', category: 'MANAGEMENT' },
@@ -108,7 +110,7 @@ const Sidebar = () => {
   const masterItems = [
     { name: 'Dashboard', icon: '▦', path: '/master/dashboard', feature: 'dashboard', category: 'MAIN' },
     { name: 'Transactions', icon: '⇄', path: '/master/transactions', feature: 'transactions', category: 'MAIN' },
-    { name: 'Merchants', icon: '👥', path: '/master/merchants', feature: 'merchants', category: 'MAIN' },
+    { name: 'Distributors', icon: '👥', path: '/master/merchants', feature: 'merchants', category: 'MAIN' },
     { name: 'Wallet', icon: '💳', path: '/master/wallet', feature: 'wallet', category: 'MAIN' },
     { name: 'Ledger', icon: '≡', path: '/master/ledger', feature: 'ledger', category: 'MANAGEMENT' },
     { name: 'QR Codes', icon: '🔳', path: '/master/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
@@ -134,7 +136,7 @@ const Sidebar = () => {
     const permissionMap = {
       'Staff Panel': 'canManageSecurity',
       Transactions: 'canViewReports',
-      Masters: 'canManageUsers',
+      'Super Distributors': 'canManageUsers',
       'User List': 'canManageUsers',
       Wallet: 'canManageFinances',
       Reconciliation: 'canManageFinances',
@@ -148,10 +150,11 @@ const Sidebar = () => {
       Charges: 'canManageCommissions',
       Settings: 'canManageSettings',
     };
+
     const pageMap = {
       Dashboard: 'dashboard',
       Transactions: 'transactions',
-      Masters: 'masters',
+      'Super Distributors': 'masters',
       'User List': 'users',
       Wallet: 'wallet',
       Reconciliation: 'reconciliation',
@@ -176,20 +179,20 @@ const Sidebar = () => {
   const getMenuItems = () => {
     let items = [];
     if (isAdmin) {
-      if (user?.role === 'staff') {
-        items = adminItems.filter((item) => canAccessAdminItem(item));
-      } else {
-        items = adminItems;
-      }
-    } else if (isMaster) items = masterItems.filter((item) => hasFeatureEnabled(item.feature));
-    else if (user?.role === 'merchant') items = merchantItems.filter((item) => hasFeatureEnabled(item.feature));
-    else if (user?.role === 'branch') items = branchItems.filter((item) => hasFeatureEnabled(item.feature));
-    else items = merchantItems.filter((item) => hasFeatureEnabled(item.feature));
+      items = user?.role === 'staff' ? adminItems.filter((item) => canAccessAdminItem(item)) : adminItems;
+    } else if (isMaster) {
+      items = masterItems.filter((item) => hasFeatureEnabled(item.feature));
+    } else if (user?.role === 'merchant') {
+      items = merchantItems.filter((item) => hasFeatureEnabled(item.feature));
+    } else if (user?.role === 'branch') {
+      items = branchItems.filter((item) => hasFeatureEnabled(item.feature));
+    } else {
+      items = merchantItems.filter((item) => hasFeatureEnabled(item.feature));
+    }
     return items;
   };
 
   const menuItems = getMenuItems();
-  
   const groupedItems = menuItems.reduce((acc, item) => {
     const cat = item.category || 'MAIN';
     if (!acc[cat]) acc[cat] = [];
@@ -207,14 +210,11 @@ const Sidebar = () => {
       />
       <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-logo">
-          <div className="logo-wordmark">
-            <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em' }}>LeoPay</span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Platform</span>
-          </div>
+          <img className="brand-logo-image" src="/liopay-logo.jpg" alt="LIOPAY" />
         </div>
 
         <nav className="sidebar-nav" ref={navRef} onScroll={handleScroll}>
-          {order.map(cat => {
+          {order.map((cat) => {
             if (!groupedItems[cat] || groupedItems[cat].length === 0) return null;
             return (
               <div key={cat} className="sidebar-group">
@@ -242,7 +242,7 @@ const Sidebar = () => {
             <div className="user-avatar">{user?.name ? user.name.charAt(0).toUpperCase() : 'U'}</div>
             <div className="user-details">
               <span className="user-name">{user?.name || 'User'}</span>
-              <span className="user-role">{user?.role ? user.role.toUpperCase() : 'USER'}</span>
+              <span className="user-role">{formatRoleLabel(user?.role)}</span>
             </div>
             <button className="logout-btn" type="button" onClick={handleLogout} aria-label="Logout">
               ↪

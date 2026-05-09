@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import ManualQrModal from '../components/ManualQrModal';
@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { UPLOADS_BASE, API_BASE } from '../config';
+import { formatRoleLabel } from '../utils/roleLabels';
 import jsQR from 'jsqr';
 import JSZip from 'jszip';
 import './QrCodesAdminPage.css';
@@ -77,8 +78,8 @@ const QrCodesAdminPage = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) setDownline(await res.json());
-      } catch (e) {
-        console.error('Failed to fetch downline', e);
+      } catch (error) {
+        console.error('Failed to fetch downline', error);
       }
     };
     if (isMerchantUser) fetchDownline();
@@ -163,7 +164,7 @@ const QrCodesAdminPage = () => {
             } else {
                 setScanError('Could not find a valid QR code in this image.');
             }
-        } catch (err) {
+        } catch {
             setScanError('Error scanning QR code.');
         } finally {
             setIsScanning(false);
@@ -387,7 +388,7 @@ const QrCodesAdminPage = () => {
               <div className="qr-header-icon">⊞</div>
               <div className="qr-text-group">
                 <h2>QR Management</h2>
-                <p>Onboard physical QR codes and link them to merchant MIDs.</p>
+                <p>Onboard physical QR codes and link them to distributor MIDs.</p>
               </div>
             </div>
             <button className="manual-create-top-btn" onClick={() => setIsModalOpen(true)}>
@@ -491,7 +492,7 @@ const QrCodesAdminPage = () => {
                         />
                       </div>
                       <div className="form-group-v2">
-                        <label>Assign Merchant</label>
+                        <label>Assign Distributor</label>
                         <select 
                           className="inner-input"
                           value={formData.merchantId}
@@ -641,7 +642,7 @@ const QrCodesAdminPage = () => {
                     >
                       {adminAssignableRoles.map(role => (
                         <option key={role} value={role}>
-                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                          {formatRoleLabel(role)}
                         </option>
                       ))}
                     </select>
@@ -654,7 +655,7 @@ const QrCodesAdminPage = () => {
                     style={{ width: '250px', background: 'var(--bg-input)', color: 'var(--text-h)' }}
                   >
                   <option value="">
-                    {isMerchantUser ? 'Select Branch' : `Select ${assignRoleFilter.charAt(0).toUpperCase() + assignRoleFilter.slice(1)}`}
+                    {isMerchantUser ? 'Select Branch' : `Select ${formatRoleLabel(assignRoleFilter)}`}
                   </option>
                   {filteredAssignTargets.map(m => (
                     <option key={m.id || m.userId} value={m.userId || m.id}>{m.fullName || m.email}</option>
@@ -741,7 +742,7 @@ const QrCodesAdminPage = () => {
                         />
                       </th>
                       <th>UPI Handle</th>
-                      <th>Assigned Merchant</th>
+                      <th>Assigned Distributor</th>
                       <th>Label & TID/MID</th>
                       <th>Status</th>
                       <th>Actions</th>
@@ -755,8 +756,6 @@ const QrCodesAdminPage = () => {
                         if (assignFilter === 'Unassigned' && q.merchantName !== 'Unassigned') return false;
                         return true;
                       });
-                      const totalPages = Math.ceil(filteredQrs.length / itemsPerPage) || 1;
-                      
                       return (
                         <>
                           {filteredQrs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(item => (
@@ -952,7 +951,7 @@ const QrCodesAdminPage = () => {
                     >
                       {adminAssignableRoles.map(role => (
                         <option key={role} value={role}>
-                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                          {formatRoleLabel(role)}
                         </option>
                       ))}
                     </select>
@@ -967,7 +966,7 @@ const QrCodesAdminPage = () => {
                     }}
                   >
                     <option value="">
-                      {isMerchantUser ? '— Select Branch to Assign —' : `— Select ${assignRoleFilter.charAt(0).toUpperCase() + assignRoleFilter.slice(1)} to Assign —`}
+                      {isMerchantUser ? '— Select Branch to Assign —' : `— Select ${formatRoleLabel(assignRoleFilter)} to Assign —`}
                     </option>
                     {filteredAssignTargets.map(m => (
                       <option key={m.id || m.userId} value={m.userId || m.id}>{m.fullName || m.email}</option>
@@ -983,7 +982,7 @@ const QrCodesAdminPage = () => {
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    {isAssigning ? 'Assigning...' : `🔗 Assign to ${isMerchantUser ? 'Branch' : assignRoleFilter.charAt(0).toUpperCase() + assignRoleFilter.slice(1)}`}
+                    {isAssigning ? 'Assigning...' : `🔗 Assign to ${isMerchantUser ? 'Branch' : formatRoleLabel(assignRoleFilter)}`}
                   </button>
                   <button 
                     onClick={() => setSelectedQrIds([])}

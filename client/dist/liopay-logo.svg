@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" role="img" aria-labelledby="liopayLogoTitle liopayLogoDesc">
+  <title id="liopayLogoTitle">LIOPAY</title>
+  <desc id="liopayLogoDesc">Lion mark with LIOPAY wordmark</desc>
+  <defs>
+    <linearGradient id="lionMane" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff7a18"/>
+      <stop offset="38%" stop-color="#ff2d55"/>
+      <stop offset="72%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="lionFace" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff2d6"/>
+      <stop offset="100%" stop-color="#f5b971"/>
+    </linearGradient>
+    <linearGradient id="wordFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb7185"/>
+      <stop offset="32%" stop-color="#f97316"/>
+      <stop offset="62%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#111827" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <g filter="url(#softGlow)">
+    <circle cx="64" cy="60" r="46" fill="url(#lionMane)"/>
+    <circle cx="64" cy="60" r="33" fill="url(#lionFace)"/>
+    <path d="M40 52c6-17 31-22 46-6 3 3 5 7 6 11-5-4-10-6-17-7-8-2-16-1-24 2l-11 0z" fill="#6b3416"/>
+    <path d="M45 78c10 10 28 12 40 2-2-11-10-20-21-22-10-2-19 3-24 12 0 3 2 6 5 8z" fill="#fff4e0"/>
+    <path d="M54 67c6 3 15 3 22 0-1 6-6 11-11 11-6 0-10-4-11-11z" fill="#2b1710"/>
+    <path d="M60 61l4 5 4-5z" fill="#ef4444"/>
+    <ellipse cx="53" cy="56" rx="4.5" ry="5" fill="#20120d"/>
+    <ellipse cx="76" cy="56" rx="4.5" ry="5" fill="#20120d"/>
+    <circle cx="51.5" cy="54.5" r="1.2" fill="#fff"/>
+    <circle cx="74.5" cy="54.5" r="1.2" fill="#fff"/>
+    <path d="M39 84c10 16 41 18 54 3-4 10-16 19-29 19-12 0-22-7-25-22z" fill="#7c2d12" opacity=".72"/>
+  </g>
+  <g transform="translate(124 24)">
+    <path d="M0 58V4h16v41h26v13H0z" fill="url(#wordFill)"/>
+    <path d="M50 58V4h16v54H50z" fill="url(#wordFill)"/>
+    <path d="M99 60c-17 0-29-12-29-29S82 2 99 2c18 0 30 12 30 29s-12 29-30 29zm0-13c8 0 14-6 14-16s-6-16-14-16c-7 0-13 6-13 16s6 16 13 16z" fill="url(#wordFill)"/>
+    <path d="M137 58V4h28c16 0 26 8 26 22 0 15-10 23-26 23h-12v9h-16zm16-21h11c7 0 11-3 11-9 0-5-4-8-11-8h-11v17z" fill="url(#wordFill)"/>
+    <path d="M190 58l24-54h16l24 54h-17l-4-10h-23l-4 10h-16zm25-22h13l-6-16-7 16z" fill="url(#wordFill)"/>
+    <path d="M272 58V38L249 4h18l13 20 13-20h18l-23 34v20h-16z" fill="url(#wordFill)"/>
+    <path d="M0 70c44 11 104 11 182 0" fill="none" stroke="url(#wordFill)" stroke-linecap="round" stroke-width="8" opacity=".85"/>
+  </g>
+</svg>

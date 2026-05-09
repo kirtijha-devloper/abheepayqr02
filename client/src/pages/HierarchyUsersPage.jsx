@@ -5,6 +5,7 @@ import { API_BASE } from '../config';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
+import { formatRolePlural, normalizeLegacyRoleText } from '../utils/roleLabels';
 import './HierarchyUsersPage.css';
 import './MerchantsPage.css'; // Reuse MerchantsPage styles
 
@@ -35,13 +36,14 @@ const HierarchyUsersPage = () => {
     const [activeStatusTab, setActiveStatusTab] = useState('All');
     const { success, error } = useToast();
     const { getImpersonateToken } = useAuth();
-    const { updateMerchantStatus, deleteMerchant, updateMerchant } = useAppContext();
+    const { updateMerchantStatus, deleteMerchant, updateMerchant, holdWallet, unholdWallet } = useAppContext();
 
     // Modal state
     const [showModal, setShowModal] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [formData, setFormData] = useState(emptyForm);
+    const [showHoldModal, setShowHoldModal] = useState(false);
+    const [holdData, setHoldData] = useState({ amount: '', description: '', type: 'hold' });
 
     const fetchAllUsers = async () => {
         try {
@@ -53,7 +55,7 @@ const HierarchyUsersPage = () => {
                 const data = await res.json();
                 setAllUsers(data);
             }
-        } catch (err) {
+        } catch {
             error("Failed to load users");
         } finally {
             setLoading(false);
@@ -79,9 +81,9 @@ const HierarchyUsersPage = () => {
     }), [allUsers, selectedRole, activeStatusTab, searchTerm]);
 
     const roles = [
-        { key: 'master', label: 'Masters', icon: '👑', desc: 'Top-level partners managing downlines.' },
-        { key: 'merchant', label: 'Merchants', icon: '🏪', desc: 'Direct retailers and business owners.' },
-        { key: 'branch', label: 'Branches', icon: '📍', desc: 'Sub-outlets under merchants.' }
+        { key: 'master', label: formatRolePlural('master'), icon: '👑', desc: 'Top-level partners managing downlines.' },
+        { key: 'merchant', label: formatRolePlural('merchant'), icon: '🏪', desc: 'Direct retailers and business owners.' },
+        { key: 'branch', label: formatRolePlural('branch'), icon: '📍', desc: 'Sub-outlets under distributors.' }
     ];
 
     const handleLoginAs = async (targetUserId) => {
@@ -91,7 +93,7 @@ const HierarchyUsersPage = () => {
                 sessionStorage.setItem('authToken', token);
                 window.location.href = '/dashboard';
             }
-        } catch (err) {
+        } catch {
             error("Impersonation failed");
         }
     };
@@ -121,7 +123,6 @@ const HierarchyUsersPage = () => {
 
     const handleEdit = (user) => {
         setSelectedUser(user);
-        setIsEditing(true);
         const names = (user.fullName || '').split(' ');
         setFormData({
             ...emptyForm,
@@ -161,6 +162,29 @@ const HierarchyUsersPage = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleHoldAction = (user, type = 'hold') => {
+        setSelectedUser(user);
+        setHoldData({ amount: '', description: '', type });
+        setShowHoldModal(true);
+    };
+
+    const submitHold = async (e) => {
+        e.preventDefault();
+        if (!selectedUser) return;
+        
+        const action = holdData.type === 'hold' ? holdWallet : unholdWallet;
+        const res = await action(selectedUser.userId || selectedUser.id, Number(holdData.amount), holdData.description);
+        
+        if (res.success) {
+            success(`Wallet ${holdData.type} successful.`);
+            setShowHoldModal(false);
+            setSelectedUser(null);
+            fetchAllUsers();
+        } else {
+            error(res.error || `Failed to ${holdData.type} wallet`);
+        }
     };
 
     return (
@@ -247,7 +271,7 @@ const HierarchyUsersPage = () => {
                                             <tr>
                                                 <td colSpan="6" style={{ padding: '80px', textAlign: 'center' }}>
                                                     <div style={{ fontSize: '48px', marginBottom: '15px', opacity: 0.1 }}>👥</div>
-                                                    <p style={{ color: '#64748b' }}>No matching {selectedRole}s found.</p>
+                                                    <p style={{ color: '#64748b' }}>No matching {formatRolePlural(selectedRole).toLowerCase()} found.</p>
                                                 </td>
                                             </tr>
                                         ) : filteredUsers.map((user, index) => (
@@ -258,17 +282,22 @@ const HierarchyUsersPage = () => {
                                                 <td>
                                                     <div className="merchant-name-cell">
                                                         <div className="merchant-avatar">
-                                                            {(user.fullName || 'U').charAt(0).toUpperCase()}
+                                                            {normalizeLegacyRoleText(user.fullName || 'U').charAt(0).toUpperCase()}
                                                         </div>
                                                         <div className="merchant-name-info">
-                                                            <div className="m-name">{user.fullName || 'Unnamed'}</div>
+                                                            <div className="m-name">{normalizeLegacyRoleText(user.fullName || 'Unnamed')}</div>
                                                             <div className="m-email">{user.email}</div>
                                                             {user.phone && <div className="m-email" style={{opacity: 0.8}}>{user.phone}</div>}
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="volume-cell">
-                                                    Rs {Number(user.walletBalance || 0).toFixed(2)}
+                                                    <div className="hold-balance-info">
+                                                        <div>Rs {Number(user.walletBalance || 0).toFixed(2)}</div>
+                                                        {Number(user.holdBalance || 0) > 0 && (
+                                                            <div className="hold-amount">Holded Amount: Rs {Number(user.holdBalance).toFixed(2)}</div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     <span className={`status-pill ${(user.status || 'active').toLowerCase()}`} onClick={() => handleToggleStatus(user)} style={{cursor: 'pointer'}}>
@@ -286,7 +315,7 @@ const HierarchyUsersPage = () => {
                                                     <div className="merchant-actions">
                                                         <button className="action-btn login-btn" onClick={() => handleLoginAs(user.userId)}>Login</button>
                                                         <button className="action-btn" onClick={() => handleEdit(user)}>Edit</button>
-                                                        
+                                                        <button className="action-btn hold-btn" onClick={() => handleHoldAction(user, 'hold')}>Hold / Unhold</button>
                                                         <button className="action-btn danger-btn" onClick={() => handleDeleteUser(user.userId)}>Delete</button>
                                                     </div>
                                                 </td>
@@ -297,7 +326,7 @@ const HierarchyUsersPage = () => {
                             </div>
 
                             <div className="txn-table-footer">
-                                <span className="txn-count-text">Showing {filteredUsers.length} {selectedRole}s</span>
+                                <span className="txn-count-text">Showing {filteredUsers.length} {formatRolePlural(selectedRole).toLowerCase()}</span>
                                 <div className="pagination-v2">
                                     <button className="nav-btn-v2" disabled>Prev</button>
                                     <button className="nav-num-v2 active">1</button>
@@ -314,7 +343,7 @@ const HierarchyUsersPage = () => {
                 <div className="modal-overlay">
                     <div className="modal-container">
                         <div className="modal-header-gradient">
-                            <h3>Edit Member: {selectedUser?.fullName}</h3>
+                            <h3>Edit Member: {normalizeLegacyRoleText(selectedUser?.fullName || '')}</h3>
                             <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
                         </div>
                         <form onSubmit={handleUpdate}>
@@ -355,6 +384,76 @@ const HierarchyUsersPage = () => {
                             <div className="modal-footer">
                                 <button type="button" className="btn-cancel" onClick={() => setShowModal(false)}>Cancel</button>
                                 <button type="submit" className="btn-create">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {showHoldModal && (
+                <div className="modal-overlay">
+                    <div className="modal-container" style={{ maxWidth: '450px' }}>
+                        <div className="modal-header-gradient" style={{ background: holdData.type === 'hold' ? 'var(--warning-bg)' : 'var(--success-bg)' }}>
+                            <h3>{holdData.type === 'hold' ? 'Hold Wallet Amount' : 'Release Holded Amount'}</h3>
+                            <button className="close-modal" onClick={() => setShowHoldModal(false)}>&times;</button>
+                        </div>
+                        <form onSubmit={submitHold}>
+                            <div className="modal-body">
+                                <div className="hold-modal-info">
+                                    <div className="hold-modal-merchant">USER IDENTITY</div>
+                                    <div className="hold-modal-name">{normalizeLegacyRoleText(selectedUser?.fullName || '')}</div>
+                                    <div className="hold-modal-stats">
+                                        <div className="hold-stat-card">
+                                            <div className="hold-stat-label">AVAILABLE</div>
+                                            <div className="hold-stat-value success">₹{Number(selectedUser?.walletBalance || 0).toFixed(2)}</div>
+                                        </div>
+                                        <div className="hold-stat-card">
+                                            <div className="hold-stat-label">HOLDED AMOUNT</div>
+                                            <div className="hold-stat-value warning">₹{Number(selectedUser?.holdBalance || 0).toFixed(2)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                    <label className="callback-label">Action</label>
+                                    <select 
+                                        className="form-input-box" 
+                                        value={holdData.type}
+                                        onChange={(e) => setHoldData({ ...holdData, type: e.target.value })}
+                                    >
+                                        <option value="hold">Hold Amount</option>
+                                        <option value="unhold">Release Amount</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="callback-label">Amount to {holdData.type === 'hold' ? 'Hold' : 'Release'}</label>
+                                    <input 
+                                        type="number" 
+                                        className="form-input-box" 
+                                        placeholder="Enter amount" 
+                                        required 
+                                        step="0.01"
+                                        min="0.01"
+                                        value={holdData.amount}
+                                        onChange={(e) => setHoldData({ ...holdData, amount: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="callback-label">Reason / Description</label>
+                                    <textarea 
+                                        className="form-input-box" 
+                                        placeholder="Reason for this action" 
+                                        rows="3"
+                                        style={{ resize: 'none' }}
+                                        value={holdData.description}
+                                        onChange={(e) => setHoldData({ ...holdData, description: e.target.value })}
+                                    ></textarea>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="btn-cancel" onClick={() => setShowHoldModal(false)}>Cancel</button>
+                                <button type="submit" className={holdData.type === 'hold' ? 'btn-hold' : 'btn-unhold'}>
+                                    Confirm {holdData.type === 'hold' ? 'Hold' : 'Release'}
+                                </button>
                             </div>
                         </form>
                     </div>

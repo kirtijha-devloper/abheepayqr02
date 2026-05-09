@@ -68,7 +68,7 @@ const CallbacksPage = () => {
             });
             if (!res.ok) throw new Error("Update failed");
             setMessage({ type: 'success', text: 'Callback URL updated successfully!' });
-        } catch (err) {
+        } catch {
             setMessage({ type: 'error', text: 'Failed to update URL.' });
         } finally {
             setSaving(false);
@@ -87,7 +87,7 @@ const CallbacksPage = () => {
             if (!res.ok) throw new Error("Resend failed");
             setMessage({ type: 'success', text: 'Callback re-sent successfully!' });
             fetchData();
-        } catch (err) {
+        } catch {
             setMessage({ type: 'error', text: 'Failed to re-send callback.' });
         }
     };

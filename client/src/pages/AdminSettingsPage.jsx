@@ -6,6 +6,7 @@ import { API_BASE } from '../config';
 import { useToast } from '../context/ToastContext';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { formatRoleLabel, formatRolePlural } from '../utils/roleLabels';
 import './AdminSettingsPage.css';
 
 const defaultPayoutConfig = {
@@ -15,7 +16,7 @@ const defaultPayoutConfig = {
 };
 
 const defaultLocalSettings = {
-  appName: 'LeoPay',
+  appName: 'LIOPAY',
   language: 'English (US)',
   timezone: 'IST (India Standard Time) - GMT+5:30',
   notifications: { txnAlerts: true, securityAlerts: true, monthlyReports: false },
@@ -25,7 +26,7 @@ const featureOptionsByRole = {
   staff: [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'transactions', label: 'Transactions' },
-    { key: 'masters', label: 'Masters' },
+    { key: 'masters', label: formatRolePlural('master') },
     { key: 'users', label: 'User List' },
     { key: 'wallet', label: 'Wallet' },
     { key: 'reconciliation', label: 'Reconciliation' },
@@ -42,7 +43,7 @@ const featureOptionsByRole = {
   master: [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'transactions', label: 'Transactions' },
-    { key: 'merchants', label: 'Merchants' },
+    { key: 'merchants', label: formatRolePlural('merchant') },
     { key: 'wallet', label: 'Wallet' },
     { key: 'ledger', label: 'Ledger' },
     { key: 'qr_codes', label: 'QR Codes' },
@@ -112,7 +113,7 @@ const AdminSettingsPage = () => {
   const parsedConfig = (() => {
     try {
       return JSON.parse(dbSettings.payout_config);
-    } catch (e) {
+    } catch {
       return defaultPayoutConfig;
     }
   })();
@@ -185,7 +186,7 @@ const AdminSettingsPage = () => {
       const selectedUser = allUsers.find((item) => (item.userId || item.id) === selectedFeatureUserId) || null;
       setSearchUser(
         selectedUser
-          ? `${selectedUser.fullName || selectedUser.email} (${String(selectedUser.role || '').toUpperCase()})`
+          ? `${selectedUser.fullName || selectedUser.email} (${formatRoleLabel(selectedUser.role)})`
           : ''
       );
     }
@@ -284,7 +285,7 @@ const AdminSettingsPage = () => {
         const data = await res.json();
         error(data.error || 'Failed to update name.');
       }
-    } catch (err) {
+    } catch {
       error('Error updating name.');
     } finally {
       setIsSavingProfile(false);
@@ -316,7 +317,7 @@ const AdminSettingsPage = () => {
         const data = await res.json();
         error(data.error || 'Failed to change password.');
       }
-    } catch (err) {
+    } catch {
       error('Error updating password.');
     }
   };
@@ -350,7 +351,7 @@ const AdminSettingsPage = () => {
         const data = await res.json();
         error(data.error || 'Failed to update transaction PIN.');
       }
-    } catch (err) {
+    } catch {
       error('Error updating transaction PIN.');
     }
   };
@@ -360,7 +361,7 @@ const AdminSettingsPage = () => {
     setDbSettings({ payout_config: JSON.stringify(defaultPayoutConfig) });
   };
 
-  const formatFeatureUserLabel = (item) => `${item.fullName || item.email} (${String(item.role || '').toUpperCase()})`;
+  const formatFeatureUserLabel = (item) => `${item.fullName || item.email} (${formatRoleLabel(item.role)})`;
   const selectedFeatureUser = allUsers.find((item) => (item.userId || item.id) === selectedFeatureUserId) || null;
   const selectedFeatureOptions = featureOptionsByRole[selectedFeatureUser?.role] || [];
   const selectedFeatureValues = featureAccessMap[selectedFeatureUserId] || selectedFeatureOptions.map((item) => item.key);
@@ -494,7 +495,7 @@ const AdminSettingsPage = () => {
                         <input
                           type="text"
                           className="premium-input payout-readonly-input"
-                          value={user?.role ? user.role.toUpperCase() : ''}
+                          value={user?.role ? formatRoleLabel(user.role) : ''}
                           disabled
                         />
                       </div>
@@ -775,7 +776,7 @@ const AdminSettingsPage = () => {
                                   }}
                                 >
                                   <span className="user-search-option-name">{item.fullName || item.email}</span>
-                                  <span className="user-search-option-meta">{String(item.role || '').toUpperCase()}</span>
+                                  <span className="user-search-option-meta">{formatRoleLabel(item.role)}</span>
                                 </button>
                               ))
                             ) : (
@@ -856,8 +857,8 @@ const AdminSettingsPage = () => {
               {activeTab === 'payouts' && (
                 <div className="portal-card card animated-fade-in">
                   <div className="portal-header">
-                    <h3>Merchant Payout Rules</h3>
-                    <p>Configure how much merchants are charged for bank withdrawals based on the amount range.</p>
+                    <h3>Distributor Payout Rules</h3>
+                    <p>Configure how much distributors are charged for bank withdrawals based on the amount range.</p>
                   </div>
                   <div className="portal-content">
                     <div className="payout-config-block">
@@ -953,7 +954,7 @@ const AdminSettingsPage = () => {
 
                     <div className="payout-default-block">
                       <label className="settings-section-label">Default Fee (if no range matches)</label>
-                      <p className="settings-helper-text">Applied when the merchant withdrawal amount does not fall in any range above.</p>
+                      <p className="settings-helper-text">Applied when the distributor withdrawal amount does not fall in any range above.</p>
                       <input
                         type="number"
                         className="premium-input payout-default-input"

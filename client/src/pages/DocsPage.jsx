@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import './DocsPage.css';
@@ -20,8 +19,6 @@ const sections = [
 const DocsPage = () => {
   const [activeSection, setActiveSection] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
-  const navigate = useNavigate();
-
   const filteredSections = sections.filter(s =>
     s.label.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -60,7 +57,7 @@ const DocsPage = () => {
               </nav>
               <div className="docs-version-badge">
                 <span className="docs-version-tag">v1.0.0</span>
-                <span>LeoPay Platform</span>
+                <span>LIOPAY Platform</span>
               </div>
             </aside>
 
@@ -72,9 +69,9 @@ const DocsPage = () => {
                 <div className="docs-section animated">
                   <div className="docs-hero">
                     <div className="docs-hero-tag">📖 Documentation</div>
-                    <h1>LeoPay Payment Platform</h1>
+                    <h1>LIOPAY Payment Platform</h1>
                     <p className="docs-hero-sub">
-                      Comprehensive guide to managing merchants, QR codes, settlements, and payment workflows on the LeoPay platform.
+                      Comprehensive guide to managing merchants, QR codes, settlements, and payment workflows on the LIOPAY platform.
                     </p>
                     <div className="docs-hero-badges">
                       <span className="badge badge-green">✓ Production Ready</span>
@@ -100,8 +97,8 @@ const DocsPage = () => {
                   </div>
 
                   <div className="docs-info-block">
-                    <h2>What is LeoPay?</h2>
-                    <p>LeoPay is a full-stack payment management platform that enables administrators to onboard merchants, assign UPI QR codes, process settlements, and track every transaction in real time. Merchants get a dedicated dashboard to view their QR codes, generate dynamic payment QRs, and request fund settlements.</p>
+                    <h2>What is LIOPAY?</h2>
+                    <p>LIOPAY is a full-stack payment management platform that enables administrators to onboard merchants, assign UPI QR codes, process settlements, and track every transaction in real time. Merchants get a dedicated dashboard to view their QR codes, generate dynamic payment QRs, and request fund settlements.</p>
                   </div>
                 </div>
               )}
@@ -110,7 +107,7 @@ const DocsPage = () => {
               {activeSection === 'getting-started' && (
                 <div className="docs-section animated">
                   <h1>Getting Started</h1>
-                  <p className="docs-lead">Follow these steps to get up and running with the LeoPay platform.</p>
+                  <p className="docs-lead">Follow these steps to get up and running with the LIOPAY platform.</p>
 
                   <div className="docs-steps">
                     {[
@@ -320,7 +317,7 @@ const DocsPage = () => {
               {activeSection === 'callbacks' && (
                 <div className="docs-section animated">
                   <h1>Webhooks & Callbacks</h1>
-                  <p className="docs-lead">LeoPay can automatically notify your backend system whenever a payment is confirmed, using HTTP POST webhooks.</p>
+                  <p className="docs-lead">LIOPAY can automatically notify your backend system whenever a payment is confirmed, using HTTP POST webhooks.</p>
 
                   <div className="docs-info-block">
                     <h2>Configuring Your Webhook URL</h2>
@@ -329,7 +326,7 @@ const DocsPage = () => {
 
                   <div className="docs-info-block">
                     <h2>Webhook Payload</h2>
-                    <p>When a payment is confirmed, LeoPay sends a POST request to your callback URL with this JSON body:</p>
+                    <p>When a payment is confirmed, LIOPAY sends a POST request to your callback URL with this JSON body:</p>
                     <div className="docs-code-block">
                       <pre>{`{
   "event": "payment.success",

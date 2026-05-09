@@ -59,8 +59,8 @@ const MerchantSettingsPage = () => {
                         phone: data.phone || ''
                     });
                 }
-            } catch (err) {
-                console.error(err);
+            } catch (error) {
+                console.error(error);
             }
         };
         fetchProfile();
@@ -83,7 +83,7 @@ const MerchantSettingsPage = () => {
                 const data = await res.json();
                 showMessage('error', data.error || 'Failed to update profile.');
             }
-        } catch (err) {
+        } catch {
             showMessage('error', 'Error updating profile.');
         }
     };
@@ -113,7 +113,7 @@ const MerchantSettingsPage = () => {
                 const data = await res.json();
                 showMessage('error', data.error || 'Failed to change password.');
             }
-        } catch (err) {
+        } catch {
             showMessage('error', 'Error updating password.');
         }
     };
@@ -147,7 +147,7 @@ const MerchantSettingsPage = () => {
                 const data = await res.json();
                 showMessage('error', data.error || 'Failed to update transaction PIN.');
             }
-        } catch (err) {
+        } catch {
             showMessage('error', 'Error updating transaction PIN.');
         }
     };

@@ -64,11 +64,7 @@ const LoginPage = () => {
         
         <div className="login-left-v2">
           <div className="login-brand-v2">
-            <div className="brand-logo-glow">T</div>
-            <div className="brand-text-v2">
-              <span className="brand-name">LeoPay</span>
-              <span className="brand-tag">Platform</span>
-            </div>
+            <img className="brand-logo-art" src="/liopay-logo.jpg" alt="LIOPAY" />
           </div>
 
           <div className="login-hero-v2">

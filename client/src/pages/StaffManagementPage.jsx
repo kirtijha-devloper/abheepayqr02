@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { formatRoleLabel, formatRolePlural } from '../utils/roleLabels';
 import './StaffManagementPage.css';
 
 const emptyForm = {
@@ -23,7 +24,7 @@ const emptyForm = {
 };
 
 const permissionOptions = [
-  { key: 'canManageUsers', title: 'Manage Users', desc: 'Create and edit merchant, master, and branch accounts.' },
+  { key: 'canManageUsers', title: 'Manage Users', desc: `Create and edit ${formatRoleLabel('merchant').toLowerCase()}, ${formatRoleLabel('master').toLowerCase()}, and ${formatRoleLabel('branch').toLowerCase()} accounts.` },
   { key: 'canManageFinances', title: 'Manage Finances', desc: 'Approve fund requests, settlements, and wallet actions.' },
   { key: 'canManageCommissions', title: 'Manage Charges', desc: 'Update slabs, rates, and commission settings.' },
   { key: 'canManageServices', title: 'Manage Services', desc: 'Control QR, callbacks, and operational service tools.' },
@@ -35,7 +36,7 @@ const permissionOptions = [
 const pageOptions = [
   { key: 'dashboard', title: 'Dashboard' },
   { key: 'transactions', title: 'Transactions' },
-  { key: 'masters', title: 'Masters' },
+  { key: 'masters', title: formatRolePlural('master') },
   { key: 'users', title: 'User List' },
   { key: 'wallet', title: 'Wallet' },
   { key: 'reconciliation', title: 'Reconciliation' },

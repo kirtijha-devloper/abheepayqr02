@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -65,7 +66,7 @@ const WalletPage = () => {
     let config = defaultPayoutConfig;
     try {
       if (configStr) config = JSON.parse(configStr);
-    } catch (e) {
+    } catch {
       config = defaultPayoutConfig;
     }
 

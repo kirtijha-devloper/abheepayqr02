@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import MetricCard from '../components/MetricCard';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { formatRolePlural } from '../utils/roleLabels';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './AdminDashboard.css';
 
@@ -127,7 +128,7 @@ const AdminDashboard = () => {
 
           <div className="admin-metrics-grid">
             <MetricCard 
-              title="TOTAL MERCHANTS" 
+              title={`TOTAL ${formatRolePlural('merchant').toUpperCase()}`} 
               value={metrics.totalMerchants.toString()} 
               icon="👥" 
               iconBg="accent"

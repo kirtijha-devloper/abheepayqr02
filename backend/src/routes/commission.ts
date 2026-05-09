@@ -10,6 +10,8 @@ import {
 
 const router = Router();
 
+type KeyPart = number | string | { toString(): string };
+
 const COMMISSION_MANAGER_ROLES = new Set(["admin", "staff", "master", "merchant"]);
 
 function canManageGlobalSlabs(req: AuthRequest) {
@@ -112,8 +114,8 @@ async function getMyChargeSlabs(userId: string) {
   });
 
   const entries = new Map<string, any>();
-  const makeKey = (serviceKey: string, minAmount: number | string, maxAmount: number | string) =>
-    `${serviceKey}:${Number(minAmount)}:${Number(maxAmount)}`;
+  const makeKey = (serviceKey: string, minAmount: KeyPart, maxAmount: KeyPart) =>
+    `${serviceKey}:${Number(minAmount.toString())}:${Number(maxAmount.toString())}`;
 
   for (const item of overrides) {
     entries.set(makeKey(item.serviceKey, item.minAmount, item.maxAmount), {

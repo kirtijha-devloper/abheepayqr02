@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { normalizeLegacyRoleText } from '../utils/roleLabels';
 import './MerchantsPage.css'; // Reuse table styles
 
 const SettlementsAdminPage = () => {
@@ -49,7 +50,7 @@ const SettlementsAdminPage = () => {
           <div style={{ opacity: 0.7 }}>{details.ifscCode}</div>
         </div>
       );
-    } catch (e) {
+    } catch {
       return "Invalid Data";
     }
   };
@@ -90,7 +91,7 @@ const SettlementsAdminPage = () => {
               <table className="merchants-table">
                 <thead>
                   <tr>
-                    <th>Merchant Identity</th>
+                    <th>Distributor Identity</th>
                     <th>Withdrawal Amount</th>
                     <th>Destination Bank</th>
                     <th>Request Date</th>
@@ -118,7 +119,7 @@ const SettlementsAdminPage = () => {
                               {(s.user?.profile?.fullName || 'U').charAt(0)}
                             </div>
                             <div className="merchant-name-info">
-                              <div className="m-name">{s.user?.profile?.fullName || 'Unknown Merchant'}</div>
+                              <div className="m-name">{normalizeLegacyRoleText(s.user?.profile?.fullName || 'Unknown Distributor')}</div>
                               <div className="m-email" style={{ fontSize: '11px', opacity: 0.6 }}>MID: {s.userId?.substring(0,8)}</div>
                             </div>
                           </div>

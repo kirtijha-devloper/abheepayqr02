@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 
 const AuthContext = createContext();
@@ -74,7 +75,7 @@ export const AuthProvider = ({ children }) => {
             } else {
                 return { success: false, message: data.error || 'Login failed' };
             }
-        } catch (err) {
+        } catch {
             return { success: false, message: 'Server error. Please try again.' };
         }
     }, []);
@@ -92,7 +93,7 @@ export const AuthProvider = ({ children }) => {
             } else {
                 return { success: false, message: data.error };
             }
-        } catch (err) {
+        } catch {
             return { success: false, message: 'Server error' };
         }
     }, []);

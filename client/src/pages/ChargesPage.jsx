@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { API_BASE } from '../config';
+import { formatRoleLabel, formatRolePlural } from '../utils/roleLabels';
 import './ChargesPage.css';
 import './MerchantsPage.css';
 
@@ -400,7 +401,7 @@ const ChargesPage = () => {
                     <div className="charges-header">
                         <div className="charges-title">
                             <h2>Charge Configuration</h2>
-                            <p>Admin sets charge for master. Then master sets charge for merchant, and merchant sets charge for branch on the same visible slab ranges.</p>
+                            <p>Admin sets charge for super distributor. Then super distributor sets charge for distributor, and distributor sets charge for branch on the same visible slab ranges.</p>
                         </div>
 
                         <div className="charges-search-container">
@@ -510,7 +511,7 @@ const ChargesPage = () => {
                                                 <th>Service</th>
                                                 <th>Range</th>
                                                 <th>My Charge</th>
-                                                <th>Charge For My {downlineRole === 'branch' ? 'Branches' : 'Merchants'}</th>
+                                                <th>Charge For My {downlineRole === 'branch' ? 'Branches' : 'Distributors'}</th>
                                                 <th>Status</th>
                                                 {downlineRole && <th style={{ textAlign: 'right' }}>Actions</th>}
                                             </tr>
@@ -527,6 +528,7 @@ const ChargesPage = () => {
                                                 const existingDefault = downlineRole
                                                     ? findExistingDownlineDefault(downlineRole, slabServiceKey, slabMinAmount)
                                                     : null;
+                                                const downlineStatus = existingDefault ? 'CHARGE SET' : 'NOT SET';
                                                 return (
                                                     <tr key={slab.id}>
                                                         <td><strong style={{ color: '#fff', textTransform: 'capitalize' }}>{(slab.role || currentUser?.role || '').replace('_', ' ')}</strong></td>
@@ -534,7 +536,7 @@ const ChargesPage = () => {
                                                         <td><span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatRange(slabMinAmount, slabMaxAmount)}</span></td>
                                                         <td>{formatCharge(slabChargeType, slabChargeValue)}</td>
                                                         <td>{existingDefault ? formatCharge(existingDefault.charge_type, existingDefault.charge_value) : <span style={{ color: '#64748b' }}>Not set</span>}</td>
-                                                        <td><span className={`status-pill ${existingDefault ? 'active' : 'info'}`}>{existingDefault ? 'ACTIVE' : 'INHERITED'}</span></td>
+                                                        <td><span className={`status-pill ${existingDefault ? 'active' : 'info'}`}>{downlineStatus}</span></td>
                                                         {downlineRole && (
                                                             <td style={{ textAlign: 'right' }}>
                                                                 <button className="add-btn-v2" onClick={() => handleOpenDownlineCharge(slab)}>
@@ -575,7 +577,7 @@ const ChargesPage = () => {
                                     </thead>
                                     <tbody>
                                         {!canManageOverrides ? (
-                                            <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Only admin, master, and merchant can manage manual charge overrides.</td></tr>
+                                            <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Only admin, super distributor, and distributor can manage manual charge overrides.</td></tr>
                                         ) : visibleUsers.length === 0 ? (
                                             <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No users available.</td></tr>
                                         ) : visibleUsers.filter((userItem) => userItem.role !== 'admin').map((userItem) => {
@@ -624,7 +626,7 @@ const ChargesPage = () => {
                 <div className="modal-overlay">
                     <div className="modal-container" style={{ maxWidth: '560px' }}>
                         <div className="modal-header-gradient">
-                            <h3>{modalMode === 'global' ? 'Add Global Default Slab' : modalMode === 'downline-default' ? `Set Charge For My ${targetRole === 'branch' ? 'Branches' : 'Merchants'}` : 'Override Charge On Visible Slab'}</h3>
+                            <h3>{modalMode === 'global' ? 'Add Global Default Slab' : modalMode === 'downline-default' ? `Set Charge For My ${formatRolePlural(targetRole)}` : 'Override Charge On Visible Slab'}</h3>
                             <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
                         </div>
                         <div className="modal-body hide-scrollbar">
@@ -639,8 +641,8 @@ const ChargesPage = () => {
                             {modalMode === 'downline-default' && (
                                 <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(34, 197, 94, 0.08)', borderRadius: '12px', border: '1px solid rgba(34, 197, 94, 0.15)' }}>
                                     <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '4px' }}>Target Role</div>
-                                    <div style={{ color: '#fff', fontWeight: 600, textTransform: 'capitalize' }}>{targetRole}</div>
-                                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>This charge will be inherited by your {targetRole === 'branch' ? 'branches' : 'merchants'} on the selected slab range.</div>
+                                    <div style={{ color: '#fff', fontWeight: 600 }}>{formatRoleLabel(targetRole)}</div>
+                                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>This charge will be inherited by your {formatRolePlural(targetRole).toLowerCase()} on the selected slab range.</div>
                                 </div>
                             )}
 
@@ -650,7 +652,7 @@ const ChargesPage = () => {
                                         <label className="callback-label">Target Role</label>
                                         <select className="form-input-box" value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
                                             {GLOBAL_ROLE_OPTIONS.map((roleOption) => (
-                                                <option key={roleOption} value={roleOption}>{roleOption.charAt(0).toUpperCase() + roleOption.slice(1)}</option>
+                                                <option key={roleOption} value={roleOption}>{formatRoleLabel(roleOption)}</option>
                                             ))}
                                         </select>
                                     </div>

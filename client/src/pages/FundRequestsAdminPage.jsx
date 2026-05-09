@@ -1,8 +1,10 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { formatRoleLabel } from '../utils/roleLabels';
 import './MerchantsPage.css'; // Reusing filter-tabs styles
 
 const FundRequestsAdminPage = () => {
@@ -13,16 +15,16 @@ const FundRequestsAdminPage = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
 
-  useEffect(() => {
-    loadData();
-  }, [filter]);
-
   const loadData = async () => {
     setLoading(true);
     await fetchFundRequests(); // The backend currently returns all or filtered in fundRequests.ts
     // Note: fundRequests.ts handles filtering by role, but we might need to filter by status on frontend
     setLoading(false);
   };
+
+  useEffect(() => {
+    loadData();
+  }, [filter, fetchFundRequests]);
 
   const handleApprove = async (id) => {
     if (!window.confirm("Approve this fund credit?")) return;
@@ -56,7 +58,7 @@ const FundRequestsAdminPage = () => {
               </h2>
               <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>
                 {isAdmin 
-                  ? 'Review and approve manual fund credit requests from merchants.' 
+                  ? 'Review and approve manual fund credit requests from distributors.' 
                   : 'Track your Main to Payout wallet transfer requests.'}
               </p>
             </div>
@@ -107,7 +109,7 @@ const FundRequestsAdminPage = () => {
                           </div>
                           <div className="merchant-name-info">
                             <div className="m-name">{r.requesterName}</div>
-                            <div className="m-email" style={{ fontSize: '11px', opacity: 0.6 }}>{r.requesterRole?.toUpperCase()}</div>
+                            <div className="m-email" style={{ fontSize: '11px', opacity: 0.6 }}>{formatRoleLabel(r.requesterRole)}</div>
                           </div>
                         </div>
                       </td>
@@ -132,7 +134,7 @@ const FundRequestsAdminPage = () => {
                           <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             {r.chargeDistributions.map((dist) => (
                               <div key={`${r.id}-${dist.userId}`} style={{ fontSize: '10px', color: '#60a5fa' }}>
-                                {dist.name} ({dist.role}): ₹{Number(dist.amount || 0).toFixed(2)}
+                                {dist.name} ({formatRoleLabel(dist.role)}): ₹{Number(dist.amount || 0).toFixed(2)}
                               </div>
                             ))}
                           </div>

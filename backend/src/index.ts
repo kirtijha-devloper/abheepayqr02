@@ -60,8 +60,8 @@ const allowedOrigins = new Set([
   "http://ebazars.in",
   "https://kailasha247.com",
   "http://kailasha247.com",
-  "https://qr.3bazar.com",
-  "http://qr.3bazar.com",
+  "https://liopay.net",
+  "http://liopay.net",
 ]);
 
 if (configuredFrontendUrl.includes("localhost")) {

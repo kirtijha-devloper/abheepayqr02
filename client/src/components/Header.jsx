@@ -1,7 +1,9 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config';
+import { formatRoleLabel } from '../utils/roleLabels';
 import './Header.css';
 
 const Header = ({ title }) => {
@@ -60,7 +62,7 @@ const Header = ({ title }) => {
         current.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   };
@@ -81,10 +83,7 @@ const Header = ({ title }) => {
 
   const displayName = user?.name || (isAdmin ? 'Admin' : 'User');
   const avatarLetter = displayName.charAt(0).toUpperCase();
-  const roleLabel =
-    user?.role === 'admin' ? 'Super Admin' : 
-    user?.role === 'staff' ? 'Staff' : 
-    user?.role === 'merchant' ? 'Merchant' : 'User';
+  const roleLabel = user?.role === 'admin' ? 'Super Admin' : formatRoleLabel(user?.role);
 
   return (
     <header className="main-header" aria-label={title || 'Header'}>
@@ -94,7 +93,7 @@ const Header = ({ title }) => {
         </button>
         <div className="header-search">
           <span className="header-search-icon">🔍</span>
-          <input type="text" placeholder="Search transactions, merchants..." />
+          <input type="text" placeholder="Search transactions, distributors..." />
         </div>
       </div>
 

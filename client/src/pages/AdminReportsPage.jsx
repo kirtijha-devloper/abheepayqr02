@@ -154,6 +154,7 @@ const AdminReportsPage = () => {
     setLoading(false);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const filteredFR = useMemo(() => fundRequests.filter(r =>

@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { API_BASE } from '../config';
+import { formatRoleLabel, formatRolePlural } from '../utils/roleLabels';
 import './MerchantsPage.css';
 
 const emptyForm = {
@@ -36,8 +37,8 @@ const MerchantsPage = () => {
   const isAdmin = user?.role === 'admin' || user?.role === 'staff';
   const isMaster = user?.role === 'master';
   const isMerchant = user?.role === 'merchant';
-  const entitySingular = isAdmin ? 'Master' : (isMaster ? 'Merchant' : 'Branch');
-  const entityPlural = isAdmin ? 'Masters' : (isMaster ? 'Merchants' : 'Branches');
+  const entitySingular = isAdmin ? formatRoleLabel('master') : (isMaster ? formatRoleLabel('merchant') : formatRoleLabel('branch'));
+  const entityPlural = isAdmin ? formatRolePlural('master') : (isMaster ? formatRolePlural('merchant') : formatRolePlural('branch'));
 
   useEffect(() => {
     // Refresh global context data on mount to ensure fleet list is current
@@ -123,7 +124,7 @@ const MerchantsPage = () => {
     if (result.success) {
       window.open(`${window.location.origin}/?token=${result.token}`, '_blank');
     } else {
-      error(result.message || 'Failed to login as merchant');
+      error(result.message || `Failed to login as ${entitySingular.toLowerCase()}`);
     }
   };
 
@@ -142,11 +143,11 @@ const MerchantsPage = () => {
       });
 
       if (!res.success) {
-        error(res.error || 'Failed to update merchant');
+        error(res.error || `Failed to update ${entitySingular.toLowerCase()}`);
         return;
       }
 
-      success('Merchant updated successfully.');
+      success(`${entitySingular} updated successfully.`);
       closeModal();
       return;
     }
@@ -162,11 +163,11 @@ const MerchantsPage = () => {
     });
 
     if (!res.success) {
-      error(res.error || 'Failed to create merchant');
+      error(res.error || `Failed to create ${entitySingular.toLowerCase()}`);
       return;
     }
 
-    success('Merchant created successfully.');
+    success(`${entitySingular} created successfully.`);
     closeModal();
   };
 
@@ -200,11 +201,11 @@ const MerchantsPage = () => {
     const res = await updateMerchantStatus(merchant.id, nextStatus);
 
     if (!res?.success) {
-      error(res?.error || 'Failed to update merchant status');
+      error(res?.error || `Failed to update ${entitySingular.toLowerCase()} status`);
       return;
     }
 
-    success(`Merchant marked as ${nextStatus}.`);
+    success(`${entitySingular} marked as ${nextStatus}.`);
   };
 
   const handleHoldAction = (merchant, type = 'hold') => {
@@ -302,11 +303,11 @@ const MerchantsPage = () => {
                               <td><span className={`status-pill ${(branch.status || 'active').toLowerCase()}`} onClick={() => handleToggleStatus(branch)} style={{cursor: 'pointer'}}>{titleCase(branch.status || 'active')}</span></td>
                               <td className="merchant-actions">
                                 {(user?.role === 'admin' || user?.role === 'staff') && (
-                                <button title="Login as Branch" className="action-btn login-btn" onClick={() => handleLoginAsMerchant(branch.id)}>
+                                <button title="Login as Branch" className="action-btn login-btn" onClick={() => handleLoginAs(branch)}>
                                     Login As
                                   </button>
                                 )}
-                                <button className="action-btn edit-btn" onClick={() => openEditModal(branch)}>Edit</button>
+                                <button className="action-btn edit-btn" onClick={() => handleEdit(branch)}>Edit</button>
 
                               </td>
                             </tr>
@@ -314,7 +315,7 @@ const MerchantsPage = () => {
                             <tr>
                                <td colSpan="5" style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-mute)' }}>
                                   <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.2 }}>👥</div>
-                                  No branches found for this merchant.
+                                  No branches found for this distributor.
                                </td>
                             </tr>
                          )}
@@ -379,7 +380,7 @@ const MerchantsPage = () => {
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Merchant Identity</th>
+                    <th>{entitySingular} Identity</th>
                     <th>Wallet Balance</th>
                     <th>Status</th>
                     <th>Commission</th>
@@ -426,7 +427,7 @@ const MerchantsPage = () => {
                             <button className="action-btn hold-btn" onClick={() => handleHoldAction(merchant, 'hold')} style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.05)' }}>Hold / Unhold</button>
                             <button className="action-btn danger-btn" onClick={async () => {
                               const res = await deleteMerchant(merchant.id);
-                              if (res?.success) success('Merchant deleted successfully.');
+                              if (res?.success) success(`${entitySingular} deleted successfully.`);
                               else if (res?.error) error(res.error);
                             }}>Delete</button>
                             {!isMerchant && (
@@ -464,7 +465,7 @@ const MerchantsPage = () => {
         <div className="modal-overlay">
           <div className="modal-container">
             <div className="modal-header-gradient">
-              <h3>{isEditing ? 'Edit Merchant' : 'Add Merchant'}</h3>
+              <h3>{isEditing ? `Edit ${entitySingular}` : `Add ${entitySingular}`}</h3>
               <button className="close-modal" onClick={closeModal}>&times;</button>
             </div>
             <form onSubmit={handleCreate}>
@@ -497,7 +498,7 @@ const MerchantsPage = () => {
                         <option value="">-- Direct Downline (Self) --</option>
                         {uplineMembers.map(member => (
                           <option key={member.id || member.profile?.id || member.profileId} value={member.profileId || member.profile?.id || member.id}>
-                            {member.fullName || member.email} ({member.role?.toUpperCase()})
+                            {member.fullName || member.email} ({formatRoleLabel(member.role)})
                           </option>
                         ))}
                       </select>
@@ -552,13 +553,13 @@ const MerchantsPage = () => {
                         onChange={handleChange}
                       />
                     </div>
-                    <p className="help-text">Override global payout charges for this merchant.</p>
+                    <p className="help-text">Override global payout charges for this {entitySingular.toLowerCase()}.</p>
                   </div>
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-cancel" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="btn-create">{isEditing ? 'Save Changes' : 'Create Merchant'}</button>
+                <button type="submit" className="btn-create">{isEditing ? 'Save Changes' : `Create ${entitySingular}`}</button>
               </div>
             </form>
           </div>
@@ -574,7 +575,7 @@ const MerchantsPage = () => {
             <form onSubmit={submitHold}>
               <div className="modal-body">
                 <div className="hold-modal-info">
-                    <div className="hold-modal-merchant">MERCHANT</div>
+                    <div className="hold-modal-merchant">{entitySingular.toUpperCase()}</div>
                     <div className="hold-modal-name">{selectedMerchant?.fullName}</div>
                     <div className="hold-modal-stats">
                         <div className="hold-stat-card">
