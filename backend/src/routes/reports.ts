@@ -22,7 +22,7 @@ const DEFAULT_ADMIN_LEDGER_TRANSACTION_TYPES = [
   "fund_request_pending",
   "payout",
   "pg_add",
-  "qr_settlement_credit",
+  "qr_settlement",
   "refund",
   "top_up",
   "transfer",
@@ -33,7 +33,6 @@ const HIDDEN_LEDGER_TRANSACTION_TYPES = new Set([
   "hold",
   "payout",
   "pg_add",
-  "qr_settlement_credit",
   "refund",
   "top_up",
   "transfer",
@@ -564,7 +563,12 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
         const user = userMap.get(txn.userId);
         const serviceKey = (txn.serviceType || "service").toLowerCase();
         const entryType = (txn.type || "").toLowerCase();
-        const combinedType = entryType ? `${serviceKey}_${entryType}` : serviceKey;
+        const combinedType =
+          serviceKey === "qr_settlement" && entryType === "credit"
+            ? "qr_settlement"
+            : entryType
+              ? `${serviceKey}_${entryType}`
+              : serviceKey;
         const amount = Number(txn.amount || 0);
 
         return {

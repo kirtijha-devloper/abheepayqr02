@@ -42,7 +42,7 @@ const DEFAULT_TRANSACTION_TYPE_OPTIONS = [
   'fund_request_pending',
   'payout',
   'pg_add',
-  'qr_settlement_credit',
+  'qr_settlement',
   'refund',
   'top_up',
   'transfer',
@@ -53,7 +53,6 @@ const HIDDEN_TRANSACTION_TYPES = new Set([
   'hold',
   'payout',
   'pg_add',
-  'qr_settlement_credit',
   'refund',
   'top_up',
   'transfer',
@@ -61,6 +60,11 @@ const HIDDEN_TRANSACTION_TYPES = new Set([
   'transfer_hold',
   'unhold',
 ]);
+
+const prettifyLedgerType = (value) => {
+  if (value === 'qr_settlement') return 'Pay-In';
+  return prettifyType(value);
+};
 
 const mergeOptions = (defaults, incoming) =>
   Array.from(
@@ -203,7 +207,7 @@ const AdminLedgerPage = () => {
               <select value={transactionType} onChange={(e) => setTransactionType(e.target.value)}>
                 <option value="">Every transaction type</option>
                 {typeOptions.map((type) => (
-                  <option key={type} value={type}>{prettifyType(type)}</option>
+                  <option key={type} value={type}>{prettifyLedgerType(type)}</option>
                 ))}
               </select>
             </div>
@@ -268,7 +272,7 @@ const AdminLedgerPage = () => {
                           </div>
                         </td>
                         <td><span className="ledger-role-pill">{prettifyType(row.role)}</span></td>
-                        <td><span className="ledger-type-pill">{prettifyType(row.transactionType)}</span></td>
+                        <td><span className="ledger-type-pill">{prettifyLedgerType(row.transactionType)}</span></td>
                         <td>{row.sourceLabel}</td>
                         <td className="ledger-description">{row.description || '--'}</td>
                         <td>{row.reference || '--'}</td>
