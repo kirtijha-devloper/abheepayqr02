@@ -13,6 +13,22 @@ import JSZip from 'jszip';
 import './QrCodesAdminPage.css';
 
 const QrCodesAdminPage = () => {
+  const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
+  const titleCase = (value) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return 'QR';
+    return normalized
+      .split(/[\s_-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  };
+  const formatDateTime = (value) => {
+    if (!value) return 'N/A';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleString();
+  };
+
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const initialTab = searchParams.get('tab') === 'inventory' ? 'manage' : 'upload';
@@ -41,10 +57,15 @@ const QrCodesAdminPage = () => {
   const [assignRoleFilter, setAssignRoleFilter] = useState('master');
   const [assignMerchantId, setAssignMerchantId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [assignTargets, setAssignTargets] = useState([]);
 
   // Edit State
   const [showEditModal, setShowEditModal] = useState(false);
   const [editQrData, setEditQrData] = useState(null);
+  const [reportQr, setReportQr] = useState(null);
+  const [qrReport, setQrReport] = useState(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [reportFilters, setReportFilters] = useState({ startDate: '', endDate: '' });
 
   // UPI expand state
   const [expandedUpiIds, setExpandedUpiIds] = useState(new Set());
@@ -61,32 +82,28 @@ const QrCodesAdminPage = () => {
   const fileInputRef = useRef(null);
   const { success, error } = useToast();
   const { user } = useAuth();
-  const { 
-    qrCodes, addQrCode, bulkAddQrCodes, assignQrByTid, assignQrByIds, 
-    unassignQrCode, merchants, deleteQrCode, updateQrCode, fetchData 
+  const {
+    qrCodes, addQrCode, bulkAddQrCodes, assignQrByTid, assignQrByIds,
+    unassignQrCode, deleteQrCode, updateQrCode, fetchData, fetchQrReport
   } = useAppContext();
 
   const isMerchantUser = user?.role === 'merchant';
 
-  // Fetch downline for merchant users (their direct branches)
-  const [downline, setDownline] = useState([]);
   useEffect(() => {
-    const fetchDownline = async () => {
+    const fetchAssignTargets = async () => {
       const token = sessionStorage.getItem('authToken');
       try {
-        const res = await fetch(`${API_BASE}/qrcodes/my-downline`, {
+        const res = await fetch(`${API_BASE}/qrcodes/assign-targets`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) setDownline(await res.json());
+        if (res.ok) setAssignTargets(await res.json());
       } catch (error) {
-        console.error('Failed to fetch downline', error);
+        console.error('Failed to fetch assign targets', error);
       }
     };
-    if (isMerchantUser) fetchDownline();
-  }, [isMerchantUser]);
+    fetchAssignTargets();
+  }, []);
 
-  // Use downline for merchants, full merchants list for admin/master
-  const assignTargets = isMerchantUser ? downline : merchants;
   const adminAssignableRoles = ['master', 'merchant', 'branch'];
   const filteredAssignTargets = isMerchantUser
     ? assignTargets
@@ -95,6 +112,100 @@ const QrCodesAdminPage = () => {
   useEffect(() => {
     setAssignMerchantId('');
   }, [assignRoleFilter]);
+
+  const getQrIntentString = (qr) => {
+    if (!qr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
+    const rawVal = String(qr.upiId || '').trim();
+    if (!rawVal) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
+    if (rawVal.startsWith('MANUAL-UPI') || rawVal.startsWith('000201')) return rawVal;
+
+    const pn = encodeURIComponent(qr.merchantName || qr.label || 'Merchant');
+    const mc = '5499';
+    const tid = qr.tid || '';
+    const tr = String(qr.id || '').replace(/-/g, '').substring(0, 32);
+    const tn = encodeURIComponent(`Payment to ${qr.merchantName || qr.label || 'Merchant'}`);
+
+    if (rawVal.startsWith('upi://') || rawVal.startsWith('UPI://')) {
+      const uri = rawVal;
+      return uri.match(/[?&]cu=/i) ? uri : `${uri}${uri.includes('?') ? '&' : '?'}cu=INR`;
+    }
+
+    let upi = `upi://pay?pa=${rawVal}&pn=${pn}&mc=${mc}&tr=${tr}&tn=${tn}&cu=INR`;
+    if (tid) upi += `&tid=${tid}`;
+    return upi;
+  };
+
+  const fetchQrBlob = async (qr) => {
+    if (!qr?.imagePath) return null;
+    const response = await fetch(`${UPLOADS_BASE}${qr.imagePath}`);
+    if (!response.ok) throw new Error('Unable to load QR image.');
+    return response.blob();
+  };
+
+  const handleDownloadQr = async (qr, event) => {
+    event.stopPropagation();
+    try {
+      const blob = await fetchQrBlob(qr);
+      if (!blob) {
+        error('No QR image is available to download for this record.');
+        return;
+      }
+
+      const objectUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(objectUrl);
+      success('QR download started.');
+    } catch (downloadError) {
+      console.error(downloadError);
+      error('Failed to download QR image.');
+    }
+  };
+
+  const handleShareQr = async (qr, event) => {
+    event.stopPropagation();
+    const intent = getQrIntentString(qr);
+    const shareTitle = `${titleCase(qr.label || 'QR Code')} Payment QR`;
+    const shareText = `${shareTitle}\nUPI Intent: ${intent}`;
+
+    try {
+      const blob = await fetchQrBlob(qr);
+      const shareFile = blob ? new File([blob], `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.png`, { type: blob.type || 'image/png' }) : null;
+
+      if (navigator.share) {
+        if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
+          await navigator.share({
+            title: shareTitle,
+            text: shareText,
+            files: [shareFile]
+          });
+          return;
+        }
+
+        await navigator.share({
+          title: shareTitle,
+          text: shareText
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(intent);
+      success('UPI intent copied. You can now paste and share it.');
+    } catch (shareError) {
+      if (shareError?.name === 'AbortError') return;
+      console.error(shareError);
+      try {
+        await navigator.clipboard.writeText(intent);
+        success('Share is not supported here, so the UPI intent was copied.');
+      } catch {
+        error('Failed to share QR or copy the payment intent.');
+      }
+    }
+  };
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -377,8 +488,144 @@ const QrCodesAdminPage = () => {
     }
   };
 
+  const loadQrReport = async (qr, filters = reportFilters) => {
+    setReportQr(qr);
+    setIsLoadingReport(true);
+    const result = await fetchQrReport(qr.id, filters);
+    if (result.success) {
+      setQrReport(result.data);
+    } else {
+      setQrReport(null);
+      error(result.error || 'Failed to load QR report.');
+    }
+    setIsLoadingReport(false);
+  };
+
+  const handleApplyReportFilters = async () => {
+    if (!reportQr) return;
+    await loadQrReport(reportQr, reportFilters);
+  };
+
+  const closeReportModal = () => {
+    setReportQr(null);
+    setQrReport(null);
+    setReportFilters({ startDate: '', endDate: '' });
+  };
+
   return (
     <div className="dashboard-layout">
+      {reportQr && (
+        <div className="fullscreen-modal" onClick={closeReportModal}>
+          <div className="qr-report-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="qr-report-header">
+              <div>
+                <div className="preview-label">QR Performance Report</div>
+                <h2>{reportQr.label || 'QR Code'}</h2>
+                <p>{reportQr.tid ? `TID: ${reportQr.tid}` : reportQr.upiId || 'No identifier available'}</p>
+              </div>
+              <button className="qr-close-modal qr-report-close" onClick={closeReportModal}>x</button>
+            </div>
+
+            <div className="qr-report-filter-bar">
+              <input
+                type="date"
+                value={reportFilters.startDate}
+                onChange={(e) => setReportFilters((prev) => ({ ...prev, startDate: e.target.value }))}
+              />
+              <input
+                type="date"
+                value={reportFilters.endDate}
+                onChange={(e) => setReportFilters((prev) => ({ ...prev, endDate: e.target.value }))}
+              />
+              <button className="action-btn" onClick={handleApplyReportFilters} disabled={isLoadingReport}>
+                {isLoadingReport ? 'Loading...' : 'Apply Filter'}
+              </button>
+            </div>
+
+            {isLoadingReport ? (
+              <div className="qr-empty-state">Loading QR report...</div>
+            ) : (
+              <>
+                <div className="qr-report-stats">
+                  <div className="qr-report-stat-card">
+                    <span>Total Transactions</span>
+                    <strong>{qrReport?.summary?.totalTransactions || 0}</strong>
+                  </div>
+                  <div className="qr-report-stat-card">
+                    <span>Total Amount</span>
+                    <strong>{formatCurrency(qrReport?.summary?.totalAmount || 0)}</strong>
+                  </div>
+                  <div className="qr-report-stat-card">
+                    <span>Successful Amount</span>
+                    <strong>{formatCurrency(qrReport?.summary?.completedAmount || 0)}</strong>
+                  </div>
+                </div>
+
+                <div className="qr-report-section">
+                  <h3>Datewise Summary</h3>
+                  {qrReport?.dailyTotals?.length ? (
+                    <div className="qr-table-wrap">
+                      <table className="qr-inventory-table">
+                        <thead>
+                          <tr>
+                            <th>Date</th>
+                            <th>Transactions</th>
+                            <th>Total Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {qrReport.dailyTotals.map((item) => (
+                            <tr key={item.date}>
+                              <td>{item.date}</td>
+                              <td>{item.count}</td>
+                              <td>{formatCurrency(item.totalAmount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="qr-empty-state">No transactions found for this date range.</div>
+                  )}
+                </div>
+
+                <div className="qr-report-section">
+                  <h3>Transactions</h3>
+                  {qrReport?.transactions?.length ? (
+                    <div className="qr-table-wrap">
+                      <table className="qr-inventory-table">
+                        <thead>
+                          <tr>
+                            <th>Date & Time</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Reference</th>
+                            <th>Sender</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {qrReport.transactions.map((txn) => (
+                            <tr key={txn.id}>
+                              <td>{formatDateTime(txn.createdAt)}</td>
+                              <td>{formatCurrency(txn.amount)}</td>
+                              <td>{txn.status || 'N/A'}</td>
+                              <td>{txn.refId || txn.clientRefId || txn.id}</td>
+                              <td>{txn.sender || txn.consumer || txn.description || 'N/A'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="qr-empty-state">No matched transactions available for this QR yet.</div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <Sidebar />
       <div className="main-content">
         <Header />
@@ -500,7 +747,7 @@ const QrCodesAdminPage = () => {
                           style={{width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-h)', padding: '12px', borderRadius: '8px'}}
                         >
                           <option value="">Select Merchant</option>
-                          {merchants.map(m => (
+                          {assignTargets.map(m => (
                             <option key={m.id} value={m.userId || m.id}>{m.fullName || m.email}</option>
                           ))}
                         </select>
@@ -823,32 +1070,51 @@ const QrCodesAdminPage = () => {
                                 </div>
                               </td>
                               <td>
-                                <span className={`status-badge-v2 ${item.status.toLowerCase()}`}>
+                                <span
+                                  className={`status-badge-v2 ${item.status.toLowerCase()}`}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const newStatus = item.status?.toLowerCase() === 'active' ? 'disabled' : 'active';
+                                    const result = await updateQrCode(item.id, { status: newStatus });
+                                    if (result?.success) {
+                                      success(`QR marked as ${newStatus}.`);
+                                    } else {
+                                      error(result?.error || 'Failed to update QR status.');
+                                    }
+                                  }}
+                                  style={{ cursor: 'pointer' }}
+                                  title="Click to toggle status"
+                                >
                                   {item.status.toUpperCase()}
                                 </span>
                               </td>
                               <td>
                                 <div className="merchant-actions" style={{display: 'flex', gap: '8px'}}>
-                                    <button 
-                                      className={`action-btn ${item.status?.toLowerCase() === 'active' ? 'danger-btn' : 'success-btn'}`}
-                                      onClick={async (e) => {
-                                        const btn = e.currentTarget;
-                                        btn.innerText = '...';
-                                        btn.disabled = true;
-                                        const newStatus = item.status?.toLowerCase() === 'active' ? 'disabled' : 'active';
-                                        await updateQrCode(item.id, { status: newStatus });
+                                    <button
+                                      className="action-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        loadQrReport(item);
                                       }}
-                                      style={{
-                                        padding: '6px 12px', 
-                                        fontSize: '11px', 
-                                        fontWeight: '700',
-                                        minWidth: '85px',
-                                        background: item.status?.toLowerCase() === 'active' ? 'var(--danger-bg)' : 'var(--success-bg)',
-                                        color: item.status?.toLowerCase() === 'active' ? 'var(--danger)' : 'var(--success)',
-                                        border: `1px solid ${item.status?.toLowerCase() === 'active' ? 'var(--danger-bg)' : 'var(--success-bg)'}`
-                                      }}
+                                      style={{padding: '6px 12px', fontSize: '11px', fontWeight: '700', minWidth: '70px'}}
                                     >
-                                      {item.status?.toLowerCase() === 'active' ? 'Deactivate' : 'Activate'}
+                                      Report
+                                    </button>
+
+                                    <button
+                                      className="action-btn"
+                                      onClick={(e) => handleDownloadQr(item, e)}
+                                      style={{padding: '6px 12px', fontSize: '11px', fontWeight: '700', minWidth: '94px'}}
+                                    >
+                                      Download QR
+                                    </button>
+
+                                    <button
+                                      className="action-btn"
+                                      onClick={(e) => handleShareQr(item, e)}
+                                      style={{padding: '6px 12px', fontSize: '11px', fontWeight: '700', minWidth: '76px'}}
+                                    >
+                                      Share QR
                                     </button>
                                     
                                     <button 

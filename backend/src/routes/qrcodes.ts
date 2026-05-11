@@ -114,6 +114,92 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+router.get("/assign-targets", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerId = req.userId!;
+    const roleRow = await prisma.userRole.findFirst({ where: { userId: callerId } });
+    const callerRole = roleRow?.role || null;
+    const isServiceAdmin = callerRole === "admin" || (callerRole === "staff" && req.permissions?.canManageServices);
+
+    if (isServiceAdmin) {
+      const users = await prisma.user.findMany({
+        where: {
+          roles: {
+            some: {
+              role: { in: ["master", "merchant", "branch"] },
+            },
+          },
+        },
+        include: {
+          profile: true,
+          roles: true,
+          wallet: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return res.json(
+        users.map((user) => ({
+          id: user.profile?.id || user.id,
+          userId: user.id,
+          fullName: user.profile?.fullName || user.profile?.businessName || user.email,
+          businessName: user.profile?.businessName,
+          email: user.email,
+          phone: user.profile?.phone,
+          status: user.profile?.status,
+          role: user.roles[0]?.role || "",
+          walletBalance: Number(user.wallet?.balance ?? 0),
+        }))
+      );
+    }
+
+    if (callerRole === "merchant") {
+      const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
+      if (!myProfile) {
+        return res.json([]);
+      }
+
+      const branches = await prisma.profile.findMany({
+        where: {
+          parentId: myProfile.id,
+          user: {
+            roles: {
+              some: { role: "branch" },
+            },
+          },
+        },
+        include: {
+          user: {
+            include: {
+              roles: true,
+              wallet: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return res.json(
+        branches.map((profile) => ({
+          id: profile.id,
+          userId: profile.userId,
+          fullName: profile.fullName || profile.businessName || profile.user?.email,
+          businessName: profile.businessName,
+          email: profile.user?.email,
+          phone: profile.phone,
+          status: profile.status,
+          role: profile.user?.roles?.[0]?.role || "branch",
+          walletBalance: Number(profile.user?.wallet?.balance ?? 0),
+        }))
+      );
+    }
+
+    return res.json([]);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/qrcodes/:id/report — QR-level report for visible inventory QR codes
 router.get("/:id/report", requireAuth, async (req: AuthRequest, res) => {
   const { id } = req.params;

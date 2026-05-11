@@ -591,7 +591,8 @@
 }
 
 .status-badge-v2.active   { background: var(--success-bg); color: var(--success); border: 1px solid rgba(34,197,94,0.2); }
-.status-badge-v2.inactive { background: var(--danger-bg);  color: var(--danger);  border: 1px solid rgba(239,68,68,0.2); }
+.status-badge-v2.inactive,
+.status-badge-v2.disabled { background: var(--danger-bg);  color: var(--danger);  border: 1px solid rgba(239,68,68,0.2); }
 
 /* Table Footer */
 .table-footer-v2 {
