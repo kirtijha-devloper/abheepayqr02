@@ -109,7 +109,7 @@ const AdminDashboard = () => {
           <div className="admin-hero-banner">
             <div className="admin-hero-text">
               <h2>Welcome to Admin Central</h2>
-              <p>System is running at <span>99.9%</span> uptime today.</p>
+              <p>Live overview built from backend transactions, QR inventory, payouts, and fund requests.</p>
             </div>
             <div className="admin-hero-stats">
               <div className="admin-hero-stat">
@@ -132,8 +132,7 @@ const AdminDashboard = () => {
               value={metrics.totalMerchants.toString()} 
               icon="👥" 
               iconBg="accent"
-              change="+5"
-              period="new this week"
+              period="active in system"
               to="/admin/merchants"
             />
             <MetricCard 
@@ -141,8 +140,7 @@ const AdminDashboard = () => {
               value={`${metrics.successRate}%`} 
               icon="✓" 
               iconBg="success"
-              change="+0.2%"
-              period="vs last month"
+              period="from loaded transactions"
               to="/admin/transactions"
             />
             <MetricCard 

@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import { copyTextToClipboard } from '../utils/clipboard';
 import './DashboardPage.css';
 
 const ApiServicesPage = () => {
   const navigate = useNavigate();
   const { apiKeys, generateApiKey } = useAppContext();
+  const { success, error } = useToast();
   const [copied, setCopied] = useState(null);
+  const [generating, setGenerating] = useState(false);
 
   const handleCopy = async (value, label) => {
     const ok = await copyTextToClipboard(value);
@@ -17,9 +20,15 @@ const ApiServicesPage = () => {
     window.setTimeout(() => setCopied(null), 1500);
   };
 
-  const handleGenerate = () => {
-    generateApiKey('sandbox');
-    generateApiKey('production');
+  const handleGenerate = async () => {
+    setGenerating(true);
+    const result = await generateApiKey('all');
+    setGenerating(false);
+    if (result?.success) {
+      success('Fresh API keys were generated from the backend.');
+      return;
+    }
+    error(result?.error || 'Failed to generate API keys');
   };
 
   return (
@@ -31,7 +40,9 @@ const ApiServicesPage = () => {
           <div className="card" style={{ padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2>Developer API Keys</h2>
-              <button className="btn-primary" type="button" onClick={handleGenerate}>Generate New Key</button>
+              <button className="btn-primary" type="button" onClick={handleGenerate} disabled={generating}>
+                {generating ? 'Generating...' : 'Generate New Key'}
+              </button>
             </div>
 
             {copied && (

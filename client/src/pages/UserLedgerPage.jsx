@@ -17,25 +17,6 @@ const prettifyType = (value) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 
-const DEFAULT_TRANSACTION_TYPES = [
-  'bank_deposit',
-  'branchx_payout',
-  'branchx_payout_debit',
-  'branchx_payout_refund',
-  'commission',
-  'fund_request_approved',
-  'fund_request_failed',
-  'fund_request_pending',
-  'payout',
-  'pg_add',
-  'qr_settlement_credit',
-  'refund',
-  'top_up',
-  'transfer',
-  'wallet',
-];
-
-const DEFAULT_STATUS_OPTIONS = ['success', 'pending', 'failed'];
 const PAYOUT_TYPES = new Set(['branchx_payout', 'branchx_payout_debit', 'branchx_payout_refund', 'payout', 'payout_debit', 'payout_refund']);
 
 const HIDDEN_TRANSACTION_TYPES = new Set([
@@ -49,10 +30,10 @@ const HIDDEN_TRANSACTION_TYPES = new Set([
   'unhold',
 ]);
 
-const mergeOptions = (defaults, incoming) =>
+const normalizeOptions = (incoming) =>
   Array.from(
     new Set(
-      [...(defaults || []), ...((incoming || []).filter(Boolean))]
+      [...((incoming || []).filter(Boolean))]
         .map((value) => String(value || '').toLowerCase())
         .filter((value) => value && !HIDDEN_TRANSACTION_TYPES.has(value))
     )
@@ -138,16 +119,16 @@ const UserLedgerPage = () => {
 
       setBalances(data.balances || { totalBalance: 0, availableBalance: 0, holdBalance: 0 });
       setRows(Array.isArray(data.rows) ? data.rows : []);
-      setTransactionTypes(mergeOptions(DEFAULT_TRANSACTION_TYPES, Array.isArray(data.filters?.availableTransactionTypes) ? data.filters.availableTransactionTypes : []));
-      setStatusOptions(mergeOptions(DEFAULT_STATUS_OPTIONS, Array.isArray(data.filters?.availableStatuses) ? data.filters.availableStatuses : []));
+      setTransactionTypes(normalizeOptions(Array.isArray(data.filters?.availableTransactionTypes) ? data.filters.availableTransactionTypes : []));
+      setStatusOptions(normalizeOptions(Array.isArray(data.filters?.availableStatuses) ? data.filters.availableStatuses : []));
       setTotalRecords(Number(data.pagination?.totalRecords) || 0);
       setTotalPages(Number(data.pagination?.totalPages) || 1);
     } catch (error) {
       console.error('User ledger fetch failed', error);
       setRows([]);
       setBalances({ totalBalance: 0, availableBalance: 0, holdBalance: 0 });
-      setTransactionTypes(DEFAULT_TRANSACTION_TYPES);
-      setStatusOptions(DEFAULT_STATUS_OPTIONS);
+      setTransactionTypes([]);
+      setStatusOptions([]);
       setTotalRecords(0);
       setTotalPages(1);
     } finally {

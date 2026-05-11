@@ -8,6 +8,7 @@ import { API_BASE } from '../config';
 
 export const AppProvider = ({ children }) => {
     const [wallet, setWallet] = useState({ balance: 0, eWalletBalance: 0, holdBalance: 0 });
+    const [apiKeys, setApiKeys] = useState({ sandbox: '', production: '' });
     const [merchants, setMerchants] = useState([]);
     const [qrCodes, setQrCodes] = useState([]);
     const [bankAccounts, setBankAccounts] = useState([]);
@@ -98,6 +99,12 @@ export const AppProvider = ({ children }) => {
             if (bankRes.ok) {
                 const data = await bankRes.json();
                 setBankAccounts(Array.isArray(data) ? data : []);
+            }
+
+            const apiKeysRes = await fetch(`${API_BASE}/settings/api-keys`, { headers: getHeaders() });
+            if (apiKeysRes.ok) {
+                const data = await apiKeysRes.json();
+                setApiKeys(data?.apiKeys || { sandbox: '', production: '' });
             }
 
         } catch (err) {
@@ -812,9 +819,24 @@ export const AppProvider = ({ children }) => {
         }
     }, [fetchData, fetchReports]);
 
-    const generateApiKey = useCallback((environment = 'sandbox') => {
-        return environment === 'production' ? 'tl_live_backend_gen_key' : 'tl_test_backend_gen_key';
-    }, []);
+    const generateApiKey = useCallback(async (environment = 'all') => {
+        try {
+            const res = await fetch(`${API_BASE}/settings/api-keys/generate`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ environment })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setApiKeys(data?.apiKeys || { sandbox: '', production: '' });
+                return { success: true, apiKeys: data?.apiKeys || { sandbox: '', production: '' } };
+            }
+            return { success: false, error: data?.error || 'Failed to generate API keys' };
+        } catch (err) {
+            console.error("Generate API key failed", err);
+            return { success: false, error: 'Network error' };
+        }
+    }, [getHeaders]);
 
     const getSystemSetting = useCallback(async (key) => {
         try {
@@ -834,6 +856,7 @@ export const AppProvider = ({ children }) => {
 
     const contextValue = useMemo(() => ({
         wallet,
+        apiKeys,
         merchants,
         qrCodes,
         transactions,
@@ -870,7 +893,7 @@ export const AppProvider = ({ children }) => {
         getSystemSetting,
         fetchData
     }), [
-        wallet, merchants, qrCodes, transactions, walletHistory, loading,
+        wallet, apiKeys, merchants, qrCodes, transactions, walletHistory, loading,
         addFunds, requestFunds, addMerchant, updateMerchant, updateMerchantStatus,
         deleteMerchant, addBankAccount, updateBankAccount, deleteBankAccount, bankAccounts,
         saveTransactionPin, requestSettlement, fetchSettlements, settlements, getBranchXPayoutQuote,

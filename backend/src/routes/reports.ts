@@ -10,25 +10,6 @@ import { triggerTransactionCallback } from "../utils/callback";
 const reportLogPath = path.join(__dirname, "../mapping_trace.txt");
 
 const router = Router();
-const DEFAULT_ADMIN_LEDGER_ROLES = ["admin", "staff", "master", "merchant", "branch"];
-const DEFAULT_ADMIN_LEDGER_TRANSACTION_TYPES = [
-  "bank_deposit",
-  "branchx_payout",
-  "branchx_payout_debit",
-  "branchx_payout_refund",
-  "commission",
-  "fund_request_approved",
-  "fund_request_failed",
-  "fund_request_pending",
-  "payout",
-  "pg_add",
-  "qr_settlement",
-  "refund",
-  "top_up",
-  "transfer",
-  "wallet",
-];
-
 const HIDDEN_LEDGER_TRANSACTION_TYPES = new Set([
   "hold",
   "payout",
@@ -521,12 +502,7 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
       ])
     );
     const availableRoles = Array.from(
-      new Set([
-        ...DEFAULT_ADMIN_LEDGER_ROLES,
-        ...roleRows
-          .map((roleRow) => String(roleRow.role || "").toLowerCase())
-          .filter(Boolean),
-      ])
+      new Set(roleRows.map((roleRow) => String(roleRow.role || "").toLowerCase()).filter(Boolean))
     ).sort((a, b) => a.localeCompare(b));
 
     const ledgerRows = [
@@ -627,12 +603,7 @@ router.get("/admin/ledger", requireAuth, async (req: AuthRequest, res) => {
     ];
 
     const availableTransactionTypes = Array.from(
-      new Set([
-        ...DEFAULT_ADMIN_LEDGER_TRANSACTION_TYPES,
-        ...ledgerRows
-          .map((row) => row.transactionType)
-          .filter(Boolean),
-      ])
+      new Set(ledgerRows.map((row) => row.transactionType).filter(Boolean))
     )
       .map((value) => String(value || "").toLowerCase())
       .filter((value) => value && !HIDDEN_LEDGER_TRANSACTION_TYPES.has(value))
