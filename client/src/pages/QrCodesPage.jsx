@@ -147,11 +147,15 @@ const QrCodesPage = () => {
     return 'png';
   };
 
-  const renderDisplayedQrSvgMarkup = (qr) => renderToStaticMarkup(
-    <div xmlns="http://www.w3.org/1999/xhtml" style={{ background: '#ffffff', padding: '20px', display: 'inline-flex' }}>
+  const renderDisplayedQrSvgMarkup = (qr) => {
+    const rawSvg = renderToStaticMarkup(
       <QRCodeSVG value={buildUpiString(qr)} size={320} bgColor="#ffffff" fgColor="#111827" includeMargin />
-    </div>
-  );
+    );
+
+    return rawSvg.includes('xmlns=')
+      ? rawSvg
+      : rawSvg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  };
 
   const svgMarkupToPngBlob = (svgMarkup) => new Promise((resolve, reject) => {
     const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
