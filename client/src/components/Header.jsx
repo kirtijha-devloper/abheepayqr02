@@ -89,12 +89,8 @@ const Header = ({ title }) => {
     <header className="main-header" aria-label={title || 'Header'}>
       <div className="header-left">
         <button className="menu-toggle" type="button" aria-label="Open menu" onClick={toggleSidebar}>
-          <span className="control-icon">☰</span>
+          <span className="control-icon">≡</span>
         </button>
-        <div className="header-search">
-          <span className="header-search-icon">🔍</span>
-          <input type="text" placeholder="Search transactions, distributors..." />
-        </div>
       </div>
 
       <div className="header-right">
