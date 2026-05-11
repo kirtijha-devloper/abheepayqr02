@@ -93,14 +93,16 @@ const QrCodesPage = () => {
     return 'Dynamic QR needs an active QR with a valid UPI ID or UPI payment link.';
   }, [activeDynamicQr, myDirectQrs, activeQr]);
 
-  const getUpiString = (amount = 0) => {
-    if (!activeDynamicQr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
-    let rawVal = (activeDynamicQr.upiId || '').trim();
-    const pn = encodeURIComponent(activeDynamicQr.merchantName || user?.name || 'Merchant');
+  const buildUpiString = (qr, amount = 0) => {
+    if (!qr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
+    let rawVal = (qr.upiId || '').trim();
+    if (rawVal.startsWith('MANUAL-UPI')) return rawVal;
+    if (rawVal.startsWith('000201')) return rawVal;
+    const pn = encodeURIComponent(qr.merchantName || user?.name || 'Merchant');
     const mc = '5499';
-    const tid = activeDynamicQr.tid || '';
-    const tr = (activeDynamicQr.id || '').replace(/-/g, '').substring(0, 32);
-    const tn = encodeURIComponent(`Payment to ${activeDynamicQr.merchantName || user?.name || 'Merchant'}`);
+    const tid = qr.tid || '';
+    const tr = (qr.id || '').replace(/-/g, '').substring(0, 32);
+    const tn = encodeURIComponent(`Payment to ${qr.merchantName || user?.name || 'Merchant'}`);
     const reqAmount = amount > 0 ? Number(amount).toFixed(2) : '0.00';
     if (rawVal.startsWith('upi://') || rawVal.startsWith('UPI://')) {
       let uri = rawVal;
@@ -118,28 +120,8 @@ const QrCodesPage = () => {
     return upi;
   };
 
-  const upiString = getUpiString();
-  const dynamicUpiString = getUpiString(Number(dynamicAmount) || 0);
-
-  const getQrIntentString = (qr) => {
-    if (!qr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
-    let rawVal = (qr.upiId || '').trim();
-    if (!rawVal) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
-    if (rawVal.startsWith('MANUAL-UPI')) return rawVal;
-    if (rawVal.startsWith('000201')) return rawVal;
-    const pn = encodeURIComponent(qr.merchantName || user?.name || qr.label || 'Merchant');
-    const mc = '5499';
-    const tid = qr.tid || '';
-    const tr = (qr.id || '').replace(/-/g, '').substring(0, 32);
-    const tn = encodeURIComponent(`Payment to ${qr.merchantName || user?.name || qr.label || 'Merchant'}`);
-    if (rawVal.startsWith('upi://') || rawVal.startsWith('UPI://')) {
-      const uri = rawVal;
-      return uri.match(/[?&]cu=/i) ? uri : `${uri}${uri.includes('?') ? '&' : '?'}cu=INR`;
-    }
-    let upi = `upi://pay?pa=${rawVal}&pn=${pn}&mc=${mc}&tr=${tr}&tn=${tn}&cu=INR`;
-    if (tid) upi += `&tid=${tid}`;
-    return upi;
-  };
+  const upiString = buildUpiString(activeQr);
+  const dynamicUpiString = buildUpiString(activeDynamicQr, Number(dynamicAmount) || 0);
 
   const fetchQrBlob = async (qr) => {
     if (!qr?.imagePath) return null;
@@ -148,14 +130,61 @@ const QrCodesPage = () => {
     return response.blob();
   };
 
-  const generateQrBlobFromIntent = async (qr) => {
-    const intent = getQrIntentString(qr);
-    const svgMarkup = renderToStaticMarkup(
-      <div xmlns="http://www.w3.org/1999/xhtml" style={{ background: '#ffffff', padding: '20px', display: 'inline-flex' }}>
-        <QRCodeSVG value={intent} size={320} bgColor="#ffffff" fgColor="#111827" includeMargin />
-      </div>
-    );
-    return new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+  const getBlobExtension = (blob) => {
+    if (!blob?.type) return 'png';
+    if (blob.type.includes('png')) return 'png';
+    if (blob.type.includes('jpeg') || blob.type.includes('jpg')) return 'jpg';
+    if (blob.type.includes('svg')) return 'svg';
+    return 'png';
+  };
+
+  const renderDisplayedQrSvgMarkup = (qr) => renderToStaticMarkup(
+    <div xmlns="http://www.w3.org/1999/xhtml" style={{ background: '#ffffff', padding: '20px', display: 'inline-flex' }}>
+      <QRCodeSVG value={buildUpiString(qr)} size={320} bgColor="#ffffff" fgColor="#111827" includeMargin />
+    </div>
+  );
+
+  const svgMarkupToPngBlob = (svgMarkup) => new Promise((resolve, reject) => {
+    const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+    const objectUrl = window.URL.createObjectURL(svgBlob);
+    const image = new Image();
+
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width || 360;
+      canvas.height = image.height || 360;
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        window.URL.revokeObjectURL(objectUrl);
+        reject(new Error('Canvas is not supported.'));
+        return;
+      }
+
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0);
+      canvas.toBlob((blob) => {
+        window.URL.revokeObjectURL(objectUrl);
+        if (!blob) {
+          reject(new Error('Failed to convert QR image.'));
+          return;
+        }
+        resolve(blob);
+      }, 'image/png');
+    };
+
+    image.onerror = () => {
+      window.URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load generated QR image.'));
+    };
+
+    image.src = objectUrl;
+  });
+
+  const generateDisplayedQrBlob = async (qr) => {
+    const svgMarkup = renderDisplayedQrSvgMarkup(qr);
+    return svgMarkupToPngBlob(svgMarkup);
   };
 
   const buildQrBlob = async (qr) => {
@@ -165,7 +194,7 @@ const QrCodesPage = () => {
     } catch (fetchError) {
       console.warn('Falling back to generated QR image for share/download', fetchError);
     }
-    return generateQrBlobFromIntent(qr);
+    return generateDisplayedQrBlob(qr);
   };
 
   const handleDownloadQr = async (qr) => {
@@ -179,7 +208,7 @@ const QrCodesPage = () => {
       const objectUrl = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = objectUrl;
-      anchor.download = `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.${blob.type.includes('svg') ? 'svg' : 'png'}`;
+      anchor.download = `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.${getBlobExtension(blob)}`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
@@ -192,48 +221,46 @@ const QrCodesPage = () => {
   };
 
   const handleShareQr = async (qr) => {
-    const intent = getQrIntentString(qr);
     const shareTitle = `${titleCase(qr.label || 'QR Code')} Payment QR`;
-    const shareText = `${shareTitle}\nUPI Intent: ${intent}`;
+    const shareText = `Scan this QR to pay ${qr.merchantName || user?.name || 'the merchant'}.`;
 
     try {
       const blob = await buildQrBlob(qr);
       const shareFile = blob
         ? new File(
             [blob],
-            `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.${blob.type.includes('svg') ? 'svg' : 'png'}`,
+            `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.${getBlobExtension(blob)}`,
             { type: blob.type || 'image/png' }
           )
         : null;
 
-      if (navigator.share) {
-        if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
-          await navigator.share({
-            title: shareTitle,
-            text: shareText,
-            files: [shareFile]
-          });
-          return;
-        }
-
+      if (shareFile && navigator.share && navigator.canShare?.({ files: [shareFile] })) {
         await navigator.share({
           title: shareTitle,
-          text: shareText
+          text: shareText,
+          files: [shareFile]
         });
         return;
       }
 
-      await navigator.clipboard.writeText(intent);
-      success('UPI intent copied. You can now paste and share it.');
+      if (shareFile && window.ClipboardItem && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new window.ClipboardItem({
+            [shareFile.type]: shareFile
+          })
+        ]);
+        success('QR image copied. You can now paste it where you want to share it.');
+        return;
+      }
+
+      const objectUrl = window.URL.createObjectURL(blob);
+      window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60000);
+      success('QR image opened in a new tab so you can share the actual assigned QR.');
     } catch (shareError) {
       if (shareError?.name === 'AbortError') return;
       console.error(shareError);
-      try {
-        await navigator.clipboard.writeText(intent);
-        success('Share is not supported here, so the UPI intent was copied.');
-      } catch {
-        error('Failed to share QR or copy the payment intent.');
-      }
+      error('Failed to share the assigned QR image.');
     }
   };
 
@@ -500,14 +527,14 @@ const QrCodesPage = () => {
               </div>
               <div className="qr-card-exact card">
                 <div className="qr-frame">
-                  {activeDynamicQr ? (
+                  {activeQr ? (
                     <QRCodeSVG value={upiString} size={256} />
                   ) : (
                     <div style={{ width: 256, height: 256, background: '#f5f5f5', borderRadius: '12px' }} />
                   )}
                 </div>
-                {!activeDynamicQr && (
-                  <div className="qr-help-note">{dynamicQrIssue}</div>
+                {!activeQr && (
+                  <div className="qr-help-note">No active QR is assigned to this user yet.</div>
                 )}
               </div>
             </>

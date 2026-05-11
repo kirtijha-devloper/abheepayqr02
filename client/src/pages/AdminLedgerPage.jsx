@@ -30,6 +30,16 @@ const prettifyType = (value) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 
+const prettifyRole = (value) => {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'master') return 'Super Distributor';
+  if (normalized === 'merchant') return 'Distributor';
+  if (normalized === 'branch') return 'Branch';
+  if (normalized === 'staff') return 'Staff';
+  if (normalized === 'admin') return 'Admin';
+  return prettifyType(value);
+};
+
 const HIDDEN_TRANSACTION_TYPES = new Set([
   'hold',
   'payout',
@@ -121,7 +131,7 @@ const AdminLedgerPage = () => {
         dateTime: row.createdAt ? new Date(row.createdAt).toLocaleString() : '',
         userName: row.userName,
         userPhone: row.userPhone,
-        role: row.role,
+        role: prettifyRole(row.role),
         transactionType: row.transactionType,
         source: row.sourceLabel,
         description: row.description,
@@ -178,7 +188,7 @@ const AdminLedgerPage = () => {
               <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
                 <option value="">All roles</option>
                 {roleOptions.map((role) => (
-                  <option key={role} value={role}>{prettifyType(role)}</option>
+                  <option key={role} value={role}>{prettifyRole(role)}</option>
                 ))}
               </select>
             </div>
@@ -251,7 +261,7 @@ const AdminLedgerPage = () => {
                             <span>{row.userPhone || row.userEmail || '--'}</span>
                           </div>
                         </td>
-                        <td><span className="ledger-role-pill">{prettifyType(row.role)}</span></td>
+                        <td><span className="ledger-role-pill">{prettifyRole(row.role)}</span></td>
                         <td><span className="ledger-type-pill">{prettifyLedgerType(row.transactionType)}</span></td>
                         <td>{row.sourceLabel}</td>
                         <td className="ledger-description">{row.description || '--'}</td>
