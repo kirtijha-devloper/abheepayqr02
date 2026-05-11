@@ -493,6 +493,37 @@
     color: #fff;
 }
 
+.reply-form-group label {
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.reply-modal-textarea,
+.reply-modal-select {
+    background: #111423 !important;
+    border: 1px solid rgba(148, 163, 184, 0.22) !important;
+    color: #f8fafc !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.reply-modal-textarea::placeholder {
+    color: rgba(148, 163, 184, 0.72) !important;
+}
+
+.reply-modal-select {
+    appearance: auto;
+}
+
+.reply-modal-select option {
+    background: #111423;
+    color: #f8fafc;
+}
+
+.reply-modal-textarea:focus,
+.reply-modal-select:focus {
+    border-color: rgba(96, 165, 250, 0.7) !important;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14) !important;
+}
+
 .ticket-context {
     margin-bottom: 1.5rem;
     padding: 1rem 1.05rem;

@@ -159,18 +159,20 @@ const SupportAdminPage = () => {
                                 </div>
 
                                 <div className="support-form">
-                                    <div className="form-group">
+                                    <div className="form-group reply-form-group">
                                         <label>Your Reply</label>
                                         <textarea 
+                                            className="reply-modal-textarea"
                                             placeholder="Type your response to the distributor..."
                                             value={replyText}
                                             onChange={(e) => setReplyText(e.target.value)}
                                             style={{minHeight: '150px'}}
                                         />
                                     </div>
-                                    <div className="form-group" style={{marginTop: '16px'}}>
+                                    <div className="form-group reply-form-group" style={{marginTop: '16px'}}>
                                         <label>Update Status</label>
                                         <select 
+                                            className="reply-modal-select"
                                             value={statusUpdate}
                                             onChange={(e) => setStatusUpdate(e.target.value)}
                                             style={{width: '100%'}}
