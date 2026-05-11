@@ -74,6 +74,7 @@ const QrCodesAdminPage = () => {
   const { success, error } = useToast();
   const { user } = useAuth();
   const {
+    merchants,
     qrCodes, addQrCode, bulkAddQrCodes, assignQrByTid, assignQrByIds,
     unassignQrCode, deleteQrCode, updateQrCode, fetchData, fetchQrReport
   } = useAppContext();

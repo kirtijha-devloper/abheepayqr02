@@ -30,7 +30,7 @@ const formatDateTime = (value) => {
 const BeneficiariesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const {
     wallet,
     bankAccounts,

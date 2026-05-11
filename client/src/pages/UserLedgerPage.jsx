@@ -86,7 +86,6 @@ const UserLedgerPage = () => {
   const [statusOptions, setStatusOptions] = useState([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -121,7 +120,6 @@ const UserLedgerPage = () => {
       setRows(Array.isArray(data.rows) ? data.rows : []);
       setTransactionTypes(normalizeOptions(Array.isArray(data.filters?.availableTransactionTypes) ? data.filters.availableTransactionTypes : []));
       setStatusOptions(normalizeOptions(Array.isArray(data.filters?.availableStatuses) ? data.filters.availableStatuses : []));
-      setTotalRecords(Number(data.pagination?.totalRecords) || 0);
       setTotalPages(Number(data.pagination?.totalPages) || 1);
     } catch (error) {
       console.error('User ledger fetch failed', error);
@@ -129,7 +127,6 @@ const UserLedgerPage = () => {
       setBalances({ totalBalance: 0, availableBalance: 0, holdBalance: 0 });
       setTransactionTypes([]);
       setStatusOptions([]);
-      setTotalRecords(0);
       setTotalPages(1);
     } finally {
       setLoading(false);

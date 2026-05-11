@@ -93,6 +93,15 @@ const QrCodesPage = () => {
     return 'Dynamic QR needs an active QR with a valid UPI ID or UPI payment link.';
   }, [activeDynamicQr, myDirectQrs, activeQr]);
 
+  const myQrIssue = useMemo(() => {
+    if (!activeQr) return 'No active QR is assigned to this user yet.';
+    const valueType = getQrValueType(activeQr.upiId);
+    if (valueType === 'manual') {
+      return 'This assigned QR is still a placeholder MANUAL-UPI record. Assign a real UPI QR to display a scannable payment code here.';
+    }
+    return '';
+  }, [activeQr]);
+
   const buildUpiString = (qr, amount = 0) => {
     if (!qr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
     let rawVal = (qr.upiId || '').trim();
@@ -527,14 +536,14 @@ const QrCodesPage = () => {
               </div>
               <div className="qr-card-exact card">
                 <div className="qr-frame">
-                  {activeQr ? (
+                  {activeQr && !myQrIssue ? (
                     <QRCodeSVG value={upiString} size={256} />
                   ) : (
                     <div style={{ width: 256, height: 256, background: '#f5f5f5', borderRadius: '12px' }} />
                   )}
                 </div>
-                {!activeQr && (
-                  <div className="qr-help-note">No active QR is assigned to this user yet.</div>
+                {myQrIssue && (
+                  <div className="qr-help-note">{myQrIssue}</div>
                 )}
               </div>
             </>

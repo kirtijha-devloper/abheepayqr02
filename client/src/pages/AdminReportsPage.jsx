@@ -162,7 +162,11 @@ const AdminReportsPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    const timer = setTimeout(() => {
+      fetchAll();
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [fetchAll]);
 
   const filteredFR = useMemo(
