@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { QRCodeSVG } from 'qrcode.react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -32,6 +33,15 @@ const titleCase = (value) => {
     .join(' ');
 };
 
+const getQrValueType = (value) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return 'missing';
+  if (normalized.startsWith('MANUAL-UPI')) return 'manual';
+  if (normalized.startsWith('000201')) return 'raw_emv';
+  if (normalized.startsWith('upi://') || normalized.startsWith('UPI://')) return 'upi_uri';
+  return normalized.includes('@') ? 'upi_id' : 'unknown';
+};
+
 const QrCodesPage = () => {
   const { qrCodes, updateQrCode, fetchQrReport } = useAppContext();
   const { user } = useAuth();
@@ -49,31 +59,48 @@ const QrCodesPage = () => {
   const [showPreview, setShowPreview] = useState(false);
 
   const myInventoryQrs = useMemo(() => {
-    return (qrCodes || []).filter((q) => q.merchantId === user?.id);
-  }, [qrCodes, user]);
+    return qrCodes || [];
+  }, [qrCodes]);
 
   const myDirectQrs = useMemo(() => myInventoryQrs.filter((q) => q.status === 'active'), [myInventoryQrs]);
 
   const activeQr = useMemo(() => {
     if (myDirectQrs.length === 0) return null;
     const sorted = [...myDirectQrs].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const verified = sorted.filter((q) => {
-      const upi = (q.upiId || '').trim();
-      return upi && !upi.startsWith('MANUAL-UPI');
-    });
-    return verified.length > 0 ? verified[0] : sorted[0];
+    return sorted[0];
   }, [myDirectQrs]);
 
+  const activeDynamicQr = useMemo(() => {
+    if (myDirectQrs.length === 0) return null;
+    const sorted = [...myDirectQrs].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return sorted.find((q) => {
+      const valueType = getQrValueType(q.upiId);
+      return valueType === 'upi_id' || valueType === 'upi_uri';
+    }) || null;
+  }, [myDirectQrs]);
+
+  const dynamicQrIssue = useMemo(() => {
+    if (activeDynamicQr) return '';
+    if (myDirectQrs.length === 0) return 'No active QR is assigned to this user yet.';
+    const latestQr = activeQr;
+    const valueType = getQrValueType(latestQr?.upiId);
+    if (valueType === 'manual') {
+      return 'Dynamic QR is not available on placeholder MANUAL-UPI records. Assign a real UPI QR first.';
+    }
+    if (valueType === 'raw_emv') {
+      return 'Dynamic QR is not available on raw static QR payloads here. Assign a real UPI ID based QR for amount-locked payments.';
+    }
+    return 'Dynamic QR needs an active QR with a valid UPI ID or UPI payment link.';
+  }, [activeDynamicQr, myDirectQrs, activeQr]);
+
   const getUpiString = (amount = 0) => {
-    if (!activeQr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
-    let rawVal = (activeQr.upiId || '').trim();
-    if (rawVal.startsWith('MANUAL-UPI')) return rawVal;
-    if (rawVal.startsWith('000201')) return rawVal;
-    const pn = encodeURIComponent(activeQr.merchantName || user?.name || 'Merchant');
+    if (!activeDynamicQr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
+    let rawVal = (activeDynamicQr.upiId || '').trim();
+    const pn = encodeURIComponent(activeDynamicQr.merchantName || user?.name || 'Merchant');
     const mc = '5499';
-    const tid = activeQr.tid || '';
-    const tr = (activeQr.id || '').replace(/-/g, '').substring(0, 32);
-    const tn = encodeURIComponent(`Payment to ${activeQr.merchantName || user?.name || 'Merchant'}`);
+    const tid = activeDynamicQr.tid || '';
+    const tr = (activeDynamicQr.id || '').replace(/-/g, '').substring(0, 32);
+    const tn = encodeURIComponent(`Payment to ${activeDynamicQr.merchantName || user?.name || 'Merchant'}`);
     const reqAmount = amount > 0 ? Number(amount).toFixed(2) : '0.00';
     if (rawVal.startsWith('upi://') || rawVal.startsWith('UPI://')) {
       let uri = rawVal;
@@ -121,9 +148,29 @@ const QrCodesPage = () => {
     return response.blob();
   };
 
+  const generateQrBlobFromIntent = async (qr) => {
+    const intent = getQrIntentString(qr);
+    const svgMarkup = renderToStaticMarkup(
+      <div xmlns="http://www.w3.org/1999/xhtml" style={{ background: '#ffffff', padding: '20px', display: 'inline-flex' }}>
+        <QRCodeSVG value={intent} size={320} bgColor="#ffffff" fgColor="#111827" includeMargin />
+      </div>
+    );
+    return new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+  };
+
+  const buildQrBlob = async (qr) => {
+    try {
+      const uploadedBlob = await fetchQrBlob(qr);
+      if (uploadedBlob) return uploadedBlob;
+    } catch (fetchError) {
+      console.warn('Falling back to generated QR image for share/download', fetchError);
+    }
+    return generateQrBlobFromIntent(qr);
+  };
+
   const handleDownloadQr = async (qr) => {
     try {
-      const blob = await fetchQrBlob(qr);
+      const blob = await buildQrBlob(qr);
       if (!blob) {
         error('No QR image is available to download for this record.');
         return;
@@ -132,7 +179,7 @@ const QrCodesPage = () => {
       const objectUrl = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = objectUrl;
-      anchor.download = `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.png`;
+      anchor.download = `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.${blob.type.includes('svg') ? 'svg' : 'png'}`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
@@ -150,8 +197,14 @@ const QrCodesPage = () => {
     const shareText = `${shareTitle}\nUPI Intent: ${intent}`;
 
     try {
-      const blob = await fetchQrBlob(qr);
-      const shareFile = blob ? new File([blob], `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.png`, { type: blob.type || 'image/png' }) : null;
+      const blob = await buildQrBlob(qr);
+      const shareFile = blob
+        ? new File(
+            [blob],
+            `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.${blob.type.includes('svg') ? 'svg' : 'png'}`,
+            { type: blob.type || 'image/png' }
+          )
+        : null;
 
       if (navigator.share) {
         if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
@@ -447,12 +500,15 @@ const QrCodesPage = () => {
               </div>
               <div className="qr-card-exact card">
                 <div className="qr-frame">
-                  {activeQr ? (
+                  {activeDynamicQr ? (
                     <QRCodeSVG value={upiString} size={256} />
                   ) : (
                     <div style={{ width: 256, height: 256, background: '#f5f5f5', borderRadius: '12px' }} />
                   )}
                 </div>
+                {!activeDynamicQr && (
+                  <div className="qr-help-note">{dynamicQrIssue}</div>
+                )}
               </div>
             </>
           )}
@@ -471,15 +527,19 @@ const QrCodesPage = () => {
                     placeholder="Enter amount"
                     value={dynamicAmount}
                     onChange={(e) => setDynamicAmount(e.target.value)}
+                    disabled={!activeDynamicQr}
                     style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '18px' }}
                   />
                 </div>
                 <div className="qr-frame" style={{ margin: '1.5rem' }}>
-                  {activeQr ? (
+                  {activeDynamicQr ? (
                     <QRCodeSVG value={dynamicUpiString} size={256} />
                   ) : (
                     <div style={{ width: 256, height: 256, background: '#f5f5f5', borderRadius: '12px' }} />
                   )}
+                </div>
+                <div className="qr-help-note" style={{ margin: '0 1.5rem 1.5rem' }}>
+                  {activeDynamicQr ? 'Dynamic QR is ready. Enter an amount and share or scan it to pay.' : dynamicQrIssue}
                 </div>
               </div>
             </>

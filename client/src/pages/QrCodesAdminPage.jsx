@@ -14,15 +14,6 @@ import './QrCodesAdminPage.css';
 
 const QrCodesAdminPage = () => {
   const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
-  const titleCase = (value) => {
-    const normalized = String(value || '').trim();
-    if (!normalized) return 'QR';
-    return normalized
-      .split(/[\s_-]+/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(' ');
-  };
   const formatDateTime = (value) => {
     if (!value) return 'N/A';
     const date = new Date(value);
@@ -112,100 +103,6 @@ const QrCodesAdminPage = () => {
   useEffect(() => {
     setAssignMerchantId('');
   }, [assignRoleFilter]);
-
-  const getQrIntentString = (qr) => {
-    if (!qr) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
-    const rawVal = String(qr.upiId || '').trim();
-    if (!rawVal) return 'upi://pay?pa=unassigned@upi&pn=Unassigned&mc=0000&tid=&tr=&tn=Unassigned&am=0&cu=INR';
-    if (rawVal.startsWith('MANUAL-UPI') || rawVal.startsWith('000201')) return rawVal;
-
-    const pn = encodeURIComponent(qr.merchantName || qr.label || 'Merchant');
-    const mc = '5499';
-    const tid = qr.tid || '';
-    const tr = String(qr.id || '').replace(/-/g, '').substring(0, 32);
-    const tn = encodeURIComponent(`Payment to ${qr.merchantName || qr.label || 'Merchant'}`);
-
-    if (rawVal.startsWith('upi://') || rawVal.startsWith('UPI://')) {
-      const uri = rawVal;
-      return uri.match(/[?&]cu=/i) ? uri : `${uri}${uri.includes('?') ? '&' : '?'}cu=INR`;
-    }
-
-    let upi = `upi://pay?pa=${rawVal}&pn=${pn}&mc=${mc}&tr=${tr}&tn=${tn}&cu=INR`;
-    if (tid) upi += `&tid=${tid}`;
-    return upi;
-  };
-
-  const fetchQrBlob = async (qr) => {
-    if (!qr?.imagePath) return null;
-    const response = await fetch(`${UPLOADS_BASE}${qr.imagePath}`);
-    if (!response.ok) throw new Error('Unable to load QR image.');
-    return response.blob();
-  };
-
-  const handleDownloadQr = async (qr, event) => {
-    event.stopPropagation();
-    try {
-      const blob = await fetchQrBlob(qr);
-      if (!blob) {
-        error('No QR image is available to download for this record.');
-        return;
-      }
-
-      const objectUrl = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl;
-      anchor.download = `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.png`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      window.URL.revokeObjectURL(objectUrl);
-      success('QR download started.');
-    } catch (downloadError) {
-      console.error(downloadError);
-      error('Failed to download QR image.');
-    }
-  };
-
-  const handleShareQr = async (qr, event) => {
-    event.stopPropagation();
-    const intent = getQrIntentString(qr);
-    const shareTitle = `${titleCase(qr.label || 'QR Code')} Payment QR`;
-    const shareText = `${shareTitle}\nUPI Intent: ${intent}`;
-
-    try {
-      const blob = await fetchQrBlob(qr);
-      const shareFile = blob ? new File([blob], `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.png`, { type: blob.type || 'image/png' }) : null;
-
-      if (navigator.share) {
-        if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
-          await navigator.share({
-            title: shareTitle,
-            text: shareText,
-            files: [shareFile]
-          });
-          return;
-        }
-
-        await navigator.share({
-          title: shareTitle,
-          text: shareText
-        });
-        return;
-      }
-
-      await navigator.clipboard.writeText(intent);
-      success('UPI intent copied. You can now paste and share it.');
-    } catch (shareError) {
-      if (shareError?.name === 'AbortError') return;
-      console.error(shareError);
-      try {
-        await navigator.clipboard.writeText(intent);
-        success('Share is not supported here, so the UPI intent was copied.');
-      } catch {
-        error('Failed to share QR or copy the payment intent.');
-      }
-    }
-  };
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -1099,22 +996,6 @@ const QrCodesAdminPage = () => {
                                       style={{padding: '6px 12px', fontSize: '11px', fontWeight: '700', minWidth: '70px'}}
                                     >
                                       Report
-                                    </button>
-
-                                    <button
-                                      className="action-btn"
-                                      onClick={(e) => handleDownloadQr(item, e)}
-                                      style={{padding: '6px 12px', fontSize: '11px', fontWeight: '700', minWidth: '94px'}}
-                                    >
-                                      Download QR
-                                    </button>
-
-                                    <button
-                                      className="action-btn"
-                                      onClick={(e) => handleShareQr(item, e)}
-                                      style={{padding: '6px 12px', fontSize: '11px', fontWeight: '700', minWidth: '76px'}}
-                                    >
-                                      Share QR
                                     </button>
                                     
                                     <button 
