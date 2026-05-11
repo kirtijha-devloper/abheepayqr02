@@ -318,19 +318,30 @@
 
 .form-input-box {
   width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: var(--r-md);
-  color: var(--text-h);
+  color: #0f172a;
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
   outline: none;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
   transition: all 0.2s;
 }
 
 .form-input-box:focus {
-  border-color: var(--primary);
-  background: var(--bg-hover);
+  border-color: #818cf8;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.16);
+}
+
+.form-input-box::placeholder {
+  color: #94a3b8;
+}
+
+.form-input-box option {
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .permissions-grid {
