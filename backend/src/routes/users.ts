@@ -8,6 +8,17 @@ import { AppRole } from "@prisma/client";
 
 const router = Router();
 
+async function findTargetProfile(idOrUserId: string) {
+  return prisma.profile.findFirst({
+    where: {
+      OR: [
+        { id: idOrUserId },
+        { userId: idOrUserId },
+      ],
+    },
+  });
+}
+
 // GET /api/users/all — admin only: fetch all users across all levels
 router.get("/all", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -15,7 +26,7 @@ router.get("/all", requireAuth, async (req: AuthRequest, res) => {
     if (!canManage) return res.status(403).json({ error: "Access denied" });
 
     const users = await prisma.user.findMany({
-      include: { profile: true, roles: true, wallet: true },
+      include: { profile: true, roles: true, wallet: true, userCommissionOverrides: true },
       orderBy: { createdAt: "desc" },
     });
 
@@ -33,6 +44,7 @@ router.get("/all", requireAuth, async (req: AuthRequest, res) => {
       fullName: u.profile?.fullName,
       businessName: u.profile?.businessName,
       phone: u.profile?.phone,
+      callbackUrl: u.profile?.callbackUrl,
       status: u.profile?.status,
       kycStatus: u.profile?.kycStatus,
       walletBalance: Number(u.wallet?.balance ?? 0),
@@ -40,6 +52,7 @@ router.get("/all", requireAuth, async (req: AuthRequest, res) => {
       createdAt: u.createdAt,
       parentId: u.profile?.parentId,
       parentName: u.profile?.parentId ? profileNameMap.get(u.profile.parentId) : "Direct Admin",
+      payoutOverride: u.userCommissionOverrides?.find((ov) => ov.serviceKey === "payout") || null,
     }));
 
     res.json(result);
@@ -216,15 +229,17 @@ router.patch("/:id/status", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerId = req.userId!;
     const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
+    const targetProfile = await findTargetProfile(id);
+    if (!targetProfile) return res.status(404).json({ error: "User profile not found" });
+
     if (!isAdmin) {
       // Non-admins can only toggle their downline
-      const profile = await prisma.profile.findUnique({ where: { id } });
       const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
-      if (profile?.parentId !== myProfile?.id) return res.status(403).json({ error: "Forbidden" });
+      if (targetProfile.parentId !== myProfile?.id) return res.status(403).json({ error: "Forbidden" });
     }
 
     const updated = await prisma.profile.update({
-      where: { id },
+      where: { id: targetProfile.id },
       data: { status },
     });
     res.json(updated);
@@ -243,10 +258,11 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
     const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
     const isMaster = req.userRole === "master";
     if (!isAdmin && !isMaster) return res.status(403).json({ error: "Forbidden" });
+    const targetProfile = await findTargetProfile(id);
+    if (!targetProfile) return res.status(404).json({ error: "User profile not found" });
 
     // master can only edit their own downline merchants
     if (isMaster) {
-      const targetProfile = await prisma.profile.findUnique({ where: { id } });
       const myProfile = await prisma.profile.findUnique({ where: { userId: callerId } });
       if (targetProfile?.parentId !== myProfile?.id) return res.status(403).json({ error: "Forbidden: not your downline" });
     }
@@ -254,7 +270,7 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
     const result = await prisma.$transaction(async (tx) => {
       // 1. Update Profile
       const profile = await tx.profile.update({
-        where: { id },
+        where: { id: targetProfile.id },
         data: { fullName, phone, businessName, callbackUrl },
       });
 
@@ -308,12 +324,12 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
 
 // DELETE /api/users/:id — Delete user
 router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
-  const { id } = req.params; // This is the profile ID based on frontend calls
+  const { id } = req.params;
   try {
     const callerId = req.userId!;
     const isAdmin = req.userRole === "admin" || (req.userRole === "staff" && req.permissions?.canManageUsers);
     
-    const targetProfile = await prisma.profile.findUnique({ where: { id } });
+    const targetProfile = await findTargetProfile(id);
     if (!targetProfile) return res.status(404).json({ error: "User profile not found" });
     const targetUserId = targetProfile.userId;
 
@@ -325,7 +341,7 @@ router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
     }
 
     // 3. Check for downlines (children)
-    const childrenCount = await prisma.profile.count({ where: { parentId: id } });
+    const childrenCount = await prisma.profile.count({ where: { parentId: targetProfile.id } });
     if (childrenCount > 0) {
       return res.status(400).json({ error: "Cannot delete user who has downline members. Reassign or delete them first." });
     }

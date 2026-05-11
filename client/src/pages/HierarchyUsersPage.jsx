@@ -98,7 +98,7 @@ const HierarchyUsersPage = () => {
     const handleToggleStatus = async (user) => {
         const currentStatus = (user.status || 'active').toLowerCase();
         const nextStatus = currentStatus === 'active' ? 'inactive' : 'active';
-        const res = await updateMerchantStatus(user.userId || user.id, nextStatus);
+        const res = await updateMerchantStatus(user.profileId || user.id, nextStatus);
         if (res?.success) {
             success(`User marked as ${nextStatus}`);
             fetchAllUsers();
@@ -107,9 +107,9 @@ const HierarchyUsersPage = () => {
         }
     };
 
-    const handleDeleteUser = async (userId) => {
+    const handleDeleteUser = async (profileId) => {
         if (!window.confirm("Are you sure you want to delete this user?")) return;
-        const res = await deleteMerchant(userId);
+        const res = await deleteMerchant(profileId);
         if (res?.success) {
             success("User deleted successfully");
             fetchAllUsers();
@@ -137,9 +137,9 @@ const HierarchyUsersPage = () => {
 
     const handleUpdate = async (e) => {
         e.preventDefault();
-        const res = await updateMerchant(selectedUser.userId || selectedUser.id, {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
+        const fullName = [formData.firstName, formData.lastName].filter(Boolean).join(' ').trim();
+        const res = await updateMerchant(selectedUser.profileId || selectedUser.id, {
+            fullName,
             email: formData.email,
             phone: formData.phone,
             businessName: formData.businessName,
@@ -313,7 +313,7 @@ const HierarchyUsersPage = () => {
                                                         <button className="action-btn login-btn" onClick={() => handleLoginAs(user.userId)}>Login</button>
                                                         <button className="action-btn" onClick={() => handleEdit(user)}>Edit</button>
                                                         <button className="action-btn hold-btn" onClick={() => handleHoldAction(user, 'hold')}>Hold / Unhold</button>
-                                                        <button className="action-btn danger-btn" onClick={() => handleDeleteUser(user.userId)}>Delete</button>
+                                                        <button className="action-btn danger-btn" onClick={() => handleDeleteUser(user.profileId || user.id)}>Delete</button>
                                                     </div>
                                                 </td>
                                             </tr>
