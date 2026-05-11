@@ -53,8 +53,8 @@ const Sidebar = () => {
     }
   }, []);
 
-  const handleScroll = (e) => {
-    localStorage.setItem('sidebar-scroll', e.target.scrollTop);
+  const handleScroll = (event) => {
+    localStorage.setItem('sidebar-scroll', event.target.scrollTop);
   };
 
   const handleLogout = () => {
@@ -63,65 +63,68 @@ const Sidebar = () => {
   };
 
   const merchantItems = [
-    { name: 'Dashboard', icon: '▦', path: '/dashboard', feature: 'dashboard', category: 'MAIN' },
-    { name: 'Transactions', icon: '⇄', path: '/transactions', feature: 'transactions', category: 'MAIN' },
-    { name: 'Branches', icon: '👥', path: '/branches', feature: 'branches', category: 'MAIN' },
-    { name: 'QR Codes', icon: '🔳', path: '/merchant/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
-    { name: 'Settlements', icon: '💸', path: '/settlements', feature: 'settlements', category: 'MAIN' },
-    { name: 'Fund Requests', icon: '📥', path: '/fund-requests', feature: 'fund_requests', category: 'MAIN' },
-    { name: 'Reconciliation', icon: '⚖', path: '/reconciliation', feature: 'reconciliation', category: 'MANAGEMENT' },
-    { name: 'Wallet', icon: '💳', path: '/wallet', feature: 'wallet', category: 'MAIN' },
-    { name: 'Ledger', icon: '≡', path: '/ledger', feature: 'ledger', category: 'MANAGEMENT' },
-    { name: 'Callbacks', icon: '⚡', path: '/callbacks', feature: 'callbacks', category: 'MANAGEMENT' },
-    { name: 'Support', icon: '🎧', path: '/support', feature: 'support', category: 'HELP' },
-    { name: 'Charges', icon: '％', path: '/charges', feature: 'charges', category: 'MANAGEMENT' },
-    { name: 'Settings', icon: '⚙', path: '/settings', feature: 'settings', category: 'HELP' },
+    { name: 'Dashboard', icon: 'DB', path: '/dashboard', feature: 'dashboard', category: 'MAIN' },
+    { name: 'Transactions', icon: 'TX', path: '/transactions', feature: 'transactions', category: 'MAIN' },
+    { name: 'Branches', icon: 'BR', path: '/branches', feature: 'branches', category: 'MAIN' },
+    { name: 'QR Codes', icon: 'QR', path: '/merchant/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
+    { name: 'Settlements', icon: 'PO', path: '/settlements', feature: 'settlements', category: 'MAIN' },
+    { name: 'Fund Requests', icon: 'FR', path: '/fund-requests', feature: 'fund_requests', category: 'MAIN' },
+    { name: 'Reconciliation', icon: 'RC', path: '/reconciliation', feature: 'reconciliation', category: 'MANAGEMENT' },
+    { name: 'Wallet', icon: 'WL', path: '/wallet', feature: 'wallet', category: 'MAIN' },
+    { name: 'Beneficiaries', icon: 'BN', path: '/beneficiaries', feature: 'wallet', category: 'MAIN' },
+    { name: 'Ledger', icon: 'LD', path: '/ledger', feature: 'ledger', category: 'MANAGEMENT' },
+    { name: 'Callbacks', icon: 'CB', path: '/callbacks', feature: 'callbacks', category: 'MANAGEMENT' },
+    { name: 'Support', icon: 'SP', path: '/support', feature: 'support', category: 'HELP' },
+    { name: 'Charges', icon: 'CH', path: '/charges', feature: 'charges', category: 'MANAGEMENT' },
+    { name: 'Settings', icon: 'ST', path: '/settings', feature: 'settings', category: 'HELP' },
   ];
 
   const branchItems = [
-    { name: 'Dashboard', icon: '▦', path: '/dashboard', feature: 'dashboard', category: 'MAIN' },
-    { name: 'Transactions', icon: '⇄', path: '/transactions', feature: 'transactions', category: 'MAIN' },
-    { name: 'QR Codes', icon: '🔳', path: '/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
-    { name: 'Wallet', icon: '💳', path: '/wallet', feature: 'wallet', category: 'MAIN' },
-    { name: 'Ledger', icon: '≡', path: '/ledger', feature: 'ledger', category: 'MANAGEMENT' },
-    { name: 'Support', icon: '🎧', path: '/support', feature: 'support', category: 'HELP' },
-    { name: 'Settings', icon: '⚙', path: '/settings', feature: 'settings', category: 'HELP' },
+    { name: 'Dashboard', icon: 'DB', path: '/dashboard', feature: 'dashboard', category: 'MAIN' },
+    { name: 'Transactions', icon: 'TX', path: '/transactions', feature: 'transactions', category: 'MAIN' },
+    { name: 'QR Codes', icon: 'QR', path: '/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
+    { name: 'Wallet', icon: 'WL', path: '/wallet', feature: 'wallet', category: 'MAIN' },
+    { name: 'Beneficiaries', icon: 'BN', path: '/beneficiaries', feature: 'wallet', category: 'MAIN' },
+    { name: 'Ledger', icon: 'LD', path: '/ledger', feature: 'ledger', category: 'MANAGEMENT' },
+    { name: 'Support', icon: 'SP', path: '/support', feature: 'support', category: 'HELP' },
+    { name: 'Settings', icon: 'ST', path: '/settings', feature: 'settings', category: 'HELP' },
   ];
 
   const adminItems = [
-    { name: 'Dashboard', icon: '▦', path: '/admin/dashboard', feature: 'dashboard', category: 'MAIN' },
-    { name: 'Staff Panel', icon: '🛡', path: '/admin/staff', category: 'MANAGEMENT' },
-    { name: 'Transactions', icon: '⇄', path: '/admin/transactions', feature: 'transactions', category: 'MAIN' },
-    { name: 'Super Distributors', icon: '👥', path: '/admin/merchants', feature: 'masters', category: 'MAIN' },
-    { name: 'User List', icon: '👥', path: '/admin/users', feature: 'users', category: 'MAIN' },
-    { name: 'Wallet', icon: '💳', path: '/admin/wallet', feature: 'wallet', category: 'MAIN' },
-    { name: 'Reconciliation', icon: '⚖', path: '/admin/reconciliation', feature: 'reconciliation', category: 'MANAGEMENT' },
-    { name: 'QR Codes', icon: '🔳', path: '/admin/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
-    { name: 'Settlements', icon: '💸', path: '/admin/settlements', feature: 'settlements', category: 'MAIN' },
-    { name: 'Fund Requests', icon: '📥', path: '/admin/fund-requests', feature: 'fund_requests', category: 'MAIN' },
-    { name: 'Ledger', icon: '≡', path: '/admin/ledger', feature: 'ledger', category: 'MANAGEMENT' },
-    { name: 'Reports', icon: '📊', path: '/admin/reports', feature: 'reports', category: 'MANAGEMENT' },
-    { name: 'Callbacks', icon: '⚡', path: '/admin/callbacks', feature: 'callbacks', category: 'MANAGEMENT' },
-    { name: 'Support', icon: '🎧', path: '/admin/support', feature: 'support', category: 'HELP' },
-    { name: 'Charges', icon: '％', path: '/admin/charges', feature: 'charges', category: 'MANAGEMENT' },
-    { name: 'Settings', icon: '⚙', path: '/admin/settings', feature: 'settings', category: 'HELP' },
+    { name: 'Dashboard', icon: 'DB', path: '/admin/dashboard', feature: 'dashboard', category: 'MAIN' },
+    { name: 'Staff Panel', icon: 'SF', path: '/admin/staff', category: 'MANAGEMENT' },
+    { name: 'Transactions', icon: 'TX', path: '/admin/transactions', feature: 'transactions', category: 'MAIN' },
+    { name: 'Super Distributors', icon: 'SD', path: '/admin/merchants', feature: 'masters', category: 'MAIN' },
+    { name: 'User List', icon: 'US', path: '/admin/users', feature: 'users', category: 'MAIN' },
+    { name: 'Wallet', icon: 'WL', path: '/admin/wallet', feature: 'wallet', category: 'MAIN' },
+    { name: 'Reconciliation', icon: 'RC', path: '/admin/reconciliation', feature: 'reconciliation', category: 'MANAGEMENT' },
+    { name: 'QR Codes', icon: 'QR', path: '/admin/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
+    { name: 'Settlements', icon: 'PO', path: '/admin/settlements', feature: 'settlements', category: 'MAIN' },
+    { name: 'Fund Requests', icon: 'FR', path: '/admin/fund-requests', feature: 'fund_requests', category: 'MAIN' },
+    { name: 'Ledger', icon: 'LD', path: '/admin/ledger', feature: 'ledger', category: 'MANAGEMENT' },
+    { name: 'Reports', icon: 'RP', path: '/admin/reports', feature: 'reports', category: 'MANAGEMENT' },
+    { name: 'Callbacks', icon: 'CB', path: '/admin/callbacks', feature: 'callbacks', category: 'MANAGEMENT' },
+    { name: 'Support', icon: 'SP', path: '/admin/support', feature: 'support', category: 'HELP' },
+    { name: 'Charges', icon: 'CH', path: '/admin/charges', feature: 'charges', category: 'MANAGEMENT' },
+    { name: 'Settings', icon: 'ST', path: '/admin/settings', feature: 'settings', category: 'HELP' },
   ];
 
   const masterItems = [
-    { name: 'Dashboard', icon: '▦', path: '/master/dashboard', feature: 'dashboard', category: 'MAIN' },
-    { name: 'Transactions', icon: '⇄', path: '/master/transactions', feature: 'transactions', category: 'MAIN' },
-    { name: 'Distributors', icon: '👥', path: '/master/merchants', feature: 'merchants', category: 'MAIN' },
-    { name: 'Wallet', icon: '💳', path: '/master/wallet', feature: 'wallet', category: 'MAIN' },
-    { name: 'Ledger', icon: '≡', path: '/master/ledger', feature: 'ledger', category: 'MANAGEMENT' },
-    { name: 'QR Codes', icon: '🔳', path: '/master/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
-    { name: 'Fund Requests', icon: '📥', path: '/master/fund-requests', feature: 'fund_requests', category: 'MAIN' },
-    { name: 'Settlements', icon: '💸', path: '/master/settlements', feature: 'settlements', category: 'MAIN' },
-    { name: 'Reconciliation', icon: '⚖', path: '/master/reconciliation', feature: 'reconciliation', category: 'MANAGEMENT' },
-    { name: 'Reports', icon: '📊', path: '/master/reports', feature: 'reports', category: 'MANAGEMENT' },
-    { name: 'Callbacks', icon: '⚡', path: '/master/callbacks', feature: 'callbacks', category: 'MANAGEMENT' },
-    { name: 'Support', icon: '🎧', path: '/master/support', feature: 'support', category: 'HELP' },
-    { name: 'Charges', icon: '％', path: '/master/charges', feature: 'charges', category: 'MANAGEMENT' },
-    { name: 'Settings', icon: '⚙', path: '/master/settings', feature: 'settings', category: 'HELP' },
+    { name: 'Dashboard', icon: 'DB', path: '/master/dashboard', feature: 'dashboard', category: 'MAIN' },
+    { name: 'Transactions', icon: 'TX', path: '/master/transactions', feature: 'transactions', category: 'MAIN' },
+    { name: 'Distributors', icon: 'DS', path: '/master/merchants', feature: 'merchants', category: 'MAIN' },
+    { name: 'Wallet', icon: 'WL', path: '/master/wallet', feature: 'wallet', category: 'MAIN' },
+    { name: 'Beneficiaries', icon: 'BN', path: '/master/beneficiaries', feature: 'wallet', category: 'MAIN' },
+    { name: 'Ledger', icon: 'LD', path: '/master/ledger', feature: 'ledger', category: 'MANAGEMENT' },
+    { name: 'QR Codes', icon: 'QR', path: '/master/qr-codes', feature: 'qr_codes', category: 'MANAGEMENT' },
+    { name: 'Fund Requests', icon: 'FR', path: '/master/fund-requests', feature: 'fund_requests', category: 'MAIN' },
+    { name: 'Settlements', icon: 'PO', path: '/master/settlements', feature: 'settlements', category: 'MAIN' },
+    { name: 'Reconciliation', icon: 'RC', path: '/master/reconciliation', feature: 'reconciliation', category: 'MANAGEMENT' },
+    { name: 'Reports', icon: 'RP', path: '/master/reports', feature: 'reports', category: 'MANAGEMENT' },
+    { name: 'Callbacks', icon: 'CB', path: '/master/callbacks', feature: 'callbacks', category: 'MANAGEMENT' },
+    { name: 'Support', icon: 'SP', path: '/master/support', feature: 'support', category: 'HELP' },
+    { name: 'Charges', icon: 'CH', path: '/master/charges', feature: 'charges', category: 'MANAGEMENT' },
+    { name: 'Settings', icon: 'ST', path: '/master/settings', feature: 'settings', category: 'HELP' },
   ];
 
   const hasFeatureEnabled = (feature) => {
@@ -194,9 +197,9 @@ const Sidebar = () => {
 
   const menuItems = getMenuItems();
   const groupedItems = menuItems.reduce((acc, item) => {
-    const cat = item.category || 'MAIN';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(item);
+    const category = item.category || 'MAIN';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(item);
     return acc;
   }, {});
 
@@ -214,12 +217,12 @@ const Sidebar = () => {
         </div>
 
         <nav className="sidebar-nav" ref={navRef} onScroll={handleScroll}>
-          {order.map((cat) => {
-            if (!groupedItems[cat] || groupedItems[cat].length === 0) return null;
+          {order.map((category) => {
+            if (!groupedItems[category] || groupedItems[category].length === 0) return null;
             return (
-              <div key={cat} className="sidebar-group">
-                <div className="sidebar-section-label">{cat}</div>
-                {groupedItems[cat].map((item) => (
+              <div key={category} className="sidebar-group">
+                <div className="sidebar-section-label">{category}</div>
+                {groupedItems[category].map((item) => (
                   <NavLink
                     key={item.name}
                     to={item.path}
@@ -245,7 +248,7 @@ const Sidebar = () => {
               <span className="user-role">{formatRoleLabel(user?.role)}</span>
             </div>
             <button className="logout-btn" type="button" onClick={handleLogout} aria-label="Logout">
-              ↪
+              {'->'}
             </button>
           </div>
         </div>

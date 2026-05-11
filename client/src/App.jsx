@@ -33,6 +33,7 @@ const HierarchyUsersPage = lazy(() => import('./pages/HierarchyUsersPage'));
 const StaffManagementPage = lazy(() => import('./pages/StaffManagementPage'));
 const AdminLedgerPage = lazy(() => import('./pages/AdminLedgerPage'));
 const UserLedgerPage = lazy(() => import('./pages/UserLedgerPage'));
+const BeneficiariesPage = lazy(() => import('./pages/BeneficiariesPage'));
 
 const RouteLoader = () => (
   <div className="route-loader-shell">
@@ -61,6 +62,7 @@ function App() {
                   <Route path="/qr-codes" element={<ProtectedRoute requiredRole={["branch"]} requiredFeature="qr_codes"><QrCodesPage /></ProtectedRoute>} />
                   <Route path="/merchant/qr-codes" element={<ProtectedRoute requiredRole={["merchant"]} requiredFeature="qr_codes"><QrCodesPage /></ProtectedRoute>} />
                   <Route path="/wallet" element={<ProtectedRoute requiredRole={["merchant", "branch"]} requiredFeature="wallet"><WalletPage /></ProtectedRoute>} />
+                  <Route path="/beneficiaries" element={<ProtectedRoute requiredRole={["merchant", "branch"]} requiredFeature="wallet"><BeneficiariesPage /></ProtectedRoute>} />
                   <Route path="/ledger" element={<ProtectedRoute requiredRole={["merchant", "branch"]} requiredFeature="ledger"><UserLedgerPage /></ProtectedRoute>} />
                   <Route path="/api-services" element={<ProtectedRoute requiredRole="merchant"><ApiServicesPage /></ProtectedRoute>} />
                   <Route path="/branches" element={<ProtectedRoute requiredRole="merchant" requiredFeature="branches"><MerchantsPage /></ProtectedRoute>} />
@@ -94,6 +96,7 @@ function App() {
                   <Route path="/master/transactions" element={<ProtectedRoute requiredRole="master" requiredFeature="transactions"><TransactionsPage /></ProtectedRoute>} />
                   <Route path="/master/merchants" element={<ProtectedRoute requiredRole="master" requiredFeature="merchants"><MerchantsPage /></ProtectedRoute>} />
                   <Route path="/master/wallet" element={<ProtectedRoute requiredRole="master" requiredFeature="wallet"><WalletPage /></ProtectedRoute>} />
+                  <Route path="/master/beneficiaries" element={<ProtectedRoute requiredRole="master" requiredFeature="wallet"><BeneficiariesPage /></ProtectedRoute>} />
                   <Route path="/master/ledger" element={<ProtectedRoute requiredRole="master" requiredFeature="ledger"><UserLedgerPage /></ProtectedRoute>} />
                   <Route path="/master/reconciliation" element={<ProtectedRoute requiredRole="master" requiredFeature="reconciliation"><ReconciliationPage /></ProtectedRoute>} />
                   <Route path="/master/settlements" element={<ProtectedRoute requiredRole="master" requiredFeature="settlements"><SettlementsAdminPage /></ProtectedRoute>} />

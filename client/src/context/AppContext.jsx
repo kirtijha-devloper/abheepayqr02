@@ -475,6 +475,25 @@ export const AppProvider = ({ children }) => {
         }
     }, [getHeaders, fetchData]);
 
+    const updateBankAccount = useCallback(async (id, bankData) => {
+        try {
+            const res = await fetch(`${API_BASE}/bank-accounts/${id}`, {
+                method: 'PATCH',
+                headers: getHeaders(),
+                body: JSON.stringify(bankData)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                await fetchData();
+                return { success: true, data };
+            }
+            return { success: false, error: data.error || 'Failed to update bank account' };
+        } catch (err) {
+            console.error("Update bank account failed", err);
+            return { success: false, error: "Network error" };
+        }
+    }, [getHeaders, fetchData]);
+
     const deleteBankAccount = useCallback(async (id) => {
         try {
             const res = await fetch(`${API_BASE}/bank-accounts/${id}`, {
@@ -806,7 +825,7 @@ export const AppProvider = ({ children }) => {
         addFunds,
         requestFunds,
         addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant,
-        addBankAccount, deleteBankAccount, bankAccounts,
+        addBankAccount, updateBankAccount, deleteBankAccount, bankAccounts,
         requestSettlement, fetchSettlements, settlements,
         getBranchXPayoutQuote, verifyBranchXBeneficiary, requestBranchXPayout,
         approveSettlement, rejectSettlement,
@@ -835,7 +854,7 @@ export const AppProvider = ({ children }) => {
     }), [
         wallet, merchants, qrCodes, transactions, walletHistory, loading,
         addFunds, requestFunds, addMerchant, updateMerchant, updateMerchantStatus,
-        deleteMerchant, addBankAccount, deleteBankAccount, bankAccounts,
+        deleteMerchant, addBankAccount, updateBankAccount, deleteBankAccount, bankAccounts,
         requestSettlement, fetchSettlements, settlements, getBranchXPayoutQuote,
         verifyBranchXBeneficiary, requestBranchXPayout, approveSettlement,
         rejectSettlement, approveFundRequest, rejectFundRequest, fundRequests,
