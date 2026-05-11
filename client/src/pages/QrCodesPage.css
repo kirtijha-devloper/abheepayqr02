@@ -279,7 +279,7 @@
 }
 
 .qr-inventory-title {
-  color: #94a3b8;
+  color: var(--text-mute);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -291,7 +291,8 @@
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: var(--bg-card-2);
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
 }
 
 .qr-inventory-table {
@@ -305,17 +306,29 @@
   padding: 14px 16px;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  color: #e2e8f0;
+  color: var(--text-p);
   vertical-align: middle;
 }
 
 .qr-inventory-table th {
-  color: #94a3b8;
+  color: #e2e8f0;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: rgba(15, 23, 42, 0.65);
+  background: #475569;
+}
+
+.qr-inventory-table td {
+  background: #ffffff;
+  font-size: 0.96rem;
+}
+
+.qr-inventory-table tbody td:first-child,
+.qr-inventory-table tbody td:nth-child(2),
+.qr-inventory-table tbody td:nth-child(3) {
+  color: var(--text-h);
+  font-weight: 600;
 }
 
 .qr-inventory-table tbody tr:last-child td {
@@ -324,11 +337,19 @@
 
 .qr-table-row {
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .qr-table-row:hover {
-  background: rgba(124, 108, 248, 0.08);
+  background: #f8fafc;
+}
+
+.qr-table-row:hover td {
+  background: #f8fafc;
+}
+
+.qr-table-row:focus-within td {
+  background: #f5f3ff;
 }
 
 .qr-mono-cell {
@@ -342,7 +363,7 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   font-weight: 700;
-  color: #67e8f9;
+  color: #0f766e;
   letter-spacing: 0.03em;
   white-space: nowrap;
   overflow: hidden;
@@ -360,13 +381,13 @@
 }
 
 .qr-status-badge.active {
-  background: rgba(16, 185, 129, 0.12);
-  color: #34d399;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .qr-status-badge.inactive {
-  background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .qr-action-row {
@@ -385,8 +406,13 @@
 }
 
 .qr-action-button.report {
-  background: rgba(124, 108, 248, 0.18);
-  color: #d8d4ff;
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #c4b5fd;
+}
+
+.qr-action-button.report:hover {
+  background: #ddd6fe;
 }
 
 .qr-action-button.report:disabled {
@@ -402,7 +428,7 @@
 .qr-empty-state {
   padding: 2rem;
   text-align: center;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-mute);
 }
 
 .qr-report-modal {
