@@ -151,6 +151,25 @@ const ChargesPage = () => {
         userItem.role !== 'admin'
     ).slice(0, 5), [searchQuery, visibleUsers]);
 
+    const filteredVisibleUsers = useMemo(() => {
+        const normalizedQuery = searchQuery.trim().toLowerCase();
+        return visibleUsers
+            .filter((userItem) => userItem.role !== 'admin')
+            .filter((userItem) => {
+                if (!normalizedQuery) return true;
+                return [
+                    userItem.fullName,
+                    userItem.email,
+                    userItem.role,
+                    userItem.phone,
+                ]
+                    .filter(Boolean)
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(normalizedQuery);
+            });
+    }, [searchQuery, visibleUsers]);
+
     const downlineRole = useMemo(() => getImmediateDownlineRole(currentUser?.role), [currentUser?.role]);
 
     const currentRoleSlabs = useMemo(() =>
@@ -403,41 +422,6 @@ const ChargesPage = () => {
                             <h2>Charge Configuration</h2>
                             <p>Admin sets charge for super distributor. Then super distributor sets charge for distributor, and distributor sets charge for branch on the same visible slab ranges.</p>
                         </div>
-
-                        <div className="charges-search-container">
-                            <div className="merchant-search-wrap">
-                                <span className="merchant-search-icon">Search</span>
-                                <input
-                                    type="text"
-                                    placeholder="Search any user to override..."
-                                    value={searchQuery}
-                                    onChange={(e) => {
-                                        setSearchQuery(e.target.value);
-                                        setShowSuggestions(true);
-                                    }}
-                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                    style={{ width: '100%' }}
-                                    disabled={!canManageOverrides}
-                                />
-                            </div>
-                            {showSuggestions && searchQuery && canManageOverrides && (
-                                <div className="search-suggestions">
-                                    {suggestions.length === 0 ? (
-                                        <div style={{ padding: '12px', color: '#64748b' }}>No users found.</div>
-                                    ) : suggestions.map((userItem) => (
-                                        <div key={userItem.userId || userItem.id} className="suggestion-item" onClick={() => handleOpenOverride(userItem)}>
-                                            <div className="user-avatar-small" style={{ width: '32px', height: '32px' }}>
-                                                {userItem.fullName?.charAt(0)}
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: '13px', color: '#fff' }}>{userItem.fullName}</div>
-                                                <div style={{ fontSize: '11px', color: '#64748b' }}>{userItem.role} - {userItem.email}</div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
                     </div>
 
                     {isAdmin && (
@@ -554,8 +538,44 @@ const ChargesPage = () => {
                         </>
                     )}
 
-                    <div className="section-header">
+                    <div className="section-header charges-overrides-header">
                         <h3>Manual Overrides (User Specific)</h3>
+                        {canManageOverrides && (
+                            <div className="charges-search-container charges-search-inline">
+                                <div className="merchant-search-wrap">
+                                    <span className="merchant-search-icon">Search</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Search user for override..."
+                                        value={searchQuery}
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            setShowSuggestions(true);
+                                        }}
+                                        onFocus={() => setShowSuggestions(true)}
+                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                                {showSuggestions && searchQuery && (
+                                    <div className="search-suggestions">
+                                        {suggestions.length === 0 ? (
+                                            <div style={{ padding: '12px', color: '#64748b' }}>No users found.</div>
+                                        ) : suggestions.map((userItem) => (
+                                            <div key={userItem.userId || userItem.id} className="suggestion-item" onClick={() => handleOpenOverride(userItem)}>
+                                                <div className="user-avatar-small" style={{ width: '32px', height: '32px' }}>
+                                                    {userItem.fullName?.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '13px', color: '#fff' }}>{userItem.fullName}</div>
+                                                    <div style={{ fontSize: '11px', color: '#64748b' }}>{userItem.role} - {userItem.email}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="charges-card animated-fade-in">
@@ -578,9 +598,9 @@ const ChargesPage = () => {
                                     <tbody>
                                         {!canManageOverrides ? (
                                             <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Only admin, super distributor, and distributor can manage manual charge overrides.</td></tr>
-                                        ) : visibleUsers.length === 0 ? (
+                                        ) : filteredVisibleUsers.length === 0 ? (
                                             <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>No users available.</td></tr>
-                                        ) : visibleUsers.filter((userItem) => userItem.role !== 'admin').map((userItem) => {
+                                        ) : filteredVisibleUsers.map((userItem) => {
                                             const userSlabs = overrides.filter((item) => item.target_user_id === (userItem.userId || userItem.id));
                                             return (
                                                 <tr key={userItem.userId || userItem.id}>

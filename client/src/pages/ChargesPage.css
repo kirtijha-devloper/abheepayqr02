@@ -11,6 +11,15 @@
     max-width: 400px;
 }
 
+.charges-search-inline {
+    flex: 0 0 360px;
+    max-width: 360px;
+}
+
+.charges-overrides-header {
+    gap: 1rem;
+}
+
 .search-suggestions {
     position: absolute;
     top: 100%;
@@ -206,4 +215,17 @@
 .charge-input:focus {
     border-color: #6366f1;
     outline: none;
+}
+
+@media (max-width: 900px) {
+    .charges-overrides-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .charges-search-inline {
+        flex: 1 1 auto;
+        max-width: none;
+        width: 100%;
+    }
 }
