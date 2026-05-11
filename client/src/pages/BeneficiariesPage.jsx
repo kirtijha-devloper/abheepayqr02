@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import TpinModal from '../components/TpinModal';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -58,9 +59,9 @@ const BeneficiariesPage = () => {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quote, setQuote] = useState(defaultQuote);
   const [search, setSearch] = useState('');
+  const [showTpinModal, setShowTpinModal] = useState(false);
 
   const routePrefix = user?.role === 'master' ? '/master' : '';
-  const settingsPath = user?.role === 'master' ? '/master/settings' : '/settings';
 
   const filteredAccounts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -257,7 +258,7 @@ const BeneficiariesPage = () => {
               <button type="button" className="beneficiary-secondary-btn" onClick={() => navigate(`${routePrefix}/wallet`)}>
                 Back To Wallet
               </button>
-              <button type="button" className="beneficiary-secondary-btn" onClick={() => navigate(settingsPath)}>
+              <button type="button" className="beneficiary-secondary-btn" onClick={() => setShowTpinModal(true)}>
                 Generate T-PIN
               </button>
               <button type="button" className="beneficiary-primary-btn" onClick={openAddModal}>
@@ -291,7 +292,7 @@ const BeneficiariesPage = () => {
           </section>
 
           <section className="beneficiary-tpin-note">
-            <strong>T-PIN note:</strong> Use the Generate T-PIN button to create or update your payout PIN before making BranchX transfers.
+            <strong>T-PIN note:</strong> Use the Generate T-PIN button to create or update your payout PIN before making any payout transfer.
           </section>
 
           <section className="beneficiary-stats">
@@ -514,8 +515,8 @@ const BeneficiariesPage = () => {
             </div>
 
             <div className="beneficiary-modal-actions">
-              <button type="button" className="beneficiary-secondary-btn" onClick={() => navigate(settingsPath)}>
-                Open TPIN Settings
+              <button type="button" className="beneficiary-secondary-btn" onClick={() => setShowTpinModal(true)}>
+                Generate T-PIN
               </button>
               <button
                 type="button"
@@ -536,6 +537,13 @@ const BeneficiariesPage = () => {
           </div>
         </div>
       ) : null}
+
+      <TpinModal
+        isOpen={showTpinModal}
+        onClose={() => setShowTpinModal(false)}
+        title="Generate T-PIN"
+        description="Use your account password to create or update your 4-digit payout T-PIN."
+      />
     </div>
   );
 };

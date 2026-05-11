@@ -58,23 +58,33 @@ router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
 
 // POST /api/auth/tpin - create or reset transaction pin
 router.post("/tpin", requireAuth, async (req: AuthRequest, res) => {
-  const { tpin } = req.body;
+  const { password, tpin } = req.body;
 
-  if (!tpin || String(tpin).trim().length < 4) {
-    return res.status(400).json({ error: "Transaction PIN must be at least 4 digits" });
+  if (!password) {
+    return res.status(400).json({ error: "Account password is required" });
+  }
+
+  const normalizedTpin = String(tpin || "").trim();
+  if (!/^\d{4}$/.test(normalizedTpin)) {
+    return res.status(400).json({ error: "Transaction PIN must be exactly 4 digits" });
   }
 
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId! },
-      select: { id: true },
+      select: { id: true, passwordHash: true },
     });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const tpinHash = await bcrypt.hash(String(tpin), 10);
+    const matches = await bcrypt.compare(String(password), user.passwordHash);
+    if (!matches) {
+      return res.status(400).json({ error: "Account password is incorrect" });
+    }
+
+    const tpinHash = await bcrypt.hash(normalizedTpin, 10);
     await prisma.profile.update({
       where: { userId: req.userId! },
       data: { tpinHash },

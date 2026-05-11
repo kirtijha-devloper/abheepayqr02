@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import TpinModal from '../components/TpinModal';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -41,10 +42,13 @@ const WalletPage = () => {
   const [branchxRemark, setBranchxRemark] = useState('');
   const [branchxTpin, setBranchxTpin] = useState('');
   const [branchxTpinEditable, setBranchxTpinEditable] = useState(false);
+  const [manualTpin, setManualTpin] = useState('');
+  const [manualTpinEditable, setManualTpinEditable] = useState(false);
   const [branchxTransferMode, setBranchxTransferMode] = useState('IMPS');
   const [verifyingBeneficiary, setVerifyingBeneficiary] = useState(false);
   const [selectedBankId, setSelectedBankId] = useState('');
   const [showFundModal, setShowFundModal] = useState(false);
+  const [showTpinModal, setShowTpinModal] = useState(false);
   const [fundAmount, setFundAmount] = useState('');
   const [fundRemarks, setFundRemarks] = useState('');
   const [fundLoading, setFundLoading] = useState(false);
@@ -52,13 +56,13 @@ const WalletPage = () => {
 
   const handleOpenPayout = async () => {
     if (bankAccounts.length === 0) {
-      info('Please add a bank account in Settings first.');
-      const settingsPath = user?.role === 'admin' || user?.role === 'staff'
+      info('Please add a beneficiary first.');
+      const beneficiaryPath = user?.role === 'admin' || user?.role === 'staff'
         ? '/admin/settings'
         : user?.role === 'master'
-          ? '/master/settings'
-          : '/settings';
-      navigate(settingsPath);
+          ? '/master/beneficiaries'
+          : '/beneficiaries';
+      navigate(beneficiaryPath);
       return;
     }
 
@@ -78,6 +82,8 @@ const WalletPage = () => {
     setBranchxRemark('');
     setBranchxTpin('');
     setBranchxTpinEditable(false);
+    setManualTpin('');
+    setManualTpinEditable(false);
     setBranchxTransferMode('IMPS');
     setShowPayoutModal(true);
   };
@@ -181,13 +187,14 @@ const WalletPage = () => {
 
     const isAdmin = user?.role === 'admin';
     const checkBalance = isAdmin ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0);
+    if (!manualTpin.trim()) return error('Enter your transaction PIN.');
     if (payoutTotal > Number(checkBalance)) return error(`Insufficient ${isAdmin ? 'wallet' : 'payout wallet'} balance.`);
     if (!window.confirm(`Confirm manual settlement request of Rs ${Number(payoutAmount).toFixed(2)} to ${selectedBank?.accountName || selectedBank?.bankName || 'this bank account'}?`)) {
       return;
     }
 
     setPayoutLoading(true);
-    const res = await requestSettlement(payoutAmount, selectedBankId);
+    const res = await requestSettlement(payoutAmount, selectedBankId, manualTpin.trim());
     setPayoutLoading(false);
 
     if (res.success) {
@@ -195,6 +202,8 @@ const WalletPage = () => {
       setShowPayoutModal(false);
       setPayoutAmount('');
       setSelectedBankId('');
+      setManualTpin('');
+      setManualTpinEditable(false);
     } else {
       error(res.error || 'Settlement request failed.');
     }
@@ -434,7 +443,24 @@ const WalletPage = () => {
                       />
                     </div>
                   </>
-                ) : null}
+                ) : (
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-mute)', marginBottom: '8px' }}>Transaction PIN</label>
+                    <input
+                      type="password"
+                      placeholder="Enter TPIN"
+                      value={manualTpin}
+                      onChange={(e) => setManualTpin(e.target.value)}
+                      onFocus={() => setManualTpinEditable(true)}
+                      autoComplete="new-password"
+                      name="manual_settlement_tpin_manual"
+                      readOnly={!manualTpinEditable}
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px', color: 'var(--text-h)', fontSize: '14px' }}
+                    />
+                  </div>
+                )}
 
                 <div style={{ background: 'var(--bg-card-2)', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -463,6 +489,13 @@ const WalletPage = () => {
                     Cancel
                   </button>
                   <button
+                    type="button"
+                    onClick={() => setShowTpinModal(true)}
+                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-card-2)', color: 'var(--text-h)', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    Generate T-PIN
+                  </button>
+                  <button
                     onClick={handleConfirmPayout}
                     disabled={
                       payoutLoading ||
@@ -470,7 +503,7 @@ const WalletPage = () => {
                       (
                         payoutMode === 'branchx'
                           ? !selectedBank?.isVerified || !branchxTpin || payoutTotal > Number(wallet?.eWalletBalance || 0) || branchxQuoteLoading
-                          : payoutTotal > Number(user?.role === 'admin' ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0))
+                          : !manualTpin || payoutTotal > Number(user?.role === 'admin' ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0))
                       )
                     }
                     style={{
@@ -488,7 +521,7 @@ const WalletPage = () => {
                         (
                           payoutMode === 'branchx'
                             ? !selectedBank?.isVerified || !branchxTpin || payoutTotal > Number(wallet?.eWalletBalance || 0) || branchxQuoteLoading
-                            : payoutTotal > Number(user?.role === 'admin' ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0))
+                            : !manualTpin || payoutTotal > Number(user?.role === 'admin' ? (wallet?.balance || 0) : (wallet?.eWalletBalance || 0))
                         )
                       ) ? 0.5 : 1
                     }}
@@ -504,6 +537,13 @@ const WalletPage = () => {
               </div>
             </div>
           )}
+
+          <TpinModal
+            isOpen={showTpinModal}
+            onClose={() => setShowTpinModal(false)}
+            title="Generate T-PIN"
+            description="Use your account password to create or update your 4-digit payout T-PIN."
+          />
 
           {showFundModal && (
             <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>

@@ -257,10 +257,12 @@ const AdminSettingsPage = () => {
     confirm: ''
   });
   const [tpinForm, setTpinForm] = useState({
+    password: '',
     tpin: '',
     confirmTpin: ''
   });
   const [tpinEditable, setTpinEditable] = useState({
+    password: false,
     tpin: false,
     confirmTpin: false
   });
@@ -323,8 +325,12 @@ const AdminSettingsPage = () => {
   };
 
   const handleUpdateTpin = async () => {
-    if (tpinForm.tpin.trim().length < 4) {
-      error('Transaction PIN must be at least 4 digits.');
+    if (!tpinForm.password.trim()) {
+      error('Account password is required.');
+      return;
+    }
+    if (!/^\d{4}$/.test(tpinForm.tpin.trim())) {
+      error('Transaction PIN must be exactly 4 digits.');
       return;
     }
     if (tpinForm.tpin !== tpinForm.confirmTpin) {
@@ -340,13 +346,14 @@ const AdminSettingsPage = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          password: tpinForm.password,
           tpin: tpinForm.tpin
         })
       });
       if (res.ok) {
         success('Transaction PIN updated successfully.');
-        setTpinForm({ tpin: '', confirmTpin: '' });
-        setTpinEditable({ tpin: false, confirmTpin: false });
+        setTpinForm({ password: '', tpin: '', confirmTpin: '' });
+        setTpinEditable({ password: false, tpin: false, confirmTpin: false });
       } else {
         const data = await res.json();
         error(data.error || 'Failed to update transaction PIN.');
@@ -680,6 +687,24 @@ const AdminSettingsPage = () => {
                       <div className="portal-header" style={{ padding: 0, marginBottom: '16px' }}>
                         <h3 style={{ fontSize: '18px', marginBottom: '6px' }}>Add or Change TPIN</h3>
                         <p>Use a transaction PIN to authorize secure payout actions.</p>
+                      </div>
+                      <div className="form-row-grid">
+                        <div className="form-group-v2">
+                          <label>Account Password</label>
+                          <input
+                            type="password"
+                            placeholder="Enter account password"
+                            className="premium-input"
+                            value={tpinForm.password}
+                            onChange={e => setTpinForm({ ...tpinForm, password: e.target.value })}
+                            onFocus={() => setTpinEditable((prev) => ({ ...prev, password: true }))}
+                            autoComplete="current-password"
+                            name="account_password_manual"
+                            readOnly={!tpinEditable.password}
+                            data-lpignore="true"
+                            data-1p-ignore="true"
+                          />
+                        </div>
                       </div>
                       <div className="form-row-grid">
                         <div className="form-group-v2">

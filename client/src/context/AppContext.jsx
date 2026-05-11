@@ -506,13 +506,30 @@ export const AppProvider = ({ children }) => {
         }
     }, [getHeaders, fetchData]);
 
+    const saveTransactionPin = useCallback(async (password, tpin) => {
+        try {
+            const res = await fetch(`${API_BASE}/auth/tpin`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ password, tpin })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                return { success: true, data };
+            }
+            return { success: false, error: data.error || 'Failed to update transaction PIN' };
+        } catch (err) {
+            return { success: false, error: 'Network error' };
+        }
+    }, [getHeaders]);
+
     // --- Settlement Management ---
-    const requestSettlement = useCallback(async (amount, bankAccountId) => {
+    const requestSettlement = useCallback(async (amount, bankAccountId, tpin) => {
         try {
             const res = await fetch(`${API_BASE}/wallet/payout`, {
                 method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify({ amount, bankAccountId })
+                body: JSON.stringify({ amount, bankAccountId, tpin })
             });
             const data = await res.json();
             if (res.ok) {
@@ -826,6 +843,7 @@ export const AppProvider = ({ children }) => {
         requestFunds,
         addMerchant, updateMerchant, updateMerchantStatus, deleteMerchant,
         addBankAccount, updateBankAccount, deleteBankAccount, bankAccounts,
+        saveTransactionPin,
         requestSettlement, fetchSettlements, settlements,
         getBranchXPayoutQuote, verifyBranchXBeneficiary, requestBranchXPayout,
         approveSettlement, rejectSettlement,
@@ -855,7 +873,7 @@ export const AppProvider = ({ children }) => {
         wallet, merchants, qrCodes, transactions, walletHistory, loading,
         addFunds, requestFunds, addMerchant, updateMerchant, updateMerchantStatus,
         deleteMerchant, addBankAccount, updateBankAccount, deleteBankAccount, bankAccounts,
-        requestSettlement, fetchSettlements, settlements, getBranchXPayoutQuote,
+        saveTransactionPin, requestSettlement, fetchSettlements, settlements, getBranchXPayoutQuote,
         verifyBranchXBeneficiary, requestBranchXPayout, approveSettlement,
         rejectSettlement, approveFundRequest, rejectFundRequest, fundRequests,
         fetchFundRequests, bulkAddQrCodes, addQrCode, assignQrByTid, assignQrByIds,

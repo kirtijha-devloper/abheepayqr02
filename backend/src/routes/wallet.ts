@@ -2,7 +2,7 @@ import { Router } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { getAccessibleUserIds, getChargeDistribution, getEffectiveChargeConfig, roundCurrency } from "../utils/commission";
-import { assertNoRecentDuplicatePayout } from "../services/payout.service";
+import { assertNoRecentDuplicatePayout, verifyUserTpin } from "../services/payout.service";
 
 const router = Router();
 const HIDDEN_LEDGER_TRANSACTION_TYPES = new Set([
@@ -230,7 +230,7 @@ router.get("/e-wallet-credits", requireAuth, async (req: AuthRequest, res) => {
 
 // POST /api/wallet/payout — merchant requests settlement to bank
 router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
-  const { amount, bankAccountId } = req.body; // Requested withdrawal amount + selected bank
+  const { amount, bankAccountId, tpin } = req.body; // Requested withdrawal amount + selected bank
   const withdrawalAmount = roundCurrency(Number(amount));
 
   if (!withdrawalAmount || withdrawalAmount <= 0) {
@@ -239,6 +239,11 @@ router.post("/payout", requireAuth, async (req: AuthRequest, res) => {
 
   if (!bankAccountId) {
     return res.status(400).json({ error: "Bank account is required for settlement" });
+  }
+
+  const tpinCheck = await verifyUserTpin(req.userId!, String(tpin || "").trim());
+  if (!tpinCheck.ok) {
+    return res.status(400).json({ error: tpinCheck.message });
   }
 
   try {
