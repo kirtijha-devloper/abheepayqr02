@@ -87,15 +87,12 @@ const HierarchyUsersPage = () => {
     ];
 
     const handleLoginAs = async (targetUserId) => {
-        try {
-            const token = await getImpersonateToken(targetUserId);
-            if (token) {
-                sessionStorage.setItem('authToken', token);
-                window.location.href = '/dashboard';
-            }
-        } catch {
-            error("Impersonation failed");
+        const result = await getImpersonateToken(targetUserId);
+        if (result.success) {
+            window.open(`${window.location.origin}/?token=${result.token}`, '_blank');
+            return;
         }
+        error(result.message || "Impersonation failed");
     };
 
     const handleToggleStatus = async (user) => {
