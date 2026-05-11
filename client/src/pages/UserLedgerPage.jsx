@@ -36,11 +36,11 @@ const DEFAULT_TRANSACTION_TYPES = [
 ];
 
 const DEFAULT_STATUS_OPTIONS = ['success', 'pending', 'failed'];
+const PAYOUT_TYPES = new Set(['branchx_payout', 'branchx_payout_debit', 'branchx_payout_refund', 'payout', 'payout_debit', 'payout_refund']);
 
 const HIDDEN_TRANSACTION_TYPES = new Set([
   'hold',
   'pg_add',
-  'qr_settlement_credit',
   'refund',
   'top_up',
   'transfer',
@@ -71,6 +71,32 @@ const downloadFile = (content, filename, mimeType) => {
 const toExcel = (rows, headers) =>
   [headers.join('\t'), ...rows.map((row) => headers.map((header) => String(row[header] ?? '')).join('\t'))].join('\n');
 
+const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : '--');
+
+const maskAccountNumber = (value) => {
+  const digits = String(value || '').trim();
+  if (!digits) return '--';
+  if (digits.length <= 4) return digits;
+  return `••••${digits.slice(-4)}`;
+};
+
+const computeDisplayBalance = (row) => {
+  if (row.balanceAfter == null) return null;
+  const amount = Math.abs(Number(row.amount) || 0);
+  return row.direction === 'credit' ? row.balanceAfter - amount : row.balanceAfter + amount;
+};
+
+const getPayInSource = (row) => {
+  if (row.serviceKey === 'qr_settlement') return 'QR';
+  return row.sourceLabel || 'Wallet';
+};
+
+const getPayInType = (row) => {
+  if (row.serviceKey === 'qr_settlement') return 'Pay-In';
+  if (PAYOUT_TYPES.has(row.transactionType)) return 'Transfer to Payout Wallet';
+  return prettifyType(row.transactionType);
+};
+
 const UserLedgerPage = () => {
   const [loading, setLoading] = useState(true);
   const [balances, setBalances] = useState({ totalBalance: 0, availableBalance: 0, holdBalance: 0 });
@@ -85,6 +111,9 @@ const UserLedgerPage = () => {
   const [endDate, setEndDate] = useState('');
   const [transactionType, setTransactionType] = useState('');
   const [status, setStatus] = useState('');
+  const [selectedSlip, setSelectedSlip] = useState(null);
+  const [activeView, setActiveView] = useState('ledger');
+  const [search, setSearch] = useState('');
 
   const fetchLedger = useCallback(async () => {
     setLoading(true);
@@ -134,11 +163,20 @@ const UserLedgerPage = () => {
     setPage(1);
   }, [startDate, endDate, transactionType, status, pageSize]);
 
+  useEffect(() => {
+    if (activeView === 'payin') {
+      setTransactionType('');
+    }
+    setSearch('');
+    setPage(1);
+  }, [activeView]);
+
   const exportRows = useMemo(
     () =>
       rows.map((row, index) => ({
         serial: index + 1,
         dateTime: row.createdAt ? new Date(row.createdAt).toLocaleString() : '',
+        orderId: row.orderId || row.reference || row.id,
         transactionType: row.transactionType,
         source: row.sourceLabel,
         status: row.status,
@@ -151,8 +189,49 @@ const UserLedgerPage = () => {
     [rows]
   );
 
+  const visibleRows = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    return rows
+      .filter((row) => {
+        if (activeView === 'payout') return PAYOUT_TYPES.has(row.transactionType);
+        if (activeView === 'payin') return row.serviceKey === 'qr_settlement';
+        return true;
+      })
+      .filter((row) => {
+        if (!keyword) return true;
+        const haystack = [
+          row.orderId,
+          row.reference,
+          row.description,
+          row.sourceLabel,
+          row.transactionType,
+          row.status,
+          row.slip?.bankRef,
+          row.slip?.accountName,
+          row.slip?.bankName,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(keyword);
+      });
+  }, [activeView, rows, search]);
+
+  const payInSummary = useMemo(() => {
+    const payInRows = rows.filter((row) => row.serviceKey === 'qr_settlement');
+    const payoutRows = rows.filter((row) => PAYOUT_TYPES.has(row.transactionType));
+    const totalPayIn = payInRows.reduce((sum, row) => sum + Math.abs(Number(row.amount) || 0), 0);
+    const payInNet = payInRows.reduce((sum, row) => sum + Math.max(0, Number(row.amount) || 0), 0);
+    const payInCommission = payInRows.reduce((sum, row) => sum + Math.abs(Number(row.fee) || 0), 0);
+    const totalPayout = payoutRows.reduce((sum, row) => sum + Math.abs(Number(row.amount) || 0), 0);
+    const payoutCharge = payoutRows.reduce((sum, row) => sum + Math.abs(Number(row.fee) || 0), 0);
+
+    return { totalPayIn, payInNet, payInCommission, totalPayout, payoutCharge };
+  }, [rows]);
+
   const handleExport = () => {
-    const headers = ['serial', 'dateTime', 'transactionType', 'source', 'status', 'walletKind', 'reference', 'description', 'amount', 'balanceAfter'];
+    const headers = ['serial', 'dateTime', 'orderId', 'transactionType', 'source', 'status', 'walletKind', 'reference', 'description', 'amount', 'balanceAfter'];
     downloadFile(toExcel(exportRows, headers), `user_ledger_${Date.now()}.xls`, 'application/vnd.ms-excel');
   };
 
@@ -161,6 +240,7 @@ const UserLedgerPage = () => {
     setEndDate('');
     setTransactionType('');
     setStatus('');
+    setSearch('');
     setPageSize(50);
     setPage(1);
   };
@@ -174,6 +254,11 @@ const UserLedgerPage = () => {
           <section className="user-ledger-title-row">
             <div>
               <h2>Passbook / Ledger</h2>
+              <div className="user-ledger-tabs">
+                <button type="button" className={activeView === 'ledger' ? 'active' : ''} onClick={() => setActiveView('ledger')}>Ledger</button>
+                <button type="button" className={activeView === 'payout' ? 'active' : ''} onClick={() => setActiveView('payout')}>Payout Ledger</button>
+                <button type="button" className={activeView === 'payin' ? 'active' : ''} onClick={() => setActiveView('payin')}>Pay-In</button>
+              </div>
             </div>
             <div className="user-ledger-balance-grid">
               <div className="user-ledger-balance-box card">
@@ -198,13 +283,17 @@ const UserLedgerPage = () => {
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </div>
               <div className="user-ledger-filter">
-                <label>Transaction Type</label>
-                <select value={transactionType} onChange={(e) => setTransactionType(e.target.value)}>
-                  <option value="">All Types</option>
-                  {transactionTypes.map((type) => (
-                    <option key={type} value={type}>{prettifyType(type)}</option>
-                  ))}
-                </select>
+                <label>{activeView === 'payin' ? 'Search' : 'Transaction Type'}</label>
+                {activeView === 'payin' ? (
+                  <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search current report view" />
+                ) : (
+                  <select value={transactionType} onChange={(e) => setTransactionType(e.target.value)}>
+                    <option value="">All Types</option>
+                    {transactionTypes.map((type) => (
+                      <option key={type} value={type}>{prettifyType(type)}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="user-ledger-filter">
                 <label>Status</label>
@@ -234,50 +323,121 @@ const UserLedgerPage = () => {
             </div>
           </section>
 
+          {activeView === 'payin' ? (
+            <section className="user-ledger-payin-stats">
+              <div className="user-ledger-stat-card success">
+                <span>Total Pay-In</span>
+                <strong>{formatCurrency(payInSummary.totalPayIn)}</strong>
+                <small>Successful QR credits</small>
+              </div>
+              <div className="user-ledger-stat-card primary">
+                <span>Pay-In Net</span>
+                <strong>{formatCurrency(payInSummary.payInNet)}</strong>
+                <small>Credited through QR</small>
+              </div>
+              <div className="user-ledger-stat-card info">
+                <span>Pay-In Commission</span>
+                <strong>{formatCurrency(payInSummary.payInCommission)}</strong>
+                <small>Commission on pay-in entries</small>
+              </div>
+              <div className="user-ledger-stat-card danger">
+                <span>Total Payout</span>
+                <strong>{formatCurrency(payInSummary.totalPayout)}</strong>
+                <small>Total payout processed</small>
+              </div>
+              <div className="user-ledger-stat-card warning">
+                <span>Payout Charge</span>
+                <strong>{formatCurrency(payInSummary.payoutCharge)}</strong>
+                <small>Total payout charges</small>
+              </div>
+            </section>
+          ) : null}
+
           <section className="user-ledger-table-card card">
             <div className="user-ledger-table-head">
-              <h3>Ledger Entries</h3>
-              <span>{totalRecords} records</span>
+              <h3>{activeView === 'payin' ? 'Pay-In Entries' : activeView === 'payout' ? 'Payout Entries' : 'Ledger Entries'}</h3>
+              <span>{visibleRows.length} records</span>
             </div>
 
             <div className="table-responsive">
               <table className="user-ledger-table">
                 <thead>
-                  <tr>
-                    <th>Date &amp; Time</th>
-                    <th>Type</th>
-                    <th>Source</th>
-                    <th>Status</th>
-                    <th>Reference</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Balance After</th>
-                  </tr>
+                  {activeView === 'payin' ? (
+                    <tr>
+                      <th>Date</th>
+                      <th>Source</th>
+                      <th>Type</th>
+                      <th>Description</th>
+                      <th>Opening Balance</th>
+                      <th>Credit</th>
+                      <th>Debit</th>
+                      <th>Closing Balance</th>
+                      <th>Status</th>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <th>Date &amp; Time</th>
+                      <th>Order ID</th>
+                      <th>Type</th>
+                      <th>Source</th>
+                      <th>Status</th>
+                      <th>Reference</th>
+                      <th>Description</th>
+                      <th>Amount</th>
+                      <th>Balance After</th>
+                      <th>Slip</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan="8" className="user-ledger-empty">Loading ledger entries...</td>
+                      <td colSpan={activeView === 'payin' ? 9 : 10} className="user-ledger-empty">Loading ledger entries...</td>
                     </tr>
-                  ) : rows.length === 0 ? (
+                  ) : visibleRows.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="user-ledger-empty">No ledger entries found for these filters.</td>
+                      <td colSpan={activeView === 'payin' ? 9 : 10} className="user-ledger-empty">No ledger entries found for these filters.</td>
                     </tr>
                   ) : (
-                    rows.map((row) => (
-                      <tr key={row.id}>
-                        <td>{row.createdAt ? new Date(row.createdAt).toLocaleString() : '--'}</td>
-                        <td><span className="user-ledger-type-pill">{prettifyType(row.transactionType)}</span></td>
-                        <td>{row.sourceLabel}</td>
-                        <td><span className={`user-ledger-status-pill ${row.status}`}>{prettifyType(row.status)}</span></td>
-                        <td>{row.reference || '--'}</td>
-                        <td className="user-ledger-desc">{row.description || '--'}</td>
-                        <td className={row.direction === 'debit' ? 'debit-text' : 'credit-text'}>
-                          {row.direction === 'debit' ? '-' : '+'}{formatCurrency(row.amount)}
-                        </td>
-                        <td>{row.balanceAfter == null ? '--' : formatCurrency(row.balanceAfter)}</td>
-                      </tr>
-                    ))
+                    visibleRows.map((row) => {
+                      const openingBalance = computeDisplayBalance(row);
+                      return activeView === 'payin' ? (
+                        <tr key={row.id}>
+                          <td>{formatDateTime(row.createdAt)}</td>
+                          <td>{getPayInSource(row)}</td>
+                          <td><span className="user-ledger-type-pill">{getPayInType(row)}</span></td>
+                          <td className="user-ledger-desc">{row.description || row.orderId || '--'}</td>
+                          <td>{openingBalance == null ? '--' : formatCurrency(openingBalance)}</td>
+                          <td className="credit-text">{row.direction === 'credit' ? formatCurrency(row.amount) : '--'}</td>
+                          <td className="debit-text">{row.direction === 'debit' ? formatCurrency(row.amount) : '--'}</td>
+                          <td>{row.balanceAfter == null ? '--' : formatCurrency(row.balanceAfter)}</td>
+                          <td><span className={`user-ledger-status-pill ${row.status}`}>{prettifyType(row.status)}</span></td>
+                        </tr>
+                      ) : (
+                        <tr key={row.id}>
+                          <td>{formatDateTime(row.createdAt)}</td>
+                          <td className="user-ledger-order-id">{row.orderId || row.reference || '--'}</td>
+                          <td><span className="user-ledger-type-pill">{prettifyType(row.transactionType)}</span></td>
+                          <td>{row.sourceLabel}</td>
+                          <td><span className={`user-ledger-status-pill ${row.status}`}>{prettifyType(row.status)}</span></td>
+                          <td>{row.reference || '--'}</td>
+                          <td className="user-ledger-desc">{row.description || '--'}</td>
+                          <td className={row.direction === 'debit' ? 'debit-text' : 'credit-text'}>
+                            {row.direction === 'debit' ? '-' : '+'}{formatCurrency(row.amount)}
+                          </td>
+                          <td>{row.balanceAfter == null ? '--' : formatCurrency(row.balanceAfter)}</td>
+                          <td>
+                            {row.slip ? (
+                              <button type="button" className="user-ledger-slip-btn" onClick={() => setSelectedSlip(row)}>
+                                View Slip
+                              </button>
+                            ) : (
+                              <span className="user-ledger-slip-na">--</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -291,6 +451,37 @@ const UserLedgerPage = () => {
               </div>
             </div>
           </section>
+
+          {selectedSlip ? (
+            <div className="user-ledger-slip-overlay" onClick={() => setSelectedSlip(null)}>
+              <div className="user-ledger-slip-modal card" onClick={(event) => event.stopPropagation()}>
+                <div className="user-ledger-slip-header">
+                  <div>
+                    <p className="user-ledger-slip-eyebrow">Payout Slip</p>
+                    <h3>{selectedSlip.orderId || selectedSlip.reference || 'Order Details'}</h3>
+                  </div>
+                  <button type="button" className="user-ledger-slip-close" onClick={() => setSelectedSlip(null)}>×</button>
+                </div>
+
+                <div className="user-ledger-slip-grid">
+                  <div><span>Date & Time</span><strong>{formatDateTime(selectedSlip.slip?.createdAt || selectedSlip.createdAt)}</strong></div>
+                  <div><span>Order ID</span><strong>{selectedSlip.slip?.orderId || selectedSlip.orderId || '--'}</strong></div>
+                  <div><span>Status</span><strong>{prettifyType(selectedSlip.slip?.status || selectedSlip.status)}</strong></div>
+                  <div><span>Amount</span><strong>{formatCurrency(selectedSlip.slip?.amount || selectedSlip.amount)}</strong></div>
+                  <div><span>Charge</span><strong>{formatCurrency(selectedSlip.slip?.fee || 0)}</strong></div>
+                  <div><span>Transfer Mode</span><strong>{selectedSlip.slip?.transferMode || '--'}</strong></div>
+                  <div><span>Provider</span><strong>{selectedSlip.slip?.provider || '--'}</strong></div>
+                  <div><span>Provider Status</span><strong>{selectedSlip.slip?.providerStatus || '--'}</strong></div>
+                  <div><span>Beneficiary</span><strong>{selectedSlip.slip?.accountName || selectedSlip.slip?.beneficiary || '--'}</strong></div>
+                  <div><span>Bank</span><strong>{selectedSlip.slip?.bankName || selectedSlip.slip?.bank || '--'}</strong></div>
+                  <div><span>Account No.</span><strong>{maskAccountNumber(selectedSlip.slip?.accountNumber)}</strong></div>
+                  <div><span>IFSC</span><strong>{selectedSlip.slip?.ifscCode || '--'}</strong></div>
+                  <div><span>Reference</span><strong>{selectedSlip.slip?.reference || selectedSlip.reference || '--'}</strong></div>
+                  <div><span>Bank Ref</span><strong>{selectedSlip.slip?.bankRef || '--'}</strong></div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </main>
       </div>
     </div>

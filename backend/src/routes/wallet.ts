@@ -8,7 +8,6 @@ const router = Router();
 const HIDDEN_LEDGER_TRANSACTION_TYPES = new Set([
   "hold",
   "pg_add",
-  "qr_settlement_credit",
   "refund",
   "top_up",
   "transfer",
@@ -16,6 +15,15 @@ const HIDDEN_LEDGER_TRANSACTION_TYPES = new Set([
   "transfer_hold",
   "unhold",
 ]);
+
+function safeParseJson(input: unknown) {
+  if (!input || typeof input !== "string") return null;
+  try {
+    return JSON.parse(input);
+  } catch {
+    return null;
+  }
+}
 
 // GET /api/wallet — get my wallet balance
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
@@ -441,15 +449,19 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
           id: `wallet_${txn.id}`,
           createdAt: txn.createdAt,
           transactionType: type,
+          serviceKey: type,
           source: "wallet",
           sourceLabel: "Wallet",
           status: "success",
           description: txn.description || "Wallet transaction",
           reference: txn.reference || txn.id,
+          orderId: txn.reference || txn.id,
           amount,
+          fee: 0,
           direction: amount < 0 ? "debit" : "credit",
           balanceAfter,
           walletKind: ["transfer_credit", "payout", "payout_refund", "branchx_payout", "branchx_payout_refund"].includes((txn.type || "").toLowerCase()) ? "payout" : "main",
+          slip: null,
         };
       }),
       ...serviceTransactions.map((txn) => {
@@ -465,20 +477,47 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
         }
 
         const amount = Number(txn.amount || 0);
+        const payoutBankDetails = safeParseJson(txn.payoutBankDetails);
+        const orderId = txn.bankRef || txn.refId || txn.clientRefId || txn.id;
+        const canViewSlip = ["branchx_payout", "payout"].includes(serviceType);
 
         return {
           id: `service_${txn.id}`,
           createdAt: txn.createdAt,
           transactionType: combinedType,
+          serviceKey: serviceType,
           source: "service",
           sourceLabel: "Service",
           status: (txn.status || "pending").toLowerCase(),
           description: txn.description || txn.category || txn.serviceType || "Service transaction",
           reference: txn.refId || txn.clientRefId || txn.id,
+          orderId,
           amount,
+          fee: Number(txn.fee || 0),
           direction: baseType === "debit" || amount < 0 ? "debit" : "credit",
           balanceAfter: null,
           walletKind: "service",
+          slip: canViewSlip
+            ? {
+                orderId,
+                transactionId: txn.id,
+                provider: txn.provider || null,
+                status: txn.status || "pending",
+                amount,
+                fee: Number(txn.fee || 0),
+                beneficiary: txn.beneficiary || null,
+                bank: txn.bank || txn.beneficiaryBankName || null,
+                createdAt: txn.createdAt,
+                reference: txn.refId || txn.clientRefId || null,
+                providerStatus: txn.providerStatus || null,
+                bankRef: txn.bankRef || null,
+                accountName: txn.beneficiaryAccountName || payoutBankDetails?.payeeName || null,
+                accountNumber: txn.beneficiaryAccountNumber || payoutBankDetails?.accountNo || null,
+                ifscCode: txn.beneficiaryIfscCode || payoutBankDetails?.bankIfsc || null,
+                bankName: txn.beneficiaryBankName || payoutBankDetails?.bankName || null,
+                transferMode: payoutBankDetails?.transferMode || null,
+              }
+            : null,
         };
       }),
       ...fundRequests.map((request) => {
@@ -494,15 +533,19 @@ router.get("/ledger", requireAuth, async (req: AuthRequest, res) => {
           id: `fund_${request.id}`,
           createdAt: request.createdAt,
           transactionType: fundType,
+          serviceKey: "fund_request",
           source: "fund_request",
           sourceLabel: "Fund Request",
           status: (request.status || "pending").toLowerCase(),
           description: detailParts.join(" | ") || "Fund request",
           reference: request.paymentReference || request.id,
+          orderId: request.paymentReference || request.id,
           amount: Number(request.amount || 0),
+          fee: 0,
           direction: "credit",
           balanceAfter: null,
           walletKind: "request",
+          slip: null,
         };
       }),
     ];
