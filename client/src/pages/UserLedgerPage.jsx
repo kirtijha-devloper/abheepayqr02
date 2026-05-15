@@ -78,6 +78,10 @@ const getPayInType = (row) => {
   return prettifyType(row.transactionType);
 };
 
+const isSuccessStatus = (status) => ['success', 'completed'].includes(String(status || '').toLowerCase());
+const isPendingStatus = (status) => ['pending', 'processing', 'initiated'].includes(String(status || '').toLowerCase());
+const isFailStatus = (status) => ['failed', 'rejected', 'refund', 'refunded'].includes(String(status || '').toLowerCase());
+
 const UserLedgerPage = () => {
   const [loading, setLoading] = useState(true);
   const [balances, setBalances] = useState({ totalBalance: 0, availableBalance: 0, holdBalance: 0 });
@@ -219,6 +223,35 @@ const UserLedgerPage = () => {
     return { totalPayIn, payInNet, payInCommission, totalPayout, payoutCharge };
   }, [rows]);
 
+  const payoutSummary = useMemo(() => {
+    const payoutRows = rows.filter((row) => PAYOUT_TYPES.has(row.transactionType));
+
+    const total = payoutRows.reduce((sum, row) => sum + Math.abs(Number(row.amount) || 0), 0);
+    const success = payoutRows
+      .filter((row) => isSuccessStatus(row.status))
+      .reduce((sum, row) => sum + Math.abs(Number(row.amount) || 0), 0);
+    const failed = payoutRows
+      .filter((row) => isFailStatus(row.status))
+      .reduce((sum, row) => sum + Math.abs(Number(row.amount) || 0), 0);
+    const pending = payoutRows
+      .filter((row) => isPendingStatus(row.status))
+      .reduce((sum, row) => sum + Math.abs(Number(row.amount) || 0), 0);
+    const charges = payoutRows.reduce((sum, row) => sum + Math.abs(Number(row.fee) || 0), 0);
+
+    return { total, success, failed, pending, charges };
+  }, [rows]);
+
+  const payInStats = useMemo(() => {
+    const payInRows = rows.filter((row) => row.serviceKey === 'qr_settlement');
+    const successfulRows = payInRows.filter((row) => isSuccessStatus(row.status));
+    const totalAmount = successfulRows.reduce((sum, row) => sum + Math.abs(Number(row.amount) || 0), 0);
+    const totalCharge = successfulRows.reduce((sum, row) => sum + Math.abs(Number(row.fee) || 0), 0);
+    const totalNet = Math.max(0, totalAmount - totalCharge);
+    const totalTransactions = successfulRows.length;
+
+    return { totalAmount, totalCharge, totalNet, totalTransactions };
+  }, [rows]);
+
   const handleExport = () => {
     const headers = ['serial', 'dateTime', 'orderId', 'transactionType', 'source', 'status', 'walletKind', 'reference', 'description', 'amount', 'balanceAfter'];
     downloadFile(toExcel(exportRows, headers), `user_ledger_${Date.now()}.xls`, 'application/vnd.ms-excel');
@@ -312,32 +345,87 @@ const UserLedgerPage = () => {
             </div>
           </section>
 
-          {activeView === 'payin' ? (
-            <section className="user-ledger-payin-stats">
-              <div className="user-ledger-stat-card success">
+          {activeView === 'ledger' ? (
+            <section className="user-ledger-stats-grid user-ledger-stats-grid-ledger">
+              <div className="user-ledger-stat-card user-ledger-stat-card-ledger success">
                 <span>Total Pay-In</span>
                 <strong>{formatCurrency(payInSummary.totalPayIn)}</strong>
                 <small>Successful QR credits</small>
               </div>
-              <div className="user-ledger-stat-card primary">
+              <div className="user-ledger-stat-card user-ledger-stat-card-ledger primary">
                 <span>Pay-In Net</span>
                 <strong>{formatCurrency(payInSummary.payInNet)}</strong>
                 <small>Credited through QR</small>
               </div>
-              <div className="user-ledger-stat-card info">
+              <div className="user-ledger-stat-card user-ledger-stat-card-ledger info">
                 <span>Pay-In Commission</span>
                 <strong>{formatCurrency(payInSummary.payInCommission)}</strong>
                 <small>Commission on pay-in entries</small>
               </div>
-              <div className="user-ledger-stat-card danger">
+              <div className="user-ledger-stat-card user-ledger-stat-card-ledger danger">
                 <span>Total Payout</span>
                 <strong>{formatCurrency(payInSummary.totalPayout)}</strong>
                 <small>Total payout processed</small>
               </div>
-              <div className="user-ledger-stat-card warning">
+              <div className="user-ledger-stat-card user-ledger-stat-card-ledger warning">
                 <span>Payout Charge</span>
                 <strong>{formatCurrency(payInSummary.payoutCharge)}</strong>
                 <small>Total payout charges</small>
+              </div>
+            </section>
+          ) : null}
+
+          {activeView === 'payout' ? (
+            <section className="user-ledger-stats-grid user-ledger-stats-grid-payout">
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid blue">
+                <span>Total</span>
+                <strong>{formatCurrency(payoutSummary.total)}</strong>
+                <small>Success + Failed attempts</small>
+              </div>
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid green">
+                <span>Success</span>
+                <strong>{formatCurrency(payoutSummary.success)}</strong>
+                <small>Successfully processed</small>
+              </div>
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid red">
+                <span>Fail</span>
+                <strong>{formatCurrency(payoutSummary.failed)}</strong>
+                <small>Failed or Refunded amount</small>
+              </div>
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid orange">
+                <span>Pending</span>
+                <strong>{formatCurrency(payoutSummary.pending)}</strong>
+                <small>Awaiting processing</small>
+              </div>
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid cyan">
+                <span>Charges</span>
+                <strong>{formatCurrency(payoutSummary.charges)}</strong>
+                <small>Fees on transfers & payouts</small>
+              </div>
+            </section>
+          ) : null}
+
+          {activeView === 'payin' ? (
+            <section className="user-ledger-stats-grid user-ledger-stats-grid-payin">
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid green">
+                <span>Total Amount</span>
+                <strong>{formatCurrency(payInStats.totalAmount)}</strong>
+                <small>Successful pay-in total</small>
+              </div>
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid orange">
+                <span>Total Charge</span>
+                <strong>{formatCurrency(payInStats.totalCharge)}</strong>
+                <small>Matched successful pay-in charges</small>
+              </div>
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid blue">
+                <span>Total Net</span>
+                <strong>{formatCurrency(payInStats.totalNet)}</strong>
+                <small>Amount after pay-in charges</small>
+              </div>
+              <div className="user-ledger-stat-card user-ledger-stat-card-solid dark">
+                <span>Total Transactions</span>
+                <strong>{payInStats.totalTransactions}</strong>
+                <small>Successful pay-in rows only</small>
               </div>
             </section>
           ) : null}

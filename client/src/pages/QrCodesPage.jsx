@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { UPLOADS_BASE } from '../config';
+import { copyTextToClipboard } from '../utils/clipboard';
 import './QrCodesPage.css';
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
@@ -23,16 +24,6 @@ const formatDateTime = (value) => {
   return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleString();
 };
 
-const titleCase = (value) => {
-  const normalized = String(value || '').trim();
-  if (!normalized) return 'QR';
-  return normalized
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ');
-};
-
 const getQrValueType = (value) => {
   const normalized = String(value || '').trim();
   if (!normalized) return 'missing';
@@ -40,6 +31,76 @@ const getQrValueType = (value) => {
   if (normalized.startsWith('000201')) return 'raw_emv';
   if (normalized.startsWith('upi://') || normalized.startsWith('UPI://')) return 'upi_uri';
   return normalized.includes('@') ? 'upi_id' : 'unknown';
+};
+
+const getPublicPaymentPageUrl = (paymentLink) => {
+  if (!paymentLink || typeof window === 'undefined') return '';
+  const publicUrl = new URL('/pay', window.location.origin);
+  publicUrl.searchParams.set('upi', paymentLink);
+  return publicUrl.toString();
+};
+
+const parseEmvPayload = (payload) => {
+  const data = String(payload || '').trim();
+  const fields = [];
+  let index = 0;
+
+  while (index + 4 <= data.length) {
+    const id = data.slice(index, index + 2);
+    const length = Number(data.slice(index + 2, index + 4));
+    if (Number.isNaN(length) || length < 0) break;
+
+    const start = index + 4;
+    const end = start + length;
+    if (end > data.length) break;
+
+    fields.push({
+      id,
+      value: data.slice(start, end)
+    });
+
+    index = end;
+  }
+
+  return fields;
+};
+
+const extractUpiFromRawEmv = (payload) => {
+  const rootFields = parseEmvPayload(payload);
+  const merchantAccountFields = rootFields
+    .filter((field) => Number(field.id) >= 26 && Number(field.id) <= 51)
+    .flatMap((field) => parseEmvPayload(field.value));
+
+  const findCandidate = (values) =>
+    values.find((value) => {
+      const normalized = String(value || '').trim();
+      return normalized.includes('@') || normalized.toLowerCase().startsWith('upi://');
+    }) || '';
+
+  const accountCandidate = findCandidate(merchantAccountFields.map((field) => field.value));
+  const rawCandidate = findCandidate(rootFields.map((field) => field.value));
+  const merchantName = rootFields.find((field) => field.id === '59')?.value || 'Merchant';
+  const transactionNote = rootFields.find((field) => field.id === '62')?.value || '';
+  const merchantCode = rootFields.find((field) => field.id === '52')?.value || '5499';
+  const amount = rootFields.find((field) => field.id === '54')?.value || '';
+  const currencyCode = rootFields.find((field) => field.id === '53')?.value === '356' ? 'INR' : 'INR';
+
+  let payee = accountCandidate || rawCandidate;
+  if (!payee) return '';
+
+  if (payee.toLowerCase().startsWith('upi://')) return payee;
+
+  const params = new URLSearchParams({
+    pa: payee,
+    pn: merchantName,
+    mc: merchantCode,
+    cu: currencyCode
+  });
+
+  if (amount) params.set('am', amount);
+  if (transactionNote) params.set('tn', transactionNote);
+
+  return `upi://pay?${params.toString()}`;
 };
 
 const QrCodesPage = () => {
@@ -55,8 +116,14 @@ const QrCodesPage = () => {
   const [qrReport, setQrReport] = useState(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [reportFilters, setReportFilters] = useState({ startDate: '', endDate: '' });
+  const [paymentLinkQr, setPaymentLinkQr] = useState(null);
 
   const [showPreview, setShowPreview] = useState(false);
+
+  const stopEvent = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   const myInventoryQrs = useMemo(() => {
     return qrCodes || [];
@@ -131,6 +198,27 @@ const QrCodesPage = () => {
 
   const upiString = buildUpiString(activeQr);
   const dynamicUpiString = buildUpiString(activeDynamicQr, Number(dynamicAmount) || 0);
+
+  const getPaymentLink = (qr, amount = 0) => {
+    if (!qr) return '';
+    const rawValue = String(qr.upiId || '').trim();
+    const valueType = getQrValueType(rawValue);
+    const amountValue = Number(amount) || 0;
+
+    if (valueType === 'manual' || valueType === 'missing' || valueType === 'unknown') return '';
+    if (valueType === 'raw_emv') return extractUpiFromRawEmv(rawValue);
+    return buildUpiString(qr, amountValue);
+  };
+
+  const canUsePaymentLink = (qr) => {
+    return Boolean(getPaymentLink(qr));
+  };
+
+  const getShareablePaymentLink = (qr, amount = 0) => {
+    const paymentLink = getPaymentLink(qr, amount);
+    if (!paymentLink) return '';
+    return getPublicPaymentPageUrl(paymentLink);
+  };
 
   const fetchQrBlob = async (qr) => {
     if (!qr?.imagePath) return null;
@@ -233,47 +321,83 @@ const QrCodesPage = () => {
     }
   };
 
-  const handleShareQr = async (qr) => {
-    const shareTitle = `${titleCase(qr.label || 'QR Code')} Payment QR`;
-    const shareText = `Scan this QR to pay ${qr.merchantName || user?.name || 'the merchant'}.`;
+  const handleCopyPaymentLink = async (event, qr, amount = 0) => {
+    if (event) stopEvent(event);
+
+    const paymentLink = getShareablePaymentLink(qr, amount);
+    if (!paymentLink) {
+      error('This QR does not have a valid payment link yet.');
+      return;
+    }
+
+    const copied = await copyTextToClipboard(paymentLink);
+
+    if (copied) {
+      success('Payment link copied to clipboard.');
+      return;
+    }
+
+    error('Failed to copy payment link.');
+  };
+
+  const handleSharePaymentLink = async (event, qr, amount = 0) => {
+    if (event) stopEvent(event);
+
+    const paymentLink = getShareablePaymentLink(qr, amount);
+    if (!paymentLink) {
+      error('This QR does not have a valid payment link yet.');
+      return;
+    }
 
     try {
-      const blob = await buildQrBlob(qr);
-      const shareFile = blob
-        ? new File(
-            [blob],
-            `${(qr.label || qr.tid || 'qr-code').replace(/[^a-z0-9_-]+/gi, '_')}.${getBlobExtension(blob)}`,
-            { type: blob.type || 'image/png' }
-          )
-        : null;
-
-      if (shareFile && navigator.share && navigator.canShare?.({ files: [shareFile] })) {
+      if (navigator.share) {
         await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          files: [shareFile]
+          title: `${qr?.label || 'QR Code'} Payment Link`,
+          text: paymentLink,
+          url: paymentLink
         });
+        success('Payment link shared.');
         return;
       }
 
-      if (shareFile && window.ClipboardItem && navigator.clipboard?.write) {
-        await navigator.clipboard.write([
-          new window.ClipboardItem({
-            [shareFile.type]: shareFile
-          })
-        ]);
-        success('QR image copied. You can now paste it where you want to share it.');
+      const copied = await copyTextToClipboard(paymentLink);
+      if (copied) {
+        success('Share is not available here, so the payment link was copied instead.');
         return;
       }
-
-      const objectUrl = window.URL.createObjectURL(blob);
-      window.open(objectUrl, '_blank', 'noopener,noreferrer');
-      setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60000);
-      success('QR image opened in a new tab so you can share the actual assigned QR.');
     } catch (shareError) {
       if (shareError?.name === 'AbortError') return;
       console.error(shareError);
-      error('Failed to share the assigned QR image.');
+    }
+
+    error('Failed to share payment link.');
+  };
+
+  const handleOpenPaymentIntent = (event, qr, amount = 0) => {
+    if (event) stopEvent(event);
+
+    const paymentLink = getPaymentLink(qr, amount);
+    if (!paymentLink) {
+      error('This QR does not have a valid payment link yet.');
+      return;
+    }
+
+    try {
+      window.location.assign(paymentLink);
+      setTimeout(() => {
+        const fallbackAnchor = document.createElement('a');
+        fallbackAnchor.href = paymentLink;
+        fallbackAnchor.target = '_self';
+        fallbackAnchor.rel = 'noopener noreferrer';
+        fallbackAnchor.style.display = 'none';
+        document.body.appendChild(fallbackAnchor);
+        fallbackAnchor.click();
+        document.body.removeChild(fallbackAnchor);
+      }, 150);
+      success('Trying to open the payment app...');
+    } catch (intentError) {
+      console.error(intentError);
+      error('Failed to open the payment intent.');
     }
   };
 
@@ -354,22 +478,26 @@ const QrCodesPage = () => {
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="qr-action-row">
                         <button
+                          type="button"
                           className="qr-action-button report"
                           onClick={() => loadQrReport(q)}
                         >
                           View Report
                         </button>
                         <button
+                          type="button"
                           className="qr-action-button report"
                           onClick={() => handleDownloadQr(q)}
                         >
                           Download QR
                         </button>
                         <button
+                          type="button"
                           className="qr-action-button report"
-                          onClick={() => handleShareQr(q)}
+                          onClick={() => setPaymentLinkQr(q)}
+                          disabled={!canUsePaymentLink(q)}
                         >
-                          Share QR
+                          Payment Link
                         </button>
                       </div>
                     </td>
@@ -520,6 +648,55 @@ const QrCodesPage = () => {
         </div>
       )}
 
+      {paymentLinkQr && (
+        <div className="fullscreen-modal" onClick={() => setPaymentLinkQr(null)}>
+          <div className="qr-payment-link-modal card" onClick={(e) => e.stopPropagation()}>
+            <div className="qr-report-header">
+              <div>
+                <div className="preview-label">Payment Link</div>
+                <h2>{paymentLinkQr.label || 'QR Code'}</h2>
+                <p>Open, copy, or share this payment link.</p>
+              </div>
+              <button className="qr-close-modal qr-report-close" onClick={() => setPaymentLinkQr(null)}>x</button>
+            </div>
+
+            <div className="qr-payment-link-panel">
+              <label className="qr-payment-link-label">Payment Link</label>
+              <div className="qr-payment-link-row">
+                <input
+                  type="text"
+                  className="qr-payment-link-input"
+                  value={getShareablePaymentLink(paymentLinkQr)}
+                  onClick={(event) => event.currentTarget.select()}
+                  readOnly
+                />
+                <button
+                  type="button"
+                  className="qr-action-button report"
+                  onClick={(event) => handleOpenPaymentIntent(event, paymentLinkQr)}
+                >
+                  Open
+                </button>
+                <button
+                  type="button"
+                  className="qr-action-button report"
+                  onClick={(event) => handleCopyPaymentLink(event, paymentLinkQr)}
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  className="qr-action-button report"
+                  onClick={(event) => handleSharePaymentLink(event, paymentLinkQr)}
+                >
+                  Share
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Sidebar />
       <div className="main-content">
         <Header />
@@ -581,6 +758,41 @@ const QrCodesPage = () => {
                 <div className="qr-help-note" style={{ margin: '0 1.5rem 1.5rem' }}>
                   {activeDynamicQr ? 'Dynamic QR is ready. Enter an amount and share or scan it to pay.' : dynamicQrIssue}
                 </div>
+                {activeDynamicQr && (
+                  <div className="qr-payment-link-panel">
+                    <label className="qr-payment-link-label">Payment Link</label>
+                    <div className="qr-payment-link-row">
+                      <input
+                        type="text"
+                        className="qr-payment-link-input"
+                        value={getShareablePaymentLink(activeDynamicQr, Number(dynamicAmount) || 0)}
+                        onClick={(event) => event.currentTarget.select()}
+                        readOnly
+                      />
+                      <button
+                        type="button"
+                        className="qr-action-button report"
+                        onClick={(event) => handleOpenPaymentIntent(event, activeDynamicQr, Number(dynamicAmount) || 0)}
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        className="qr-action-button report"
+                        onClick={(event) => handleCopyPaymentLink(event, activeDynamicQr, Number(dynamicAmount) || 0)}
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        className="qr-action-button report"
+                        onClick={(event) => handleSharePaymentLink(event, activeDynamicQr, Number(dynamicAmount) || 0)}
+                      >
+                        Share
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

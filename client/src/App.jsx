@@ -34,6 +34,7 @@ const StaffManagementPage = lazy(() => import('./pages/StaffManagementPage'));
 const AdminLedgerPage = lazy(() => import('./pages/AdminLedgerPage'));
 const UserLedgerPage = lazy(() => import('./pages/UserLedgerPage'));
 const BeneficiariesPage = lazy(() => import('./pages/BeneficiariesPage'));
+const PayIntentPage = lazy(() => import('./pages/PayIntentPage'));
 
 const RouteLoader = () => (
   <div className="route-loader-shell">
@@ -55,6 +56,7 @@ function App() {
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/admin/login" element={<LoginPage />} />
+                  <Route path="/pay" element={<PayIntentPage />} />
 
                   <Route path="/dashboard" element={<ProtectedRoute requiredRole={["merchant", "branch"]} requiredFeature="dashboard"><DashboardPage /></ProtectedRoute>} />
                   <Route path="/transactions" element={<ProtectedRoute requiredRole={["merchant", "branch"]} requiredFeature="transactions"><TransactionsPage /></ProtectedRoute>} />

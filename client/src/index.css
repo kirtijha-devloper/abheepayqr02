@@ -373,6 +373,72 @@ input[type=number] {
   opacity: 1;
 }
 
+.pay-intent-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 50%, #e0f2fe 100%);
+}
+
+.pay-intent-card {
+  width: min(560px, 100%);
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  border-radius: 28px;
+  padding: 32px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+}
+
+.pay-intent-eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6366f1;
+}
+
+.pay-intent-card h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 2rem;
+}
+
+.pay-intent-copy {
+  margin: 14px 0 20px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.pay-intent-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #dbe4f0;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.pay-intent-actions {
+  margin-top: 18px;
+}
+
+.pay-intent-button {
+  border: none;
+  border-radius: 16px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #5b5cf0 0%, #7c3aed 100%);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pay-intent-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .route-loader-shell {
   min-height: 100vh;
   display: flex;
